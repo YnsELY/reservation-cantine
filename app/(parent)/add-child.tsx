@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Parent, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, Plus, X } from 'lucide-react-native';
+import { ArrowLeft, Plus, X, CheckCircle } from 'lucide-react-native';
 
 export default function AddChildScreen() {
   const [parent, setParent] = useState<Parent | null>(null);
@@ -19,6 +19,7 @@ export default function AddChildScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [addingSchool, setAddingSchool] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -150,12 +151,11 @@ export default function AddChildScreen() {
 
       if (error) throw error;
 
-      Alert.alert('Succès', 'Enfant ajouté avec succès', [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
+      setShowSuccessMessage(true);
+      setTimeout(() => {
+        setShowSuccessMessage(false);
+        router.back();
+      }, 2000);
     } catch (err) {
       console.error('Error adding child:', err);
       Alert.alert('Erreur', 'Erreur lors de l\'ajout de l\'enfant');
@@ -358,6 +358,15 @@ export default function AddChildScreen() {
           </View>
         </View>
       </Modal>
+
+      {showSuccessMessage && (
+        <View style={styles.successOverlay}>
+          <View style={styles.successMessage}>
+            <CheckCircle size={48} color="#10B981" />
+            <Text style={styles.successText}>Enfant ajouté avec succès!</Text>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -635,5 +644,33 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  successOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  successMessage: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 32,
+    alignItems: 'center',
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  successText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
   },
 });

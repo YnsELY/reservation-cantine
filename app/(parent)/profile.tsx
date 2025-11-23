@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase, Parent, Child, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { User, LogOut, Users, Plus, ArrowLeft, X, School as SchoolIcon } from 'lucide-react-native';
+import { User, LogOut, Users, Plus, ArrowLeft, X, School as SchoolIcon, Trash2 } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const [parent, setParent] = useState<Parent | null>(null);
@@ -123,6 +123,39 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleDeleteChild = async (childId: string) => {
+    Alert.alert(
+      'Confirmer la suppression',
+      'Êtes-vous sûr de vouloir supprimer cet enfant ?',
+      [
+        {
+          text: 'Annuler',
+          style: 'cancel',
+        },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('children')
+                .delete()
+                .eq('id', childId);
+
+              if (error) throw error;
+
+              await loadData();
+              Alert.alert('Succès', 'Enfant supprimé avec succès');
+            } catch (err) {
+              console.error('Error deleting child:', err);
+              Alert.alert('Erreur', 'Erreur lors de la suppression de l\'enfant');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
@@ -201,12 +234,22 @@ export default function ProfileScreen() {
           ) : (
             children.map((child) => (
               <View key={child.id} style={styles.childCard}>
-                <Text style={styles.childName}>
-                  {child.first_name} {child.last_name}
-                </Text>
-                {child.grade && (
-                  <Text style={styles.childDetail}>Classe: {child.grade}</Text>
-                )}
+                <View style={styles.childCardHeader}>
+                  <View style={styles.childCardInfo}>
+                    <Text style={styles.childName}>
+                      {child.first_name} {child.last_name}
+                    </Text>
+                    {child.grade && (
+                      <Text style={styles.childDetail}>Classe: {child.grade}</Text>
+                    )}
+                  </View>
+                  <TouchableOpacity
+                    style={styles.deleteChildButton}
+                    onPress={() => handleDeleteChild(child.id)}
+                  >
+                    <Trash2 size={18} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
                 {child.allergies.length > 0 && (
                   <View style={styles.allergyContainer}>
                     <Text style={styles.allergyLabel}>Allergies:</Text>
@@ -438,6 +481,20 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+  },
+  childCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  childCardInfo: {
+    flex: 1,
+  },
+  deleteChildButton: {
+    padding: 8,
+    marginTop: -8,
+    marginRight: -8,
   },
   childName: {
     fontSize: 16,
