@@ -67,13 +67,19 @@ export default function ParentHomeScreen() {
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(endOfWeek.getDate() + 6);
 
+      const startDateStr = startOfWeek.toISOString().split('T')[0];
+      const endDateStr = endOfWeek.toISOString().split('T')[0];
+
+      console.log('Fetching week reservations from', startDateStr, 'to', endDateStr);
+
       const { data: weekReservationsData } = await supabase
         .from('reservations')
         .select('id, date')
         .eq('parent_id', currentParent.id)
-        .gte('date', startOfWeek.toISOString().split('T')[0])
-        .lte('date', endOfWeek.toISOString().split('T')[0]);
+        .gte('date', startDateStr)
+        .lte('date', endDateStr);
 
+      console.log('Week reservations found:', weekReservationsData);
       setWeekReservations(weekReservationsData || []);
 
       const { data: upcomingData } = await supabase
@@ -88,11 +94,12 @@ export default function ParentHomeScreen() {
           menus (meal_name)
         `)
         .eq('parent_id', currentParent.id)
-        .gte('date', startOfWeek.toISOString().split('T')[0])
-        .lte('date', endOfWeek.toISOString().split('T')[0])
+        .gte('date', startDateStr)
+        .lte('date', endDateStr)
         .order('date', { ascending: true })
         .limit(5);
 
+      console.log('Upcoming reservations found:', upcomingData);
       setUpcomingReservations(upcomingData || []);
 
       const now = new Date();
