@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Parent, Reservation } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { Calendar, UserPlus, History, UtensilsCrossed } from 'lucide-react-native';
+import { Calendar, UserPlus, History, UtensilsCrossed, User, ShoppingCart } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { LineChart } from 'react-native-chart-kit';
 
@@ -209,6 +209,25 @@ export default function ParentHomeScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.header}>
+        <Text style={styles.welcomeText}>
+          Bonjour, {parent?.first_name || 'Parent'} 👋
+        </Text>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => router.push('/(parent)/cart')}
+          >
+            <ShoppingCart size={24} color="#111827" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => router.push('/(parent)/profile')}
+          >
+            <User size={24} color="#111827" />
+          </TouchableOpacity>
+        </View>
+      </View>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -217,9 +236,6 @@ export default function ParentHomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <Text style={styles.welcomeText}>
-          Bonjour, {parent?.first_name || 'Parent'} 👋
-        </Text>
 
         {renderGauge()}
 
@@ -364,6 +380,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F9FAFB',
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    backgroundColor: '#F9FAFB',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   scrollView: {
     flex: 1,
   },
@@ -372,10 +413,10 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   welcomeText: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 24,
+    flex: 1,
   },
   gaugeContainer: {
     alignItems: 'center',
