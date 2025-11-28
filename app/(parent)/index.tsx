@@ -28,7 +28,8 @@ export default function ParentHomeScreen() {
   const [parent, setParent] = useState<Parent | null>(null);
   const [weekReservations, setWeekReservations] = useState<Reservation[]>([]);
   const [upcomingReservations, setUpcomingReservations] = useState<WeekReservation[]>([]);
-  const [monthlyOrders, setMonthlyOrders] = useState<number[]>([0, 0, 0, 0]);
+  const [weekOrders, setWeekOrders] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
+  const [selectedTab, setSelectedTab] = useState<'volume' | 'week'>('volume');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -78,26 +79,26 @@ export default function ParentHomeScreen() {
 
       setUpcomingReservations(upcomingData || []);
 
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
+      const startOfCurrentWeek = getStartOfWeek(new Date());
+      const endOfCurrentWeek = new Date(startOfCurrentWeek);
+      endOfCurrentWeek.setDate(endOfCurrentWeek.getDate() + 6);
 
-      const { data: monthlyData } = await supabase
+      const { data: currentWeekData } = await supabase
         .from('reservations')
         .select('date')
         .eq('parent_id', currentParent.id)
-        .gte('date', startOfMonth.toISOString().split('T')[0]);
+        .gte('date', startOfCurrentWeek.toISOString().split('T')[0])
+        .lte('date', endOfCurrentWeek.toISOString().split('T')[0]);
 
-      const weekCounts = [0, 0, 0, 0];
-      monthlyData?.forEach((reservation) => {
+      const dayCounts = [0, 0, 0, 0, 0, 0, 0];
+      currentWeekData?.forEach((reservation) => {
         const date = new Date(reservation.date);
-        const weekOfMonth = Math.floor((date.getDate() - 1) / 7);
-        if (weekOfMonth < 4) {
-          weekCounts[weekOfMonth]++;
-        }
+        const dayOfWeek = date.getDay();
+        const adjustedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        dayCounts[adjustedDay]++;
       });
 
-      setMonthlyOrders(weekCounts);
+      setWeekOrders(dayCounts);
     } catch (err) {
       console.error('Error loading data:', err);
     } finally {
@@ -244,34 +245,65 @@ export default function ParentHomeScreen() {
         </View>
 
         <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Commandes du mois</Text>
+          <View style={styles.chartHeader}>
+            <TouchableOpacity
+              style={[styles.chartTab, selectedTab === 'volume' && styles.chartTabActive]}
+              onPress={() => setSelectedTab('volume')}
+            >
+              <Text style={[styles.chartTabText, selectedTab === 'volume' && styles.chartTabTextActive]}>
+                Volume généré
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chartTab, selectedTab === 'week' && styles.chartTabActive]}
+              onPress={() => setSelectedTab('week')}
+            >
+              <Text style={[styles.chartTabText, selectedTab === 'week' && styles.chartTabTextActive]}>
+                Semaine actuelle
+              </Text>
+            </TouchableOpacity>
+          </View>
           <LineChart
             data={{
-              labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
+              labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
               datasets: [{
-                data: monthlyOrders.length > 0 ? monthlyOrders : [0],
+                data: weekOrders.some(v => v > 0) ? weekOrders : [0, 0, 0, 0, 0, 0, 0.1],
               }],
             }}
             width={Dimensions.get('window').width - 48}
-            height={200}
+            height={220}
             chartConfig={{
               backgroundColor: '#FFFFFF',
               backgroundGradientFrom: '#FFFFFF',
               backgroundGradientTo: '#FFFFFF',
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(17, 24, 39, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(107, 114, 128, ${opacity})`,
+              decimalPlaces: 2,
+              color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(17, 24, 39, ${opacity})`,
               style: {
                 borderRadius: 16,
               },
               propsForDots: {
-                r: '6',
+                r: '5',
                 strokeWidth: '2',
-                stroke: '#111827',
+                stroke: '#10B981',
+              },
+              propsForBackgroundLines: {
+                strokeDasharray: '',
+                stroke: '#F3F4F6',
+                strokeWidth: 1,
               },
             }}
             bezier
             style={styles.chart}
+            withVerticalLines={false}
+            withHorizontalLabels={true}
+            withInnerLines={true}
+            withOuterLines={false}
+            segments={5}
+            formatYLabel={(value) => {
+              const num = parseFloat(value);
+              return num.toFixed(2);
+            }}
           />
         </View>
 
@@ -432,11 +464,27 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  chartTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 16,
+  chartHeader: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    gap: 12,
+  },
+  chartTab: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+  },
+  chartTabActive: {
+    backgroundColor: '#1F2937',
+  },
+  chartTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#9CA3AF',
+  },
+  chartTabTextActive: {
+    color: '#FFFFFF',
   },
   chart: {
     borderRadius: 16,
