@@ -63,14 +63,16 @@ export default function ParentHomeScreen() {
 
       setChildrenCount(childrenData?.length || 0);
 
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString().split('T')[0];
+
       const startOfWeek = getStartOfWeek(new Date());
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(endOfWeek.getDate() + 6);
 
       const startDateStr = startOfWeek.toISOString().split('T')[0];
       const endDateStr = endOfWeek.toISOString().split('T')[0];
-
-      console.log('Fetching week reservations from', startDateStr, 'to', endDateStr);
 
       const { data: weekReservationsData } = await supabase
         .from('reservations')
@@ -79,7 +81,6 @@ export default function ParentHomeScreen() {
         .gte('date', startDateStr)
         .lte('date', endDateStr);
 
-      console.log('Week reservations found:', weekReservationsData);
       setWeekReservations(weekReservationsData || []);
 
       const { data: upcomingData } = await supabase
@@ -94,12 +95,10 @@ export default function ParentHomeScreen() {
           menus (meal_name)
         `)
         .eq('parent_id', currentParent.id)
-        .gte('date', startDateStr)
-        .lte('date', endDateStr)
+        .gte('date', todayStr)
         .order('date', { ascending: true })
-        .limit(5);
+        .limit(10);
 
-      console.log('Upcoming reservations found:', upcomingData);
       setUpcomingReservations(upcomingData || []);
 
       const now = new Date();
@@ -349,12 +348,12 @@ export default function ParentHomeScreen() {
         </View>
 
         <View style={styles.reservationsContainer}>
-          <Text style={styles.reservationsTitle}>Réservations de la semaine</Text>
+          <Text style={styles.reservationsTitle}>Prochaines réservations</Text>
           {upcomingReservations.length === 0 ? (
             <View style={styles.emptyReservations}>
               <UtensilsCrossed size={48} color="#D1D5DB" />
               <Text style={styles.emptyReservationsText}>
-                Aucune réservation cette semaine
+                Aucune réservation à venir
               </Text>
               <TouchableOpacity
                 style={styles.emptyReservationsButton}
