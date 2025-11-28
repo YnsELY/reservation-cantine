@@ -28,8 +28,7 @@ export default function ParentHomeScreen() {
   const [parent, setParent] = useState<Parent | null>(null);
   const [weekReservations, setWeekReservations] = useState<Reservation[]>([]);
   const [upcomingReservations, setUpcomingReservations] = useState<WeekReservation[]>([]);
-  const [monthOrders, setMonthOrders] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-  const [selectedTab, setSelectedTab] = useState<'volume' | 'week'>('volume');
+  const [monthlyOrders, setMonthlyOrders] = useState<number[]>([0, 0, 0, 0]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -79,28 +78,26 @@ export default function ParentHomeScreen() {
 
       setUpcomingReservations(upcomingData || []);
 
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      const daysInMonth = endOfMonth.getDate();
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
 
-      const { data: currentMonthData } = await supabase
+      const { data: monthlyData } = await supabase
         .from('reservations')
         .select('date')
         .eq('parent_id', currentParent.id)
-        .gte('date', startOfMonth.toISOString().split('T')[0])
-        .lte('date', endOfMonth.toISOString().split('T')[0]);
+        .gte('date', startOfMonth.toISOString().split('T')[0]);
 
-      const dayCounts = new Array(daysInMonth).fill(0);
-      currentMonthData?.forEach((reservation) => {
+      const weekCounts = [0, 0, 0, 0];
+      monthlyData?.forEach((reservation) => {
         const date = new Date(reservation.date);
-        const dayOfMonth = date.getDate() - 1;
-        if (dayOfMonth >= 0 && dayOfMonth < daysInMonth) {
-          dayCounts[dayOfMonth]++;
+        const weekOfMonth = Math.floor((date.getDate() - 1) / 7);
+        if (weekOfMonth < 4) {
+          weekCounts[weekOfMonth]++;
         }
       });
 
-      setMonthOrders(dayCounts);
+      setMonthlyOrders(weekCounts);
     } catch (err) {
       console.error('Error loading data:', err);
     } finally {
@@ -247,87 +244,35 @@ export default function ParentHomeScreen() {
         </View>
 
         <View style={styles.chartContainer}>
-          <View style={styles.chartHeader}>
-            <TouchableOpacity
-              style={[styles.chartTab, selectedTab === 'volume' && styles.chartTabActive]}
-              onPress={() => setSelectedTab('volume')}
-            >
-              <Text style={[styles.chartTabText, selectedTab === 'volume' && styles.chartTabTextActive]}>
-                Volume généré
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.chartTab, selectedTab === 'week' && styles.chartTabActive]}
-              onPress={() => setSelectedTab('week')}
-            >
-              <Text style={[styles.chartTabText, selectedTab === 'week' && styles.chartTabTextActive]}>
-                Semaine actuelle
-              </Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.chartWrapper}>
-            <LineChart
-              data={{
-                labels: monthOrders.map((_, i) => (i + 1).toString()),
-                datasets: [{
-                  data: monthOrders.some(v => v > 0) ? monthOrders : new Array(monthOrders.length).fill(0.1),
-                }],
-              }}
-              width={Dimensions.get('window').width - 56}
-              height={220}
-              chartConfig={{
-                backgroundColor: '#FFFFFF',
-                backgroundGradientFrom: '#FFFFFF',
-                backgroundGradientTo: '#FFFFFF',
-                decimalPlaces: 2,
-                color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
-                labelColor: (opacity = 1) => `rgba(17, 24, 39, ${opacity})`,
-                style: {
-                  borderRadius: 16,
-                },
-                propsForDots: {
-                  r: '5',
-                  strokeWidth: '2',
-                  stroke: '#10B981',
-                },
-                propsForBackgroundLines: {
-                  strokeDasharray: '',
-                  stroke: '#F3F4F6',
-                  strokeWidth: 1,
-                },
-              }}
-              bezier
-              style={styles.chart}
-              withVerticalLines={false}
-              withHorizontalLabels={false}
-              withInnerLines={false}
-              withOuterLines={false}
-              withDots={true}
-              withVerticalLabels={true}
-              withHorizontalLines={false}
-              renderDotContent={({ x, y, index }) => {
-                const value = monthOrders[index] || 0;
-                if (value === 0) return null;
-                return (
-                  <Text
-                    key={index}
-                    style={{
-                      position: 'absolute',
-                      left: x - 15,
-                      top: y - 20,
-                      fontSize: 10,
-                      fontWeight: '600',
-                      color: '#111827',
-                      textAlign: 'center',
-                      width: 30,
-                    }}
-                  >
-                    {value.toFixed(0)}
-                  </Text>
-                );
-              }}
-            />
-          </View>
+          <Text style={styles.chartTitle}>Commandes du mois</Text>
+          <LineChart
+            data={{
+              labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
+              datasets: [{
+                data: monthlyOrders.length > 0 ? monthlyOrders : [0],
+              }],
+            }}
+            width={Dimensions.get('window').width - 48}
+            height={200}
+            chartConfig={{
+              backgroundColor: '#FFFFFF',
+              backgroundGradientFrom: '#FFFFFF',
+              backgroundGradientTo: '#FFFFFF',
+              decimalPlaces: 0,
+              color: (opacity = 1) => `rgba(17, 24, 39, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(107, 114, 128, ${opacity})`,
+              style: {
+                borderRadius: 16,
+              },
+              propsForDots: {
+                r: '6',
+                strokeWidth: '2',
+                stroke: '#111827',
+              },
+            }}
+            bezier
+            style={styles.chart}
+          />
         </View>
 
         <View style={styles.reservationsContainer}>
@@ -487,33 +432,14 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  chartHeader: {
-    flexDirection: 'row',
-    marginBottom: 20,
-    gap: 12,
-  },
-  chartTab: {
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-  },
-  chartTabActive: {
-    backgroundColor: '#1F2937',
-  },
-  chartTabText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#9CA3AF',
-  },
-  chartTabTextActive: {
-    color: '#FFFFFF',
+  chartTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 16,
   },
   chart: {
     borderRadius: 16,
-  },
-  chartWrapper: {
-    marginLeft: -40,
   },
   reservationsContainer: {
     backgroundColor: '#FFFFFF',
