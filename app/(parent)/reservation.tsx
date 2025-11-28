@@ -530,17 +530,19 @@ export default function ParentDashboard() {
         <>
           <View style={styles.selectedChildBanner}>
             <TouchableOpacity
-              style={styles.backButton}
+              style={styles.selectedChildPill}
               onPress={handleBackToChildrenList}
             >
-              <ChevronLeft size={20} color="#111827" />
-            </TouchableOpacity>
-            <View style={styles.selectedChildInfo}>
-              <Text style={styles.selectedChildText}>Réservation pour</Text>
-              <Text style={styles.selectedChildName}>
+              <View style={styles.pillAvatar}>
+                <Text style={styles.pillAvatarText}>
+                  {selectedChild.first_name.charAt(0)}{selectedChild.last_name.charAt(0)}
+                </Text>
+              </View>
+              <Text style={styles.pillName}>
                 {selectedChild.first_name} {selectedChild.last_name}
               </Text>
-            </View>
+              <ChevronLeft size={18} color="#FFFFFF" style={styles.pillIcon} />
+            </TouchableOpacity>
           </View>
 
           <View style={styles.fixedDaySelector}>
@@ -1332,36 +1334,46 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   selectedChildBanner: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: '#F9FAFB',
+    alignItems: 'flex-start',
+  },
+  selectedChildPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    gap: 12,
+    backgroundColor: '#111827',
+    paddingVertical: 8,
+    paddingLeft: 8,
+    paddingRight: 16,
+    borderRadius: 24,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F3F4F6',
+  pillAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  selectedChildInfo: {
-    flex: 1,
-  },
-  selectedChildText: {
+  pillAvatarText: {
     fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  selectedChildName: {
-    fontSize: 16,
     fontWeight: '700',
     color: '#111827',
+  },
+  pillName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  pillIcon: {
+    marginLeft: 4,
   },
   schoolsSection: {
     borderTopWidth: 1,
