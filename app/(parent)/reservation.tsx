@@ -26,6 +26,7 @@ const formatDateToLocal = (date: Date): string => {
 export default function ParentDashboard() {
   const [parent, setParent] = useState<Parent | null>(null);
   const [children, setChildren] = useState<Child[]>([]);
+  const [selectedChild, setSelectedChild] = useState<Child | null>(null);
   const [schools, setSchools] = useState<School[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -136,34 +137,6 @@ export default function ParentDashboard() {
       setWeekDates(dates);
       setSelectedDate(formatDateToLocal(dates[0]));
 
-      if (childrenData && childrenData.length > 0) {
-        const menusMap: {[key: string]: Menu[]} = {};
-        const startDate = formatDateToLocal(dates[0]);
-        const endDate = formatDateToLocal(dates[dates.length - 1]);
-
-        const { data: menusData, error: menusError } = await supabase
-          .from('menus')
-          .select('*')
-          .eq('school_id', childrenData[0].school_id)
-          .gte('date', startDate)
-          .lte('date', endDate)
-          .eq('available', true)
-          .order('date')
-          .order('meal_name');
-
-        if (!menusError) {
-          dates.forEach((date) => {
-            const dateString = formatDateToLocal(date);
-            const dayMenus = (menusData || []).filter(menu => menu.date === dateString);
-            menusMap[dateString] = dayMenus;
-          });
-
-          setWeekMenus(menusMap);
-        }
-      }
-
-      await loadWeekReservationsForDates(currentParent.id, dates);
-
       setError('');
     } catch (err) {
       console.error('Error loading data:', err);
@@ -174,25 +147,59 @@ export default function ParentDashboard() {
     }
   };
 
-  const loadMenusForDate = async (date: string) => {
-    if (children.length === 0) return;
+  const loadMenusForChild = async (child: Child) => {
+    if (!child.school_id) return;
 
     try {
+      const dates: Date[] = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      for (let i = 0; i < 7; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        dates.push(date);
+      }
+
+      setWeekDates(dates);
+      setSelectedDate(formatDateToLocal(dates[0]));
+
+      const menusMap: {[key: string]: Menu[]} = {};
+      const startDate = formatDateToLocal(dates[0]);
+      const endDate = formatDateToLocal(dates[dates.length - 1]);
+
       const { data: menusData, error: menusError } = await supabase
         .from('menus')
         .select('*')
-        .eq('school_id', children[0].school_id)
-        .eq('date', date)
+        .eq('school_id', child.school_id)
+        .gte('date', startDate)
+        .lte('date', endDate)
         .eq('available', true)
+        .order('date')
         .order('meal_name');
 
-      if (menusError) throw menusError;
+      if (!menusError) {
+        dates.forEach((date) => {
+          const dateString = formatDateToLocal(date);
+          const dayMenus = (menusData || []).filter(menu => menu.date === dateString);
+          menusMap[dateString] = dayMenus;
+        });
 
-      setMenus(menusData || []);
+        setWeekMenus(menusMap);
+      }
+
+      if (parent) {
+        await loadWeekReservationsForDates(parent.id, dates);
+      }
     } catch (err) {
       console.error('Error loading menus:', err);
       setError('Erreur lors du chargement des menus');
     }
+  };
+
+  const handleChildSelect = (child: Child) => {
+    setSelectedChild(child);
+    loadMenusForChild(child);
   };
 
   const loadWeekReservationsForDates = async (parentId: string, dates: Date[]) => {
@@ -354,6 +361,13 @@ export default function ParentDashboard() {
     setIsMenuCardOpen(!isMenuCardOpen);
   };
 
+  const handleBackToChildrenList = () => {
+    setSelectedChild(null);
+    setMenus([]);
+    setWeekMenus({});
+    setReservations([]);
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -466,7 +480,7 @@ export default function ParentDashboard() {
         </View>
       ) : null}
 
-      {children.length === 0 ? (
+      {!selectedChild && children.length === 0 ? (
         <View style={styles.emptyState}>
           <UtensilsCrossed size={48} color="#9CA3AF" />
           <Text style={styles.emptyStateTitle}>Aucun enfant enregistré</Text>
@@ -474,8 +488,61 @@ export default function ParentDashboard() {
             Ajoutez un enfant dans votre profil pour commencer
           </Text>
         </View>
+      ) : !selectedChild ? (
+        <ScrollView
+          style={styles.childrenListContainer}
+          contentContainerStyle={styles.childrenListContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.childrenListHeader}>
+            <Text style={styles.childrenListTitle}>Sélectionnez un enfant</Text>
+            <Text style={styles.childrenListSubtitle}>
+              Choisissez l'enfant pour lequel vous souhaitez réserver un menu
+            </Text>
+          </View>
+          {children.map((child, index) => (
+            <TouchableOpacity
+              key={child.id}
+              style={styles.childCard}
+              onPress={() => handleChildSelect(child)}
+            >
+              <View style={styles.childCardAvatar}>
+                <Text style={styles.childCardAvatarText}>
+                  {child.first_name.charAt(0)}{child.last_name.charAt(0)}
+                </Text>
+              </View>
+              <View style={styles.childCardInfo}>
+                <Text style={styles.childCardName}>
+                  {child.first_name} {child.last_name}
+                </Text>
+                <Text style={styles.childCardClass}>
+                  {child.class_name || 'Classe non définie'}
+                </Text>
+              </View>
+              <ChevronRight size={24} color="#9CA3AF" />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
       ) : (
         <>
+          <View style={styles.selectedChildBanner}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={handleBackToChildrenList}
+            >
+              <ChevronLeft size={20} color="#111827" />
+            </TouchableOpacity>
+            <View style={styles.selectedChildInfo}>
+              <Text style={styles.selectedChildText}>Réservation pour</Text>
+              <Text style={styles.selectedChildName}>
+                {selectedChild.first_name} {selectedChild.last_name}
+              </Text>
+            </View>
+          </View>
+
           <View style={styles.fixedDaySelector}>
             <View style={styles.daySelector}>
               <TouchableOpacity
@@ -600,19 +667,32 @@ export default function ParentDashboard() {
                         </View>
                         <TouchableOpacity
                           style={[styles.menuCardButton, { backgroundColor: textColor }]}
-                          onPress={() => router.push({
-                            pathname: '/(parent)/reservation',
-                            params: {
-                              menuId: menu.id,
-                              date: selectedDate,
-                              menuName: menu.meal_name,
-                              menuPrice: menu.price.toString(),
-                              menuDescription: menu.description || '',
+                          onPress={async () => {
+                            if (!parent || !selectedChild || !selectedDate) return;
+
+                            try {
+                              const { error } = await supabase
+                                .from('cart_items')
+                                .insert({
+                                  parent_id: parent.id,
+                                  child_id: selectedChild.id,
+                                  menu_id: menu.id,
+                                  date: selectedDate,
+                                  meal_name: menu.meal_name,
+                                  price: menu.price,
+                                });
+
+                              if (error) throw error;
+
+                              await loadCartCount(parent.id);
+                            } catch (err) {
+                              console.error('Error adding to cart:', err);
+                              setError('Erreur lors de l\'ajout au panier');
                             }
-                          })}
+                          }}
                         >
                           <Text style={[styles.menuCardButtonText, { color: '#FFFFFF' }]}>
-                            Réserver
+                            Ajouter au panier
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -1188,6 +1268,100 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
+  },
+  childrenListContainer: {
+    flex: 1,
+  },
+  childrenListContent: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 120,
+  },
+  childrenListHeader: {
+    marginBottom: 24,
+  },
+  childrenListTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  childrenListSubtitle: {
+    fontSize: 16,
+    color: '#6B7280',
+    lineHeight: 24,
+  },
+  childCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  childCardAvatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#111827',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  childCardAvatarText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  childCardInfo: {
+    flex: 1,
+  },
+  childCardName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  childCardClass: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  selectedChildBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    gap: 12,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  selectedChildInfo: {
+    flex: 1,
+  },
+  selectedChildText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  selectedChildName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
   },
   schoolsSection: {
     borderTopWidth: 1,
