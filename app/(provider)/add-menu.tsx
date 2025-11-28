@@ -260,21 +260,32 @@ export default function AddMenuScreen() {
   };
 
   const handleSave = async () => {
+    console.log('=== handleSave called ===');
+    console.log('Meal name:', mealName);
+    console.log('Price:', price);
+    console.log('Selected schools:', selectedSchools);
+    console.log('Image URI:', imageUri);
+    console.log('Provider:', provider);
+
     if (!mealName.trim()) {
+      console.log('Validation failed: No meal name');
       Alert.alert('Erreur', 'Veuillez entrer un nom de repas');
       return;
     }
 
     if (!price || isNaN(parseFloat(price))) {
+      console.log('Validation failed: Invalid price');
       Alert.alert('Erreur', 'Veuillez entrer un prix valide');
       return;
     }
 
     if (selectedSchools.length === 0) {
+      console.log('Validation failed: No schools selected');
       Alert.alert('Erreur', 'Veuillez sélectionner au moins une école');
       return;
     }
 
+    console.log('All validations passed, starting save process...');
     setSaving(true);
     try {
       let imageUrl: string | null = null;
