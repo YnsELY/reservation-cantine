@@ -263,66 +263,68 @@ export default function ParentHomeScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-          <LineChart
-            data={{
-              labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
-              datasets: [{
-                data: weekOrders.some(v => v > 0) ? weekOrders : [0, 0, 0, 0, 0, 0, 0.1],
-              }],
-            }}
-            width={Dimensions.get('window').width - 56}
-            height={220}
-            chartConfig={{
-              backgroundColor: '#FFFFFF',
-              backgroundGradientFrom: '#FFFFFF',
-              backgroundGradientTo: '#FFFFFF',
-              decimalPlaces: 2,
-              color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(17, 24, 39, ${opacity})`,
-              style: {
-                borderRadius: 16,
-              },
-              propsForDots: {
-                r: '5',
-                strokeWidth: '2',
-                stroke: '#10B981',
-              },
-              propsForBackgroundLines: {
-                strokeDasharray: '',
-                stroke: '#F3F4F6',
-                strokeWidth: 1,
-              },
-            }}
-            bezier
-            style={styles.chart}
-            withVerticalLines={false}
-            withHorizontalLabels={false}
-            withInnerLines={false}
-            withOuterLines={false}
-            withDots={true}
-            withVerticalLabels={true}
-            withHorizontalLines={false}
-            renderDotContent={({ x, y, index }) => {
-              const value = weekOrders[index] || 0;
-              return (
-                <Text
-                  key={index}
-                  style={{
-                    position: 'absolute',
-                    left: x - 15,
-                    top: y - 20,
-                    fontSize: 12,
-                    fontWeight: '600',
-                    color: '#111827',
-                    textAlign: 'center',
-                    width: 30,
-                  }}
-                >
-                  {value.toFixed(2)}
-                </Text>
-              );
-            }}
-          />
+          <View style={styles.chartWrapper}>
+            <LineChart
+              data={{
+                labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+                datasets: [{
+                  data: weekOrders.some(v => v > 0) ? weekOrders : [0, 0, 0, 0, 0, 0, 0.1],
+                }],
+              }}
+              width={Dimensions.get('window').width - 56}
+              height={220}
+              chartConfig={{
+                backgroundColor: '#FFFFFF',
+                backgroundGradientFrom: '#FFFFFF',
+                backgroundGradientTo: '#FFFFFF',
+                decimalPlaces: 2,
+                color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
+                labelColor: (opacity = 1) => `rgba(17, 24, 39, ${opacity})`,
+                style: {
+                  borderRadius: 16,
+                },
+                propsForDots: {
+                  r: '5',
+                  strokeWidth: '2',
+                  stroke: '#10B981',
+                },
+                propsForBackgroundLines: {
+                  strokeDasharray: '',
+                  stroke: '#F3F4F6',
+                  strokeWidth: 1,
+                },
+              }}
+              bezier
+              style={styles.chart}
+              withVerticalLines={false}
+              withHorizontalLabels={false}
+              withInnerLines={false}
+              withOuterLines={false}
+              withDots={true}
+              withVerticalLabels={true}
+              withHorizontalLines={false}
+              renderDotContent={({ x, y, index }) => {
+                const value = weekOrders[index] || 0;
+                return (
+                  <Text
+                    key={index}
+                    style={{
+                      position: 'absolute',
+                      left: x - 15,
+                      top: y - 20,
+                      fontSize: 12,
+                      fontWeight: '600',
+                      color: '#111827',
+                      textAlign: 'center',
+                      width: 30,
+                    }}
+                  >
+                    {value.toFixed(2)}
+                  </Text>
+                );
+              }}
+            />
+          </View>
         </View>
 
         <View style={styles.reservationsContainer}>
@@ -506,6 +508,9 @@ const styles = StyleSheet.create({
   },
   chart: {
     borderRadius: 16,
+  },
+  chartWrapper: {
+    marginLeft: -20,
   },
   reservationsContainer: {
     backgroundColor: '#FFFFFF',
