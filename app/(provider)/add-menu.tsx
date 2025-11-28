@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, Check, Calendar, X, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ArrowLeft, Check, Calendar, X, ChevronLeft, ChevronRight, Camera, ImageIcon } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 
 interface SchoolAccess {
   school_id: string;
@@ -23,8 +25,10 @@ export default function AddMenuScreen() {
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>('#FFE4E1');
+  const [imageUri, setImageUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const pastelColors = [
     { id: 1, color: '#FFE4E1', name: 'Rose' },
@@ -184,6 +188,82 @@ export default function AddMenuScreen() {
     return selected.getTime() === checkDate.getTime();
   };
 
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission refusée', 'Nous avons besoin de votre permission pour accéder à la galerie');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setImageUri(result.assets[0].uri);
+    }
+  };
+
+  const takePhoto = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission refusée', 'Nous avons besoin de votre permission pour accéder à la caméra');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      setImageUri(result.assets[0].uri);
+    }
+  };
+
+  const uploadImage = async (uri: string): Promise<string | null> => {
+    try {
+      const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `menu-images/${fileName}`;
+
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: 'base64',
+      });
+
+      const { data, error } = await supabase.storage
+        .from('menu-photos')
+        .upload(filePath, decode(base64), {
+          contentType: `image/${fileExt}`,
+          upsert: false,
+        });
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('menu-photos')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (err) {
+      console.error('Error uploading image:', err);
+      return null;
+    }
+  };
+
+  const decode = (base64: string): Uint8Array => {
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+  };
+
   const handleSave = async () => {
     if (!mealName.trim()) {
       Alert.alert('Erreur', 'Veuillez entrer un nom de repas');
@@ -202,6 +282,18 @@ export default function AddMenuScreen() {
 
     setSaving(true);
     try {
+      let imageUrl: string | null = null;
+
+      if (imageUri) {
+        setUploadingImage(true);
+        imageUrl = await uploadImage(imageUri);
+        setUploadingImage(false);
+
+        if (!imageUrl) {
+          Alert.alert('Avertissement', 'L\'image n\'a pas pu être téléchargée. Le menu sera créé sans image.');
+        }
+      }
+
       const formatDateForDB = (date: Date) => {
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -217,6 +309,7 @@ export default function AddMenuScreen() {
         date: formatDateForDB(selectedDate),
         card_color: selectedColor,
         provider_id: provider?.id || null,
+        image_url: imageUrl,
       }));
 
       const { error } = await supabase.from('menus').insert(menuData);
@@ -234,6 +327,7 @@ export default function AddMenuScreen() {
       Alert.alert('Erreur', 'Erreur lors de la création du menu');
     } finally {
       setSaving(false);
+      setUploadingImage(false);
     }
   };
 
@@ -329,6 +423,33 @@ export default function AddMenuScreen() {
               placeholderTextColor="#9CA3AF"
               keyboardType="decimal-pad"
             />
+          </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Photo du menu</Text>
+            {imageUri ? (
+              <View style={styles.imagePreviewContainer}>
+                <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                <TouchableOpacity
+                  style={styles.removeImageButton}
+                  onPress={() => setImageUri(null)}
+                >
+                  <X size={16} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.imagePickerButtons}>
+                <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
+                  <ImageIcon size={24} color="#111827" />
+                  <Text style={styles.imagePickerButtonText}>Galerie</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.imagePickerButton} onPress={takePhoto}>
+                  <Camera size={24} color="#111827" />
+                  <Text style={styles.imagePickerButtonText}>Photo</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            <Text style={styles.hint}>Format recommandé : 150x150 pixels</Text>
           </View>
 
           <View style={styles.formGroup}>
@@ -614,6 +735,58 @@ const styles = StyleSheet.create({
     color: '#111827',
     flex: 1,
     textTransform: 'capitalize',
+  },
+  hint: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  imagePreviewContainer: {
+    position: 'relative',
+    alignSelf: 'flex-start',
+  },
+  imagePreview: {
+    width: 150,
+    height: 150,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+  },
+  removeImageButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: '#EF4444',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  imagePickerButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  imagePickerButton: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  imagePickerButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
   },
   modalOverlay: {
     flex: 1,
