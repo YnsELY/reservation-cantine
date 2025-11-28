@@ -270,7 +270,7 @@ export default function ParentHomeScreen() {
                 data: weekOrders.some(v => v > 0) ? weekOrders : [0, 0, 0, 0, 0, 0, 0.1],
               }],
             }}
-            width={Dimensions.get('window').width - 48}
+            width={Dimensions.get('window').width - 88}
             height={220}
             chartConfig={{
               backgroundColor: '#FFFFFF',
@@ -292,6 +292,7 @@ export default function ParentHomeScreen() {
                 stroke: '#F3F4F6',
                 strokeWidth: 1,
               },
+              paddingRight: 20,
             }}
             bezier
             style={styles.chart}
