@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Menu, Provider } from '@/lib/supabase';
@@ -149,6 +149,13 @@ export default function ProviderMenus() {
           ) : (
             menus.map(menu => (
               <View key={menu.id} style={styles.menuItem}>
+                {menu.image_url && (
+                  <Image
+                    source={{ uri: menu.image_url }}
+                    style={styles.menuItemImage}
+                    resizeMode="cover"
+                  />
+                )}
                 <View style={styles.menuItemContent}>
                   <Text style={styles.menuItemName}>{menu.meal_name}</Text>
                   <Text style={styles.menuItemDate}>
@@ -252,9 +259,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+    position: 'relative',
+  },
+  menuItemImage: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 70,
+    height: 70,
+    borderRadius: 12,
+    borderWidth: 3,
+    borderColor: '#F3F4F6',
+    zIndex: 10,
   },
   menuItemContent: {
     flex: 1,
+    paddingRight: 80,
   },
   menuItemName: {
     fontSize: 16,

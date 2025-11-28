@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, FlatList, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase, Child, Menu, School } from '@/lib/supabase';
@@ -219,6 +219,13 @@ export default function SchoolCommanderScreen() {
                   style={[styles.menuCard, isSelected && styles.menuCardSelected]}
                   onPress={() => setSelectedMenu(menu)}
                 >
+                  {menu.image_url && (
+                    <Image
+                      source={{ uri: menu.image_url }}
+                      style={styles.menuCardImage}
+                      resizeMode="cover"
+                    />
+                  )}
                   <View style={styles.menuInfo}>
                     <Text style={[styles.menuName, isSelected && styles.menuNameSelected]}>
                       {menu.meal_name}
@@ -417,6 +424,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     marginBottom: 8,
+    position: 'relative',
+  },
+  menuCardImage: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 60,
+    height: 60,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#F3F4F6',
+    zIndex: 10,
   },
   menuCardSelected: {
     backgroundColor: '#4F46E5',
@@ -424,6 +443,7 @@ const styles = StyleSheet.create({
   },
   menuInfo: {
     flex: 1,
+    paddingRight: 70,
   },
   menuName: {
     fontSize: 16,

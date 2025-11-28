@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Animated, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Menu, Provider } from '@/lib/supabase';
@@ -344,6 +344,13 @@ export default function PreparationScreen() {
                 key={menu.id}
                 style={[styles.menuCard, { backgroundColor: cardColor }]}
               >
+                {menu.image_url && (
+                  <Image
+                    source={{ uri: menu.image_url }}
+                    style={styles.menuCardImage}
+                    resizeMode="cover"
+                  />
+                )}
                 <View style={styles.menuCardContent}>
                   <View style={styles.menuCardLeft}>
                     <Text style={[styles.menuCardTitle, { color: textColor }]}>
@@ -554,12 +561,25 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginBottom: 16,
     overflow: 'hidden',
+    position: 'relative',
+  },
+  menuCardImage: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    zIndex: 10,
   },
   menuCardContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 24,
+    paddingRight: 110,
   },
   menuCardLeft: {
     flex: 1,
