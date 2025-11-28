@@ -262,7 +262,8 @@ export default function AddMenuScreen() {
         return result.data.url;
       } else {
         console.error('Upload failed:', result);
-        throw new Error('Upload failed');
+        console.error('Error details:', result.error);
+        throw new Error(result.error?.message || 'Upload failed');
       }
     } catch (err) {
       console.error('Error uploading image to ImgBB:', err);
