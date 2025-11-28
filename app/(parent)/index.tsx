@@ -193,7 +193,7 @@ export default function ParentHomeScreen() {
         </Svg>
         <View style={styles.gaugeTextContainer}>
           <Text style={styles.gaugeNumber}>{bookedMeals}/{maxMeals}</Text>
-          <Text style={styles.gaugeLabel}>repas réservés</Text>
+          <Text style={styles.gaugeLabel}>jours réservés</Text>
         </View>
       </View>
     );
