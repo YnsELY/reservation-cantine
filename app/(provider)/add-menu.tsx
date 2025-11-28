@@ -227,41 +227,30 @@ export default function AddMenuScreen() {
 
   const uploadImage = async (uri: string): Promise<string | null> => {
     try {
-      const fileExt = uri.split('.').pop()?.toLowerCase() || 'jpg';
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `menu-images/${fileName}`;
-
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: 'base64',
       });
 
-      const { data, error } = await supabase.storage
-        .from('menu-photos')
-        .upload(filePath, decode(base64), {
-          contentType: `image/${fileExt}`,
-          upsert: false,
-        });
+      const formData = new FormData();
+      formData.append('image', base64);
 
-      if (error) throw error;
+      const apiKey = process.env.EXPO_PUBLIC_IMGBB_API_KEY;
+      const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+        method: 'POST',
+        body: formData,
+      });
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('menu-photos')
-        .getPublicUrl(filePath);
+      const result = await response.json();
 
-      return publicUrl;
+      if (result.success && result.data && result.data.url) {
+        return result.data.url;
+      } else {
+        throw new Error('Upload failed');
+      }
     } catch (err) {
-      console.error('Error uploading image:', err);
+      console.error('Error uploading image to ImgBB:', err);
       return null;
     }
-  };
-
-  const decode = (base64: string): Uint8Array => {
-    const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    return bytes;
   };
 
   const handleSave = async () => {
