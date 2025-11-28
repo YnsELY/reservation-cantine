@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Parent, Reservation } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { Calendar, UserPlus, History, UtensilsCrossed, User, ShoppingCart } from 'lucide-react-native';
@@ -36,6 +36,15 @@ export default function ParentHomeScreen() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!loading) {
+        setRefreshing(true);
+      }
+      loadData();
+    }, [])
+  );
 
   const loadData = async () => {
     try {
