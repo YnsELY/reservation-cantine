@@ -227,6 +227,7 @@ export default function AddMenuScreen() {
 
   const uploadImage = async (uri: string): Promise<string | null> => {
     try {
+      console.log('Starting image upload to ImgBB...');
       const base64 = await FileSystem.readAsStringAsync(uri, {
         encoding: 'base64',
       });
@@ -235,16 +236,21 @@ export default function AddMenuScreen() {
       formData.append('image', base64);
 
       const apiKey = process.env.EXPO_PUBLIC_IMGBB_API_KEY;
+      console.log('API Key available:', !!apiKey);
+
       const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
         method: 'POST',
         body: formData,
       });
 
       const result = await response.json();
+      console.log('ImgBB response:', result);
 
       if (result.success && result.data && result.data.url) {
+        console.log('Image uploaded successfully:', result.data.url);
         return result.data.url;
       } else {
+        console.error('Upload failed:', result);
         throw new Error('Upload failed');
       }
     } catch (err) {
@@ -301,9 +307,15 @@ export default function AddMenuScreen() {
         image_url: imageUrl,
       }));
 
-      const { error } = await supabase.from('menus').insert(menuData);
+      console.log('Inserting menu data:', menuData);
+      const { data, error } = await supabase.from('menus').insert(menuData);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database insert error:', error);
+        throw error;
+      }
+
+      console.log('Menu inserted successfully:', data);
 
       Alert.alert('Succès', `Menu créé avec succès pour ${selectedSchools.length} école(s)`, [
         {
