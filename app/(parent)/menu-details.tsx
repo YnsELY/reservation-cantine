@@ -4,7 +4,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase, Child, Menu, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ChevronLeft, Plus, Minus, ShoppingCart, AlertCircle } from 'lucide-react-native';
+import { ChevronLeft, ShoppingCart, AlertCircle, CheckSquare, Square } from 'lucide-react-native';
+
+interface Supplement {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  available: boolean;
+}
 
 export default function MenuDetailsScreen() {
   const router = useRouter();
@@ -12,10 +20,10 @@ export default function MenuDetailsScreen() {
   const [parent, setParent] = useState<Parent | null>(null);
   const [child, setChild] = useState<Child | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
+  const [supplements, setSupplements] = useState<Supplement[]>([]);
+  const [selectedSupplements, setSelectedSupplements] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [quantity, setQuantity] = useState(1);
-  const [supplements, setSupplements] = useState<string>('');
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [addingToCart, setAddingToCart] = useState(false);
 
@@ -54,6 +62,19 @@ export default function MenuDetailsScreen() {
       if (menuError) throw menuError;
       setMenu(menuData);
 
+      if (menuData?.school_id) {
+        const { data: supplementsData, error: supplementsError } = await supabase
+          .from('supplements')
+          .select('*')
+          .eq('school_id', menuData.school_id)
+          .eq('available', true)
+          .order('price', { ascending: true });
+
+        if (!supplementsError && supplementsData) {
+          setSupplements(supplementsData);
+        }
+      }
+
       setError('');
     } catch (err) {
       console.error('Error loading data:', err);
@@ -63,6 +84,16 @@ export default function MenuDetailsScreen() {
     }
   };
 
+  const toggleSupplement = (supplementId: string) => {
+    setSelectedSupplements(prev => {
+      if (prev.includes(supplementId)) {
+        return prev.filter(id => id !== supplementId);
+      } else {
+        return [...prev, supplementId];
+      }
+    });
+  };
+
   const handleAddToCart = async () => {
     if (!parent || !child || !menu) return;
 
@@ -70,9 +101,14 @@ export default function MenuDetailsScreen() {
     setError('');
 
     try {
-      const totalPrice = menu.price * quantity;
+      const selectedSupplementsData = supplements
+        .filter(s => selectedSupplements.includes(s.id))
+        .map(s => ({ id: s.id, name: s.name, price: s.price }));
 
-      const supplementsData = supplements ? { items: supplements.split(',').map(s => s.trim()).filter(s => s) } : null;
+      const supplementsTotal = selectedSupplementsData.reduce((sum, s) => sum + s.price, 0);
+      const totalPrice = menu.price + supplementsTotal;
+
+      const supplementsJson = selectedSupplementsData.length > 0 ? { items: selectedSupplementsData } : null;
 
       const { error } = await supabase
         .from('cart_items')
@@ -82,7 +118,7 @@ export default function MenuDetailsScreen() {
           menu_id: menu.id,
           date: date,
           total_price: totalPrice,
-          supplements: supplementsData,
+          supplements: supplementsJson,
           annotations: specialInstructions || null,
         });
 
@@ -97,15 +133,6 @@ export default function MenuDetailsScreen() {
     }
   };
 
-  const incrementQuantity = () => {
-    setQuantity(prev => prev + 1);
-  };
-
-  const decrementQuantity = () => {
-    if (quantity > 1) {
-      setQuantity(prev => prev - 1);
-    }
-  };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -133,7 +160,9 @@ export default function MenuDetailsScreen() {
     );
   }
 
-  const totalPrice = menu.price * quantity;
+  const selectedSupplementsData = supplements.filter(s => selectedSupplements.includes(s.id));
+  const supplementsTotal = selectedSupplementsData.reduce((sum, s) => sum + s.price, 0);
+  const totalPrice = menu.price + supplementsTotal;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -144,8 +173,6 @@ export default function MenuDetailsScreen() {
         >
           <ChevronLeft size={24} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Détails du menu</Text>
-        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
@@ -202,37 +229,36 @@ export default function MenuDetailsScreen() {
           </View>
         </View>
 
-        <View style={styles.quantityCard}>
-          <Text style={styles.quantityLabel}>Quantité</Text>
-          <View style={styles.quantityControls}>
-            <TouchableOpacity
-              style={[styles.quantityButton, quantity === 1 && styles.quantityButtonDisabled]}
-              onPress={decrementQuantity}
-              disabled={quantity === 1}
-            >
-              <Minus size={20} color={quantity === 1 ? '#D1D5DB' : '#111827'} />
-            </TouchableOpacity>
-            <Text style={styles.quantityValue}>{quantity}</Text>
-            <TouchableOpacity
-              style={styles.quantityButton}
-              onPress={incrementQuantity}
-            >
-              <Plus size={20} color="#111827" />
-            </TouchableOpacity>
+        {supplements.length > 0 && (
+          <View style={styles.supplementsCard}>
+            <Text style={styles.supplementsTitle}>Suppléments disponibles</Text>
+            {supplements.map((supplement) => {
+              const isSelected = selectedSupplements.includes(supplement.id);
+              return (
+                <TouchableOpacity
+                  key={supplement.id}
+                  style={styles.supplementItem}
+                  onPress={() => toggleSupplement(supplement.id)}
+                >
+                  <View style={styles.supplementLeft}>
+                    {isSelected ? (
+                      <CheckSquare size={24} color="#111827" />
+                    ) : (
+                      <Square size={24} color="#9CA3AF" />
+                    )}
+                    <View style={styles.supplementInfo}>
+                      <Text style={styles.supplementName}>{supplement.name}</Text>
+                      {supplement.description && (
+                        <Text style={styles.supplementDescription}>{supplement.description}</Text>
+                      )}
+                    </View>
+                  </View>
+                  <Text style={styles.supplementPrice}>+{supplement.price.toFixed(2)} €</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        </View>
-
-        <View style={styles.inputCard}>
-          <Text style={styles.inputLabel}>Suppléments (optionnel)</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Ex: Fromage, Pain supplémentaire..."
-            placeholderTextColor="#9CA3AF"
-            value={supplements}
-            onChangeText={setSupplements}
-            multiline
-          />
-        </View>
+        )}
 
         <View style={styles.inputCard}>
           <Text style={styles.inputLabel}>Instructions spéciales (optionnel)</Text>
@@ -284,30 +310,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    paddingVertical: 12,
+    backgroundColor: '#F9FAFB',
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  headerSpacer: {
-    width: 40,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   scrollView: {
     flex: 1,
@@ -422,47 +440,55 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
   },
-  quantityCard: {
+  supplementsCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
-  quantityLabel: {
+  supplementsTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: '#111827',
+    marginBottom: 16,
   },
-  quantityControls: {
+  supplementItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+  },
+  supplementLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    flex: 1,
+    gap: 12,
   },
-  quantityButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
+  supplementInfo: {
+    flex: 1,
   },
-  quantityButtonDisabled: {
-    opacity: 0.5,
+  supplementName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 2,
   },
-  quantityValue: {
-    fontSize: 20,
+  supplementDescription: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  supplementPrice: {
+    fontSize: 15,
     fontWeight: '700',
     color: '#111827',
-    minWidth: 32,
-    textAlign: 'center',
+    marginLeft: 12,
   },
   inputCard: {
     backgroundColor: '#FFFFFF',
