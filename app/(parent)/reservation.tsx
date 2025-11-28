@@ -555,6 +555,8 @@ export default function ParentDashboard() {
                   const cardColor = menu.card_color || getCardColor(index);
                   const textColor = isLightColor(cardColor) ? '#1F2937' : '#FFFFFF';
 
+                  console.log('Menu:', menu.meal_name, 'has image_url:', menu.image_url);
+
                   return (
                     <View
                       key={menu.id}
@@ -565,6 +567,8 @@ export default function ParentDashboard() {
                           source={{ uri: menu.image_url }}
                           style={styles.menuCardImage}
                           resizeMode="cover"
+                          onError={(error) => console.log('Image load error:', error.nativeEvent.error)}
+                          onLoad={() => console.log('Image loaded successfully:', menu.image_url)}
                         />
                       )}
                       <View style={styles.menuCardHeader}>
