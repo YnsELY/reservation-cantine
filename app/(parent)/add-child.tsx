@@ -332,7 +332,7 @@ export default function AddChildScreen() {
       <Modal
         visible={showGradeModal}
         transparent
-        animationType="slide"
+        animationType="none"
         onRequestClose={() => setShowGradeModal(false)}
       >
         <View style={styles.modalOverlay}>
