@@ -245,15 +245,16 @@ export default function ParentHomeScreen() {
 
         <View style={styles.chartContainer}>
           <Text style={styles.chartTitle}>Commandes du mois</Text>
-          <LineChart
-            data={{
-              labels: ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'],
-              datasets: [{
-                data: monthlyOrders.length > 0 ? monthlyOrders : [0],
-              }],
-            }}
-            width={Dimensions.get('window').width - 48}
-            height={200}
+          <View style={styles.chartWrapper}>
+            <LineChart
+              data={{
+                labels: ['Sem1', 'Sem2', 'Sem3', 'Sem4', 'Sem5'],
+                datasets: [{
+                  data: monthOrders.some(v => v > 0) ? monthOrders : [0.1, 0.1, 0.1, 0.1, 0.1],
+                }],
+              }}
+              width={Dimensions.get('window').width - 10}
+              height={200}
             chartConfig={{
               backgroundColor: '#FFFFFF',
               backgroundGradientFrom: '#FFFFFF',
@@ -270,9 +271,31 @@ export default function ParentHomeScreen() {
                 stroke: '#111827',
               },
             }}
-            bezier
-            style={styles.chart}
-          />
+              bezier
+              style={styles.chart}
+              renderDotContent={({ x, y, index }) => {
+                const value = monthOrders[index] || 0;
+                if (value === 0) return null;
+                return (
+                  <Text
+                    key={index}
+                    style={{
+                      position: 'absolute',
+                      left: x - 15,
+                      top: y - 20,
+                      fontSize: 12,
+                      fontWeight: '600',
+                      color: '#111827',
+                      textAlign: 'center',
+                      width: 30,
+                    }}
+                  >
+                    {value.toFixed(0)}
+                  </Text>
+                );
+              }}
+            />
+          </View>
         </View>
 
         <View style={styles.reservationsContainer}>
