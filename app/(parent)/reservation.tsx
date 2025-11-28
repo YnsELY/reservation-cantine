@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Child, Menu, Parent, Reservation, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { AlertCircle, ChevronUp, ChevronLeft, ChevronRight, ShoppingCart, UserPlus, School as SchoolIcon, ArrowLeft } from 'lucide-react-native';
+import { AlertCircle, ChevronUp, ChevronLeft, ChevronRight, ShoppingCart, UserPlus, School as SchoolIcon, ArrowLeft, UtensilsCrossed } from 'lucide-react-native';
 
 const formatDateToLocal = (date: Date): string => {
   const year = date.getFullYear();
