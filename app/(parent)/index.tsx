@@ -5,7 +5,6 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Parent, Reservation } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { Calendar, UserPlus, History, UtensilsCrossed, User, ShoppingCart } from 'lucide-react-native';
-import Svg, { Path } from 'react-native-svg';
 import { LineChart } from 'react-native-chart-kit';
 
 interface WeekReservation {
@@ -162,61 +161,13 @@ export default function ParentHomeScreen() {
   };
 
   const renderGauge = () => {
-    const daysPerWeek = 6;
-    const maxMeals = childrenCount * daysPerWeek;
     const bookedMeals = weekReservations.length;
-    const percentage = maxMeals > 0 ? (bookedMeals / maxMeals) * 100 : 0;
-
-    const radius = 70;
-    const strokeWidth = 14;
-    const center = 90;
-
-    const startAngle = -180;
-    const totalAngle = 180;
-    const progressAngle = (percentage / 100) * totalAngle;
-
-    const startX = center + radius * Math.cos((startAngle * Math.PI) / 180);
-    const startY = center + radius * Math.sin((startAngle * Math.PI) / 180);
-
-    const progressEndAngle = startAngle + progressAngle;
-    const progressEndX = center + radius * Math.cos((progressEndAngle * Math.PI) / 180);
-    const progressEndY = center + radius * Math.sin((progressEndAngle * Math.PI) / 180);
-
-    const largeArcFlag = progressAngle > 180 ? 1 : 0;
-
-    const backgroundPath = `
-      M ${startX} ${startY}
-      A ${radius} ${radius} 0 1 1 ${center + radius} ${center}
-    `;
-
-    const progressPath = progressAngle > 0 ? `
-      M ${startX} ${startY}
-      A ${radius} ${radius} 0 ${largeArcFlag} 1 ${progressEndX} ${progressEndY}
-    ` : '';
 
     return (
       <View style={styles.gaugeContainer}>
-        <Svg width="180" height="110" viewBox="0 0 180 110">
-          <Path
-            d={backgroundPath}
-            fill="none"
-            stroke="#E5E7EB"
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-          />
-          {progressPath && (
-            <Path
-              d={progressPath}
-              fill="none"
-              stroke="#FCD34D"
-              strokeWidth={strokeWidth}
-              strokeLinecap="round"
-            />
-          )}
-        </Svg>
-        <View style={styles.gaugeTextContainer}>
-          <Text style={styles.gaugeNumber}>{bookedMeals}/{maxMeals}</Text>
-          <Text style={styles.gaugeLabel}>menus réservés</Text>
+        <View style={styles.mealCountDisplay}>
+          <Text style={styles.mealCountNumber}>{bookedMeals}</Text>
+          <Text style={styles.mealCountLabel}>repas commandés cette semaine</Text>
         </View>
       </View>
     );
@@ -447,27 +398,27 @@ const styles = StyleSheet.create({
     marginBottom: 32,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 24,
+    padding: 32,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
-  gaugeTextContainer: {
-    position: 'absolute',
+  mealCountDisplay: {
     alignItems: 'center',
-    bottom: 40,
+    justifyContent: 'center',
+    gap: 8,
   },
-  gaugeNumber: {
-    fontSize: 32,
+  mealCountNumber: {
+    fontSize: 64,
     fontWeight: '700',
-    color: '#111827',
+    color: '#FCD34D',
   },
-  gaugeLabel: {
-    fontSize: 14,
+  mealCountLabel: {
+    fontSize: 16,
     color: '#6B7280',
-    marginTop: 4,
+    textAlign: 'center',
   },
   largeButton: {
     backgroundColor: '#111827',
