@@ -140,7 +140,8 @@ export default function ParentHomeScreen() {
 
   const renderGauge = () => {
     const maxMeals = 6;
-    const bookedMeals = weekReservations.length;
+    const uniqueDates = new Set(weekReservations.map(r => r.date));
+    const bookedMeals = uniqueDates.size;
     const percentage = (bookedMeals / maxMeals) * 100;
 
     const radius = 70;
