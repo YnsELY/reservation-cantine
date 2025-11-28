@@ -28,7 +28,7 @@ export default function ParentHomeScreen() {
   const [parent, setParent] = useState<Parent | null>(null);
   const [weekReservations, setWeekReservations] = useState<Reservation[]>([]);
   const [upcomingReservations, setUpcomingReservations] = useState<WeekReservation[]>([]);
-  const [monthlyOrders, setMonthlyOrders] = useState<number[]>([0, 0, 0, 0]);
+  const [monthlyOrders, setMonthlyOrders] = useState<number[]>([0, 0, 0, 0, 0]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -82,18 +82,31 @@ export default function ParentHomeScreen() {
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
 
-      const { data: monthlyData } = await supabase
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+      const { data: currentMonthData } = await supabase
         .from('reservations')
         .select('date')
         .eq('parent_id', currentParent.id)
-        .gte('date', startOfMonth.toISOString().split('T')[0]);
+        .gte('date', startOfMonth.toISOString().split('T')[0])
+        .lte('date', endOfMonth.toISOString().split('T')[0]);
 
-      const weekCounts = [0, 0, 0, 0];
-      monthlyData?.forEach((reservation) => {
+      const getWeekOfMonth = (date: Date) => {
+        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
+        const dayOfMonth = date.getDate();
+        const firstDayOfWeek = firstDay.getDay();
+        const offsetDate = dayOfMonth + firstDayOfWeek - 1;
+        return Math.ceil(offsetDate / 7);
+      };
+
+      const weekCounts = [0, 0, 0, 0, 0];
+      currentMonthData?.forEach((reservation) => {
         const date = new Date(reservation.date);
-        const weekOfMonth = Math.floor((date.getDate() - 1) / 7);
-        if (weekOfMonth < 4) {
-          weekCounts[weekOfMonth]++;
+        const weekNum = getWeekOfMonth(date) - 1;
+        if (weekNum >= 0 && weekNum < 5) {
+          weekCounts[weekNum]++;
         }
       });
 
@@ -250,7 +263,7 @@ export default function ParentHomeScreen() {
               data={{
                 labels: ['Sem1', 'Sem2', 'Sem3', 'Sem4', 'Sem5'],
                 datasets: [{
-                  data: monthOrders.some(v => v > 0) ? monthOrders : [0.1, 0.1, 0.1, 0.1, 0.1],
+                  data: monthlyOrders.some(v => v > 0) ? monthlyOrders : [0.1, 0.1, 0.1, 0.1, 0.1],
                 }],
               }}
               width={Dimensions.get('window').width - 10}
@@ -274,7 +287,7 @@ export default function ParentHomeScreen() {
               bezier
               style={styles.chart}
               renderDotContent={({ x, y, index }) => {
-                const value = monthOrders[index] || 0;
+                const value = monthlyOrders[index] || 0;
                 if (value === 0) return null;
                 return (
                   <Text
