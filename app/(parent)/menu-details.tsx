@@ -62,6 +62,9 @@ export default function MenuDetailsScreen() {
       if (menuError) throw menuError;
       setMenu(menuData);
 
+      console.log('Menu data:', menuData);
+      console.log('Menu school_id:', menuData?.school_id);
+
       if (menuData?.school_id) {
         const { data: supplementsData, error: supplementsError } = await supabase
           .from('supplements')
@@ -70,9 +73,15 @@ export default function MenuDetailsScreen() {
           .eq('available', true)
           .order('price', { ascending: true });
 
+        console.log('Supplements data:', supplementsData);
+        console.log('Supplements error:', supplementsError);
+
         if (!supplementsError && supplementsData) {
           setSupplements(supplementsData);
+          console.log('Supplements set:', supplementsData.length);
         }
+      } else {
+        console.log('No school_id found in menu');
       }
 
       setError('');
@@ -163,6 +172,8 @@ export default function MenuDetailsScreen() {
   const selectedSupplementsData = supplements.filter(s => selectedSupplements.includes(s.id));
   const supplementsTotal = selectedSupplementsData.reduce((sum, s) => sum + s.price, 0);
   const totalPrice = menu.price + supplementsTotal;
+
+  console.log('Rendering with supplements:', supplements.length);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
