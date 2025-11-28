@@ -292,18 +292,35 @@ export default function ParentHomeScreen() {
                 stroke: '#F3F4F6',
                 strokeWidth: 1,
               },
-              paddingRight: 20,
             }}
             bezier
             style={styles.chart}
             withVerticalLines={false}
-            withHorizontalLabels={true}
-            withInnerLines={true}
+            withHorizontalLabels={false}
+            withInnerLines={false}
             withOuterLines={false}
-            segments={5}
-            formatYLabel={(value) => {
-              const num = parseFloat(value);
-              return num.toFixed(2);
+            withDots={true}
+            withVerticalLabels={true}
+            withHorizontalLines={false}
+            renderDotContent={({ x, y, index }) => {
+              const value = weekOrders[index] || 0;
+              return (
+                <Text
+                  key={index}
+                  style={{
+                    position: 'absolute',
+                    left: x - 15,
+                    top: y - 20,
+                    fontSize: 12,
+                    fontWeight: '600',
+                    color: '#111827',
+                    textAlign: 'center',
+                    width: 30,
+                  }}
+                >
+                  {value.toFixed(2)}
+                </Text>
+              );
             }}
           />
         </View>
