@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Modal, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Parent } from '@/lib/supabase';
@@ -40,6 +40,8 @@ export default function HistoryScreen() {
   const [selectedChild, setSelectedChild] = useState<string>('all');
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('all');
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showChildModal, setShowChildModal] = useState(false);
+  const [showPeriodModal, setShowPeriodModal] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -226,13 +228,7 @@ export default function HistoryScreen() {
         <View style={styles.filterRow}>
           <TouchableOpacity
             style={styles.filterButton}
-            onPress={() => {
-              const newFilter: PeriodFilter =
-                periodFilter === 'all' ? 'day' :
-                periodFilter === 'day' ? 'week' :
-                periodFilter === 'week' ? 'month' : 'all';
-              setPeriodFilter(newFilter);
-            }}
+            onPress={() => setShowPeriodModal(true)}
           >
             <Text style={styles.filterButtonText}>
               {periodFilter === 'day' ? 'Jour' :
@@ -244,14 +240,7 @@ export default function HistoryScreen() {
 
           <TouchableOpacity
             style={styles.filterButton}
-            onPress={() => {
-              const currentIndex = children.findIndex(c => c.id === selectedChild);
-              if (currentIndex === -1 || currentIndex === children.length - 1) {
-                setSelectedChild('all');
-              } else {
-                setSelectedChild(children[currentIndex + 1].id);
-              }
-            }}
+            onPress={() => setShowChildModal(true)}
           >
             <Text style={styles.filterButtonText}>
               {selectedChild === 'all'
@@ -264,6 +253,89 @@ export default function HistoryScreen() {
 
         <Text style={styles.periodLabel}>{getPeriodLabel()}</Text>
       </View>
+
+      <Modal
+        visible={showPeriodModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowPeriodModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowPeriodModal(false)}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Sélectionner une période</Text>
+            {[{value: 'day', label: 'Jour'}, {value: 'week', label: 'Semaine'}, {value: 'month', label: 'Mois'}, {value: 'all', label: 'Tout'}].map((option) => (
+              <TouchableOpacity
+                key={option.value}
+                style={[
+                  styles.modalOption,
+                  periodFilter === option.value && styles.modalOptionSelected
+                ]}
+                onPress={() => {
+                  setPeriodFilter(option.value as PeriodFilter);
+                  setShowPeriodModal(false);
+                }}
+              >
+                <Text style={[
+                  styles.modalOptionText,
+                  periodFilter === option.value && styles.modalOptionTextSelected
+                ]}>
+                  {option.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+
+      <Modal
+        visible={showChildModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowChildModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowChildModal(false)}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Sélectionner un enfant</Text>
+            <TouchableOpacity
+              style={[
+                styles.modalOption,
+                selectedChild === 'all' && styles.modalOptionSelected
+              ]}
+              onPress={() => {
+                setSelectedChild('all');
+                setShowChildModal(false);
+              }}
+            >
+              <Text style={[
+                styles.modalOptionText,
+                selectedChild === 'all' && styles.modalOptionTextSelected
+              ]}>
+                Tous les enfants
+              </Text>
+            </TouchableOpacity>
+            {children.map((child) => (
+              <TouchableOpacity
+                key={child.id}
+                style={[
+                  styles.modalOption,
+                  selectedChild === child.id && styles.modalOptionSelected
+                ]}
+                onPress={() => {
+                  setSelectedChild(child.id);
+                  setShowChildModal(false);
+                }}
+              >
+                <Text style={[
+                  styles.modalOptionText,
+                  selectedChild === child.id && styles.modalOptionTextSelected
+                ]}>
+                  {child.first_name} {child.last_name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
 
       <View style={styles.statisticsContainer}>
         <View style={styles.statCard}>
@@ -573,5 +645,50 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#111827',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    width: '80%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalOption: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: '#F9FAFB',
+  },
+  modalOptionSelected: {
+    backgroundColor: '#111827',
+  },
+  modalOptionText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#111827',
+    textAlign: 'center',
+  },
+  modalOptionTextSelected: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });
