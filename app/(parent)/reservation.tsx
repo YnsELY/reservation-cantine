@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Dimensions, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Child, Menu, Parent, Reservation, School } from '@/lib/supabase';
@@ -560,6 +560,13 @@ export default function ParentDashboard() {
                       key={menu.id}
                       style={[styles.menuCard, { backgroundColor: cardColor }]}
                     >
+                      {menu.image_url && (
+                        <Image
+                          source={{ uri: menu.image_url }}
+                          style={styles.menuCardImage}
+                          resizeMode="cover"
+                        />
+                      )}
                       <View style={styles.menuCardHeader}>
                         <Text style={[styles.menuCardTitle, { color: textColor }]}>
                           {menu.meal_name}
@@ -874,11 +881,29 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 16,
     minHeight: 180,
+    position: 'relative',
+  },
+  menuCardImage: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.9)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+    zIndex: 10,
   },
   menuCardHeader: {
     paddingHorizontal: 24,
     paddingTop: 24,
     paddingBottom: 16,
+    paddingRight: 110,
   },
   menuCardTitle: {
     fontSize: 28,
