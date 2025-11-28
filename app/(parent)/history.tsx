@@ -4,7 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { Receipt, AlertCircle, History, ArrowLeft } from 'lucide-react-native';
+import { Receipt, AlertCircle, History, ArrowLeft, ChevronDown } from 'lucide-react-native';
+
+interface Child {
+  id: string;
+  first_name: string;
+  last_name: string;
+}
 
 interface ReservationWithDetails {
   id: string;
@@ -13,6 +19,7 @@ interface ReservationWithDetails {
   payment_status: string;
   annotations: string | null;
   child: {
+    id: string;
     first_name: string;
     last_name: string;
   };
@@ -21,12 +28,18 @@ interface ReservationWithDetails {
   };
 }
 
+type PeriodFilter = 'day' | 'week' | 'month' | 'all';
+
 export default function HistoryScreen() {
   const [parent, setParent] = useState<Parent | null>(null);
   const [reservations, setReservations] = useState<ReservationWithDetails[]>([]);
+  const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [selectedChild, setSelectedChild] = useState<string>('all');
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('all');
+  const [selectedDate, setSelectedDate] = useState(new Date());
   const router = useRouter();
 
   useEffect(() => {
@@ -43,6 +56,14 @@ export default function HistoryScreen() {
 
       setParent(currentParent);
 
+      const { data: childrenData, error: childrenError } = await supabase
+        .from('children')
+        .select('id, first_name, last_name')
+        .eq('parent_id', currentParent.id);
+
+      if (childrenError) throw childrenError;
+      setChildren(childrenData || []);
+
       const { data, error: reservationsError } = await supabase
         .from('reservations')
         .select(`
@@ -51,7 +72,9 @@ export default function HistoryScreen() {
           total_price,
           payment_status,
           annotations,
+          child_id,
           children:child_id (
+            id,
             first_name,
             last_name
           ),
@@ -70,7 +93,11 @@ export default function HistoryScreen() {
         total_price: item.total_price,
         payment_status: item.payment_status,
         annotations: item.annotations,
-        child: item.children,
+        child: {
+          id: item.child_id,
+          first_name: item.children?.first_name,
+          last_name: item.children?.last_name,
+        },
         menu: item.menus,
       }));
 
@@ -116,6 +143,65 @@ export default function HistoryScreen() {
     }
   };
 
+  const getFilteredReservations = () => {
+    let filtered = reservations;
+
+    if (selectedChild !== 'all') {
+      filtered = filtered.filter(r => r.child.id === selectedChild);
+    }
+
+    if (periodFilter !== 'all') {
+      const now = selectedDate;
+      filtered = filtered.filter(r => {
+        const reservationDate = new Date(r.date);
+
+        if (periodFilter === 'day') {
+          return reservationDate.toDateString() === now.toDateString();
+        } else if (periodFilter === 'week') {
+          const startOfWeek = new Date(now);
+          startOfWeek.setDate(now.getDate() - now.getDay());
+          const endOfWeek = new Date(startOfWeek);
+          endOfWeek.setDate(startOfWeek.getDate() + 6);
+          return reservationDate >= startOfWeek && reservationDate <= endOfWeek;
+        } else if (periodFilter === 'month') {
+          return reservationDate.getMonth() === now.getMonth() &&
+                 reservationDate.getFullYear() === now.getFullYear();
+        }
+        return true;
+      });
+    }
+
+    return filtered;
+  };
+
+  const getStatistics = () => {
+    const filtered = getFilteredReservations();
+    const count = filtered.length;
+    const total = filtered.reduce((sum, r) => sum + r.total_price, 0);
+    return { count, total };
+  };
+
+  const getPeriodLabel = () => {
+    const date = selectedDate;
+    switch (periodFilter) {
+      case 'day':
+        return date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+      case 'week':
+        const startOfWeek = new Date(date);
+        startOfWeek.setDate(date.getDate() - date.getDay());
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+        return `${startOfWeek.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} - ${endOfWeek.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`;
+      case 'month':
+        return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+      default:
+        return 'Toutes les périodes';
+    }
+  };
+
+  const filteredReservations = getFilteredReservations();
+  const statistics = getStatistics();
+
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -136,6 +222,60 @@ export default function HistoryScreen() {
         </View>
       </View>
 
+      <View style={styles.filtersContainer}>
+        <View style={styles.filterRow}>
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={() => {
+              const newFilter: PeriodFilter =
+                periodFilter === 'all' ? 'day' :
+                periodFilter === 'day' ? 'week' :
+                periodFilter === 'week' ? 'month' : 'all';
+              setPeriodFilter(newFilter);
+            }}
+          >
+            <Text style={styles.filterButtonText}>
+              {periodFilter === 'day' ? 'Jour' :
+               periodFilter === 'week' ? 'Semaine' :
+               periodFilter === 'month' ? 'Mois' : 'Tout'}
+            </Text>
+            <ChevronDown size={16} color="#111827" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={() => {
+              const currentIndex = children.findIndex(c => c.id === selectedChild);
+              if (currentIndex === -1 || currentIndex === children.length - 1) {
+                setSelectedChild('all');
+              } else {
+                setSelectedChild(children[currentIndex + 1].id);
+              }
+            }}
+          >
+            <Text style={styles.filterButtonText}>
+              {selectedChild === 'all'
+                ? 'Tous les enfants'
+                : children.find(c => c.id === selectedChild)?.first_name || 'Enfant'}
+            </Text>
+            <ChevronDown size={16} color="#111827" />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.periodLabel}>{getPeriodLabel()}</Text>
+      </View>
+
+      <View style={styles.statisticsContainer}>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{statistics.count}</Text>
+          <Text style={styles.statLabel}>Commande{statistics.count > 1 ? 's' : ''}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={styles.statValue}>{statistics.total.toFixed(2)} €</Text>
+          <Text style={styles.statLabel}>Total payé</Text>
+        </View>
+      </View>
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: 100 }}
@@ -150,7 +290,7 @@ export default function HistoryScreen() {
           </View>
         ) : null}
 
-        {reservations.length === 0 ? (
+        {filteredReservations.length === 0 ? (
           <View style={styles.emptyState}>
             <Receipt size={48} color="#9CA3AF" />
             <Text style={styles.emptyStateTitle}>Aucune réservation</Text>
@@ -160,7 +300,7 @@ export default function HistoryScreen() {
           </View>
         ) : (
           <View style={styles.reservationsList}>
-            {reservations.map((reservation) => (
+            {filteredReservations.map((reservation) => (
               <View key={reservation.id} style={styles.reservationCard}>
                 <View style={styles.reservationHeader}>
                   <Text style={styles.reservationDate}>
@@ -260,6 +400,72 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  filtersContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  filterButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F9FAFB',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  periodLabel: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+    textAlign: 'center',
+    textTransform: 'capitalize',
+  },
+  statisticsContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 12,
+    backgroundColor: '#F9FAFB',
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
   },
   scrollView: {
     flex: 1,
