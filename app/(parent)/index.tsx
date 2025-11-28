@@ -262,7 +262,7 @@ export default function ParentHomeScreen() {
                   data: monthlyOrders.some(v => v > 0) ? monthlyOrders : [0.1, 0.1, 0.1, 0.1, 0.1],
                 }],
               }}
-              width={Dimensions.get('window').width - 10}
+              width={Dimensions.get('window').width - 30}
               height={200}
             chartConfig={{
               backgroundColor: '#FFFFFF',
