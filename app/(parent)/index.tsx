@@ -233,23 +233,23 @@ export default function ParentHomeScreen() {
 
         <View style={styles.squareButtonsContainer}>
           <TouchableOpacity
-            style={styles.squareButton}
+            style={[styles.squareButton, styles.addChildButton]}
             onPress={() => router.push('/(parent)/add-child')}
           >
             <View style={styles.squareButtonIconContainer}>
-              <UserPlus size={32} color="#111827" />
+              <UserPlus size={32} color="#FFFFFF" />
             </View>
-            <Text style={styles.squareButtonText}>Ajouter un enfant</Text>
+            <Text style={[styles.squareButtonText, styles.addChildButtonText]}>Ajouter un enfant</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.squareButton}
+            style={[styles.squareButton, styles.historyButton]}
             onPress={() => router.push('/(parent)/history')}
           >
             <View style={styles.squareButtonIconContainer}>
-              <History size={32} color="#111827" />
+              <History size={32} color="#FFFFFF" />
             </View>
-            <Text style={styles.squareButtonText}>Historique</Text>
+            <Text style={[styles.squareButtonText, styles.historyButtonText]}>Historique</Text>
           </TouchableOpacity>
         </View>
 
@@ -453,6 +453,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
     textAlign: 'center',
+  },
+  addChildButton: {
+    backgroundColor: '#10B981',
+  },
+  addChildButtonText: {
+    color: '#FFFFFF',
+  },
+  historyButton: {
+    backgroundColor: '#3B82F6',
+  },
+  historyButtonText: {
+    color: '#FFFFFF',
   },
   chartContainer: {
     backgroundColor: '#FFFFFF',
