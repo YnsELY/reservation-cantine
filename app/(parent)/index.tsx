@@ -441,6 +441,9 @@ const styles = StyleSheet.create({
   chart: {
     borderRadius: 16,
   },
+  chartWrapper: {
+    marginLeft: -50,
+  },
   reservationsContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
