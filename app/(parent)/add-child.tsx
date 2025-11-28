@@ -4,7 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Parent, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, Plus, X, CheckCircle } from 'lucide-react-native';
+import { ArrowLeft, Plus, X, CheckCircle, ChevronDown } from 'lucide-react-native';
+
+const GRADE_OPTIONS = [
+  { section: 'Maternelle', grades: ['Petite Section', 'Moyenne Section', 'Grande Section'] },
+  { section: 'Élémentaire', grades: ['CP', 'CE1', 'CE2', 'CM1', 'CM2'] },
+  { section: 'Collège', grades: ['6ème', '5ème', '4ème', '3ème'] },
+  { section: 'Lycée', grades: ['2nde', '1ère', 'Terminale'] },
+];
 
 export default function AddChildScreen() {
   const [parent, setParent] = useState<Parent | null>(null);
@@ -15,6 +22,7 @@ export default function AddChildScreen() {
   const [schools, setSchools] = useState<School[]>([]);
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
   const [showAddSchoolModal, setShowAddSchoolModal] = useState(false);
+  const [showGradeModal, setShowGradeModal] = useState(false);
   const [schoolIdentifier, setSchoolIdentifier] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -206,13 +214,15 @@ export default function AddChildScreen() {
 
         <View style={styles.section}>
           <Text style={styles.label}>Classe</Text>
-          <TextInput
-            style={styles.input}
-            value={grade}
-            onChangeText={setGrade}
-            placeholder="Ex: CM2"
-            placeholderTextColor="#9CA3AF"
-          />
+          <TouchableOpacity
+            style={styles.gradeSelector}
+            onPress={() => setShowGradeModal(true)}
+          >
+            <Text style={[styles.gradeSelectorText, !grade && styles.gradeSelectorPlaceholder]}>
+              {grade || 'Sélectionner une classe'}
+            </Text>
+            <ChevronDown size={20} color="#6B7280" />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
@@ -320,6 +330,56 @@ export default function AddChildScreen() {
       </View>
 
       <Modal
+        visible={showGradeModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowGradeModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.gradeModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Sélectionner une classe</Text>
+              <TouchableOpacity onPress={() => setShowGradeModal(false)}>
+                <X size={24} color="#111827" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.gradeList} showsVerticalScrollIndicator={false}>
+              {GRADE_OPTIONS.map((section, sectionIndex) => (
+                <View key={sectionIndex} style={styles.gradeSection}>
+                  <Text style={styles.gradeSectionTitle}>{section.section}</Text>
+                  {section.grades.map((gradeOption, gradeIndex) => (
+                    <TouchableOpacity
+                      key={gradeIndex}
+                      style={[
+                        styles.gradeOption,
+                        grade === gradeOption && styles.gradeOptionSelected,
+                      ]}
+                      onPress={() => {
+                        setGrade(gradeOption);
+                        setShowGradeModal(false);
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.gradeOptionText,
+                          grade === gradeOption && styles.gradeOptionTextSelected,
+                        ]}
+                      >
+                        {gradeOption}
+                      </Text>
+                      {grade === gradeOption && (
+                        <CheckCircle size={20} color="#111827" />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
         visible={showAddSchoolModal}
         transparent
         animationType="fade"
@@ -423,6 +483,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
     color: '#111827',
+  },
+  gradeSelector: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  gradeSelectorText: {
+    fontSize: 16,
+    color: '#111827',
+  },
+  gradeSelectorPlaceholder: {
+    color: '#9CA3AF',
   },
   allergyFieldContainer: {
     flexDirection: 'row',
@@ -566,6 +644,55 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  gradeModalContent: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    borderRadius: 20,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: '70%',
+  },
+  gradeList: {
+    marginTop: 16,
+  },
+  gradeSection: {
+    marginBottom: 20,
+  },
+  gradeSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 12,
+    paddingBottom: 8,
+    borderBottomWidth: 2,
+    borderBottomColor: '#E5E7EB',
+  },
+  gradeOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  gradeOptionSelected: {
+    backgroundColor: '#E5E7EB',
+    borderColor: '#111827',
+  },
+  gradeOptionText: {
+    fontSize: 15,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  gradeOptionTextSelected: {
+    color: '#111827',
+    fontWeight: '600',
   },
   addSchoolModalContent: {
     backgroundColor: '#FFFFFF',
