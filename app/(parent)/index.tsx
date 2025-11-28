@@ -270,7 +270,7 @@ export default function ParentHomeScreen() {
                 data: weekOrders.some(v => v > 0) ? weekOrders : [0, 0, 0, 0, 0, 0, 0.1],
               }],
             }}
-            width={Dimensions.get('window').width - 88}
+            width={Dimensions.get('window').width - 56}
             height={220}
             chartConfig={{
               backgroundColor: '#FFFFFF',
