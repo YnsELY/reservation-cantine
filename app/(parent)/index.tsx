@@ -29,6 +29,7 @@ export default function ParentHomeScreen() {
   const [weekReservations, setWeekReservations] = useState<Reservation[]>([]);
   const [upcomingReservations, setUpcomingReservations] = useState<WeekReservation[]>([]);
   const [monthlyOrders, setMonthlyOrders] = useState<number[]>([0, 0, 0, 0, 0]);
+  const [childrenCount, setChildrenCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -45,6 +46,13 @@ export default function ParentHomeScreen() {
       }
 
       setParent(currentParent);
+
+      const { data: childrenData } = await supabase
+        .from('children')
+        .select('id')
+        .eq('parent_id', currentParent.id);
+
+      setChildrenCount(childrenData?.length || 0);
 
       const startOfWeek = getStartOfWeek(new Date());
       const endOfWeek = new Date(startOfWeek);
@@ -139,10 +147,10 @@ export default function ParentHomeScreen() {
   };
 
   const renderGauge = () => {
-    const maxMeals = 6;
-    const uniqueDates = new Set(weekReservations.map(r => r.date));
-    const bookedMeals = uniqueDates.size;
-    const percentage = (bookedMeals / maxMeals) * 100;
+    const daysPerWeek = 5;
+    const maxMeals = childrenCount * daysPerWeek;
+    const bookedMeals = weekReservations.length;
+    const percentage = maxMeals > 0 ? (bookedMeals / maxMeals) * 100 : 0;
 
     const radius = 70;
     const strokeWidth = 14;
@@ -193,7 +201,7 @@ export default function ParentHomeScreen() {
         </Svg>
         <View style={styles.gaugeTextContainer}>
           <Text style={styles.gaugeNumber}>{bookedMeals}/{maxMeals}</Text>
-          <Text style={styles.gaugeLabel}>jours réservés</Text>
+          <Text style={styles.gaugeLabel}>menus réservés</Text>
         </View>
       </View>
     );
