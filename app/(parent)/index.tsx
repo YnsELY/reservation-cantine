@@ -28,7 +28,7 @@ export default function ParentHomeScreen() {
   const [parent, setParent] = useState<Parent | null>(null);
   const [weekReservations, setWeekReservations] = useState<Reservation[]>([]);
   const [upcomingReservations, setUpcomingReservations] = useState<WeekReservation[]>([]);
-  const [weekOrders, setWeekOrders] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
+  const [monthOrders, setMonthOrders] = useState<number[]>([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   const [selectedTab, setSelectedTab] = useState<'volume' | 'week'>('volume');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -79,26 +79,28 @@ export default function ParentHomeScreen() {
 
       setUpcomingReservations(upcomingData || []);
 
-      const startOfCurrentWeek = getStartOfWeek(new Date());
-      const endOfCurrentWeek = new Date(startOfCurrentWeek);
-      endOfCurrentWeek.setDate(endOfCurrentWeek.getDate() + 6);
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const daysInMonth = endOfMonth.getDate();
 
-      const { data: currentWeekData } = await supabase
+      const { data: currentMonthData } = await supabase
         .from('reservations')
         .select('date')
         .eq('parent_id', currentParent.id)
-        .gte('date', startOfCurrentWeek.toISOString().split('T')[0])
-        .lte('date', endOfCurrentWeek.toISOString().split('T')[0]);
+        .gte('date', startOfMonth.toISOString().split('T')[0])
+        .lte('date', endOfMonth.toISOString().split('T')[0]);
 
-      const dayCounts = [0, 0, 0, 0, 0, 0, 0];
-      currentWeekData?.forEach((reservation) => {
+      const dayCounts = new Array(daysInMonth).fill(0);
+      currentMonthData?.forEach((reservation) => {
         const date = new Date(reservation.date);
-        const dayOfWeek = date.getDay();
-        const adjustedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        dayCounts[adjustedDay]++;
+        const dayOfMonth = date.getDate() - 1;
+        if (dayOfMonth >= 0 && dayOfMonth < daysInMonth) {
+          dayCounts[dayOfMonth]++;
+        }
       });
 
-      setWeekOrders(dayCounts);
+      setMonthOrders(dayCounts);
     } catch (err) {
       console.error('Error loading data:', err);
     } finally {
@@ -266,9 +268,9 @@ export default function ParentHomeScreen() {
           <View style={styles.chartWrapper}>
             <LineChart
               data={{
-                labels: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+                labels: monthOrders.map((_, i) => (i + 1).toString()),
                 datasets: [{
-                  data: weekOrders.some(v => v > 0) ? weekOrders : [0, 0, 0, 0, 0, 0, 0.1],
+                  data: monthOrders.some(v => v > 0) ? monthOrders : new Array(monthOrders.length).fill(0.1),
                 }],
               }}
               width={Dimensions.get('window').width - 56}
@@ -304,7 +306,8 @@ export default function ParentHomeScreen() {
               withVerticalLabels={true}
               withHorizontalLines={false}
               renderDotContent={({ x, y, index }) => {
-                const value = weekOrders[index] || 0;
+                const value = monthOrders[index] || 0;
+                if (value === 0) return null;
                 return (
                   <Text
                     key={index}
@@ -312,14 +315,14 @@ export default function ParentHomeScreen() {
                       position: 'absolute',
                       left: x - 15,
                       top: y - 20,
-                      fontSize: 12,
+                      fontSize: 10,
                       fontWeight: '600',
                       color: '#111827',
                       textAlign: 'center',
                       width: 30,
                     }}
                   >
-                    {value.toFixed(2)}
+                    {value.toFixed(0)}
                   </Text>
                 );
               }}
@@ -510,7 +513,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   chartWrapper: {
-    marginLeft: -20,
+    marginLeft: -40,
   },
   reservationsContainer: {
     backgroundColor: '#FFFFFF',
