@@ -518,9 +518,11 @@ export default function ParentDashboard() {
                 <Text style={styles.childCardName}>
                   {child.first_name} {child.last_name}
                 </Text>
-                <Text style={styles.childCardClass}>
-                  {child.class_name || 'Classe non définie'}
-                </Text>
+                {child.class_name && (
+                  <Text style={styles.childCardClass}>
+                    {child.class_name}
+                  </Text>
+                )}
               </View>
               <ChevronRight size={24} color="#9CA3AF" />
             </TouchableOpacity>
@@ -669,32 +671,20 @@ export default function ParentDashboard() {
                         </View>
                         <TouchableOpacity
                           style={[styles.menuCardButton, { backgroundColor: textColor }]}
-                          onPress={async () => {
-                            if (!parent || !selectedChild || !selectedDate) return;
-
-                            try {
-                              const { error } = await supabase
-                                .from('cart_items')
-                                .insert({
-                                  parent_id: parent.id,
-                                  child_id: selectedChild.id,
-                                  menu_id: menu.id,
-                                  date: selectedDate,
-                                  meal_name: menu.meal_name,
-                                  price: menu.price,
-                                });
-
-                              if (error) throw error;
-
-                              await loadCartCount(parent.id);
-                            } catch (err) {
-                              console.error('Error adding to cart:', err);
-                              setError('Erreur lors de l\'ajout au panier');
-                            }
+                          onPress={() => {
+                            if (!selectedChild || !selectedDate) return;
+                            router.push({
+                              pathname: '/(parent)/menu-details',
+                              params: {
+                                menuId: menu.id,
+                                childId: selectedChild.id,
+                                date: selectedDate,
+                              }
+                            });
                           }}
                         >
                           <Text style={[styles.menuCardButtonText, { color: '#FFFFFF' }]}>
-                            Ajouter au panier
+                            Réserver
                           </Text>
                         </TouchableOpacity>
                       </View>
