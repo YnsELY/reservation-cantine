@@ -228,8 +228,19 @@ export default function AddMenuScreen() {
   const uploadImage = async (uri: string): Promise<string | null> => {
     try {
       console.log('Starting image upload to ImgBB...');
-      const base64 = await FileSystem.readAsStringAsync(uri, {
-        encoding: 'base64',
+
+      const response = await fetch(uri);
+      const blob = await response.blob();
+
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          const base64data = reader.result as string;
+          const base64String = base64data.split(',')[1];
+          resolve(base64String);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
       });
 
       const formData = new FormData();
@@ -238,12 +249,12 @@ export default function AddMenuScreen() {
       const apiKey = process.env.EXPO_PUBLIC_IMGBB_API_KEY;
       console.log('API Key available:', !!apiKey);
 
-      const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
+      const uploadResponse = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
         method: 'POST',
         body: formData,
       });
 
-      const result = await response.json();
+      const result = await uploadResponse.json();
       console.log('ImgBB response:', result);
 
       if (result.success && result.data && result.data.url) {
