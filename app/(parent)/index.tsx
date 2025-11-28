@@ -69,7 +69,7 @@ export default function ParentHomeScreen() {
 
       const startOfWeek = getStartOfWeek(new Date());
       const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(endOfWeek.getDate() + 6);
+      endOfWeek.setDate(endOfWeek.getDate() + 5);
 
       const startDateStr = startOfWeek.toISOString().split('T')[0];
       const endDateStr = endOfWeek.toISOString().split('T')[0];
@@ -162,7 +162,7 @@ export default function ParentHomeScreen() {
   };
 
   const renderGauge = () => {
-    const daysPerWeek = 5;
+    const daysPerWeek = 6;
     const maxMeals = childrenCount * daysPerWeek;
     const bookedMeals = weekReservations.length;
     const percentage = maxMeals > 0 ? (bookedMeals / maxMeals) * 100 : 0;
