@@ -279,6 +279,11 @@ export default function AddMenuScreen() {
     console.log('Image URI:', imageUri);
     console.log('Provider:', provider);
 
+    if (saving) {
+      console.log('Already saving, ignoring duplicate call');
+      return;
+    }
+
     if (!mealName.trim()) {
       console.log('Validation failed: No meal name');
       Alert.alert('Erreur', 'Veuillez entrer un nom de repas');
