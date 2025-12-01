@@ -567,8 +567,6 @@ export default function ParentDashboard() {
                           source={{ uri: menu.image_url }}
                           style={styles.menuCardImage}
                           resizeMode="cover"
-                          onError={(error) => console.log('Image load error:', error.nativeEvent.error)}
-                          onLoad={() => console.log('Image loaded successfully:', menu.image_url)}
                         />
                       )}
                       <View style={styles.menuCardHeader}>
@@ -885,29 +883,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 16,
     minHeight: 180,
-    position: 'relative',
   },
   menuCardImage: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    borderWidth: 3,
-    borderColor: 'rgba(255, 255, 255, 0.9)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-    zIndex: 10,
+    width: '100%',
+    height: 200,
   },
   menuCardHeader: {
     paddingHorizontal: 24,
     paddingTop: 24,
     paddingBottom: 16,
-    paddingRight: 110,
   },
   menuCardTitle: {
     fontSize: 28,
