@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase, Child, Menu, Parent } from '@/lib/supabase';
@@ -213,6 +213,13 @@ export default function MenuDetailsScreen() {
         </View>
 
         <View style={styles.menuCard}>
+          {menu.image_url && (
+            <Image
+              source={{ uri: menu.image_url }}
+              style={styles.menuImage}
+              resizeMode="cover"
+            />
+          )}
           <Text style={styles.menuTitle}>{menu.meal_name}</Text>
 
           {menu.description && (
@@ -411,7 +418,7 @@ const styles = StyleSheet.create({
   menuCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 20,
+    overflow: 'hidden',
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -419,19 +426,27 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  menuImage: {
+    width: '100%',
+    height: 200,
+  },
   menuTitle: {
     fontSize: 24,
     fontWeight: '700',
     color: '#111827',
     marginBottom: 16,
+    marginTop: 20,
+    marginHorizontal: 20,
   },
   divider: {
     height: 1,
     backgroundColor: '#E5E7EB',
     marginVertical: 16,
+    marginHorizontal: 20,
   },
   section: {
     marginBottom: 16,
+    marginHorizontal: 20,
   },
   sectionLabel: {
     fontSize: 12,
