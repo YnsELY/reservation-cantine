@@ -4,20 +4,25 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, ShoppingBag } from 'lucide-react-native';
+import { ArrowLeft, ShoppingBag, ArrowUpDown } from 'lucide-react-native';
 
 interface OrderDetail {
   id: string;
   child_name: string;
   menu_name: string;
-  menu_price: number;
+  menu_description: string | null;
+  menu_allergens: string[];
 }
+
+type SortOption = 'name' | 'menu';
 
 export default function AllOrders() {
   const [school, setSchool] = useState<School | null>(null);
   const [orders, setOrders] = useState<OrderDetail[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<OrderDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>('name');
   const router = useRouter();
   const params = useLocalSearchParams();
   const selectedDate = params.date as string;
@@ -51,7 +56,7 @@ export default function AllOrders() {
         .select(`
           id,
           children!inner(first_name, last_name),
-          menus!inner(meal_name, price)
+          menus!inner(meal_name, description, allergens)
         `)
         .eq('date', dateString)
         .eq('children.school_id', currentSchool.id);
@@ -62,11 +67,13 @@ export default function AllOrders() {
         id: res.id,
         child_name: `${res.children.first_name} ${res.children.last_name}`,
         menu_name: res.menus.meal_name,
-        menu_price: res.menus.price,
+        menu_description: res.menus.description,
+        menu_allergens: res.menus.allergens || [],
       }));
 
       ordersList.sort((a, b) => a.child_name.localeCompare(b.child_name));
       setOrders(ordersList);
+      setFilteredOrders(ordersList);
     } catch (err) {
       console.error('Error loading orders:', err);
       setOrders([]);
@@ -76,6 +83,19 @@ export default function AllOrders() {
   const onRefresh = () => {
     setRefreshing(true);
     loadData();
+  };
+
+  const handleSort = (option: SortOption) => {
+    setSortBy(option);
+    const sorted = [...orders];
+
+    if (option === 'name') {
+      sorted.sort((a, b) => a.child_name.localeCompare(b.child_name));
+    } else if (option === 'menu') {
+      sorted.sort((a, b) => a.menu_name.localeCompare(b.menu_name));
+    }
+
+    setFilteredOrders(sorted);
   };
 
   const formatDate = (dateString: string) => {
@@ -88,7 +108,6 @@ export default function AllOrders() {
     });
   };
 
-  const totalAmount = orders.reduce((sum, order) => sum + order.menu_price, 0);
 
   if (loading) {
     return (
@@ -118,10 +137,30 @@ export default function AllOrders() {
           <Text style={styles.summaryCount}>{orders.length}</Text>
           <Text style={styles.summaryLabel}>Commandes</Text>
         </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryTotalContainer}>
-          <Text style={styles.summaryTotalLabel}>Total</Text>
-          <Text style={styles.summaryTotalAmount}>{totalAmount.toFixed(2)} €</Text>
+      </View>
+
+      <View style={styles.filtersContainer}>
+        <View style={styles.filterHeader}>
+          <ArrowUpDown size={20} color="#6B7280" />
+          <Text style={styles.filterLabel}>Trier par:</Text>
+        </View>
+        <View style={styles.filterButtons}>
+          <TouchableOpacity
+            style={[styles.filterButton, sortBy === 'name' && styles.filterButtonActive]}
+            onPress={() => handleSort('name')}
+          >
+            <Text style={[styles.filterButtonText, sortBy === 'name' && styles.filterButtonTextActive]}>
+              Nom
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, sortBy === 'menu' && styles.filterButtonActive]}
+            onPress={() => handleSort('menu')}
+          >
+            <Text style={[styles.filterButtonText, sortBy === 'menu' && styles.filterButtonTextActive]}>
+              Menu
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -132,14 +171,14 @@ export default function AllOrders() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {orders.length === 0 ? (
+        {filteredOrders.length === 0 ? (
           <View style={styles.emptyContainer}>
             <ShoppingBag size={64} color="#D1D5DB" />
             <Text style={styles.emptyText}>Aucune commande pour ce jour</Text>
           </View>
         ) : (
           <View style={styles.ordersList}>
-            {orders.map((order, index) => (
+            {filteredOrders.map((order, index) => (
               <View
                 key={order.id}
                 style={[
@@ -147,11 +186,23 @@ export default function AllOrders() {
                   index % 2 === 0 && styles.orderItemEven
                 ]}
               >
-                <View style={styles.orderItemLeft}>
+                <View style={styles.orderContent}>
                   <Text style={styles.orderChildName}>{order.child_name}</Text>
-                  <Text style={styles.orderMenuName}>{order.menu_name}</Text>
+                  <View style={styles.menuDetails}>
+                    <Text style={styles.menuName}>{order.menu_name}</Text>
+                    {order.menu_description && (
+                      <Text style={styles.menuDescription}>{order.menu_description}</Text>
+                    )}
+                    {order.menu_allergens.length > 0 && (
+                      <View style={styles.allergensContainer}>
+                        <Text style={styles.allergensLabel}>Allergènes:</Text>
+                        <Text style={styles.allergensText}>
+                          {order.menu_allergens.join(', ')}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
-                <Text style={styles.orderPrice}>{order.menu_price.toFixed(2)} €</Text>
               </View>
             ))}
           </View>
@@ -236,24 +287,50 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
     marginTop: 2,
   },
-  summaryDivider: {
-    width: 1,
-    height: 48,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    marginHorizontal: 16,
+  filtersContainer: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  summaryTotalContainer: {
-    alignItems: 'flex-end',
+  filterHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
   },
-  summaryTotalLabel: {
+  filterLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginBottom: 4,
+    color: '#6B7280',
   },
-  summaryTotalAmount: {
-    fontSize: 24,
-    fontWeight: '700',
+  filterButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  filterButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+  },
+  filterButtonActive: {
+    backgroundColor: '#111827',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  filterButtonTextActive: {
     color: '#FFFFFF',
   },
   scrollView: {
@@ -284,34 +361,58 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   orderItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
   orderItemEven: {
     backgroundColor: '#FAFAFA',
   },
-  orderItemLeft: {
+  orderContent: {
     flex: 1,
-    marginRight: 12,
   },
   orderChildName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  orderMenuName: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  orderPrice: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     color: '#111827',
+    marginBottom: 12,
+  },
+  menuDetails: {
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#111827',
+  },
+  menuName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 6,
+  },
+  menuDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  allergensContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 4,
+    flexWrap: 'wrap',
+  },
+  allergensLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#DC2626',
+    marginRight: 6,
+  },
+  allergensText: {
+    fontSize: 13,
+    color: '#DC2626',
+    flex: 1,
+    fontStyle: 'italic',
   },
 });
