@@ -186,23 +186,23 @@ export default function SchoolHomeScreen() {
 
         <View style={styles.actionsRow}>
           <TouchableOpacity
-            style={styles.secondaryActionCard}
+            style={[styles.secondaryActionCard, { backgroundColor: '#BFDBFE' }]}
             onPress={() => router.push('/(school)/history')}
           >
-            <View style={styles.actionIconContainer}>
+            <View style={[styles.actionIconContainer, { backgroundColor: '#1E40AF' }]}>
               <History size={28} color="#FFFFFF" />
             </View>
-            <Text style={styles.actionTitle}>Voir{"\n"}l'historique</Text>
+            <Text style={[styles.actionTitle, { color: '#1E40AF' }]}>Voir{"\n"}l'historique</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.secondaryActionCard}
+            style={[styles.secondaryActionCard, { backgroundColor: '#DDD6FE' }]}
             onPress={() => router.push('/(school)/share-access')}
           >
-            <View style={styles.actionIconContainer}>
+            <View style={[styles.actionIconContainer, { backgroundColor: '#7C3AED' }]}>
               <Share2 size={28} color="#FFFFFF" />
             </View>
-            <Text style={styles.actionTitle}>Partager{"\n"}l'accès</Text>
+            <Text style={[styles.actionTitle, { color: '#7C3AED' }]}>Partager{"\n"}l'accès</Text>
           </TouchableOpacity>
         </View>
 
