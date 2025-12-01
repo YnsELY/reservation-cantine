@@ -10,7 +10,6 @@ import { LineChart } from 'react-native-chart-kit';
 export default function SchoolHomeScreen() {
   const router = useRouter();
   const [school, setSchool] = useState<School | null>(null);
-  const [todayMenusCount, setTodayMenusCount] = useState(0);
   const [todayOrdersCount, setTodayOrdersCount] = useState(0);
   const [studentsCount, setStudentsCount] = useState(0);
   const [monthlyOrders, setMonthlyOrders] = useState<number[]>([0, 0, 0, 0, 0]);
@@ -57,8 +56,6 @@ export default function SchoolHomeScreen() {
         .eq('school_id', currentSchool.id)
         .eq('date', todayStr)
         .eq('available', true);
-
-      setTodayMenusCount(todayMenusData?.length || 0);
 
       const { data: todayOrdersData } = await supabase
         .from('reservations')
@@ -143,19 +140,12 @@ export default function SchoolHomeScreen() {
 
         <View style={styles.todayCard}>
           <View style={styles.todayHeader}>
-            <UtensilsCrossed size={24} color="#111827" />
+            <UtensilsCrossed size={24} color="#FFFFFF" />
             <Text style={styles.todayTitle}>Aujourd'hui</Text>
           </View>
-          <View style={styles.todayStats}>
-            <View style={styles.todayStat}>
-              <Text style={styles.todayStatValue}>{todayMenusCount}</Text>
-              <Text style={styles.todayStatLabel}>Menu{todayMenusCount > 1 ? 's' : ''}</Text>
-            </View>
-            <View style={styles.todayDivider} />
-            <View style={styles.todayStat}>
-              <Text style={styles.todayStatValue}>{todayOrdersCount}</Text>
-              <Text style={styles.todayStatLabel}>Commande{todayOrdersCount > 1 ? 's' : ''}</Text>
-            </View>
+          <View style={styles.todayStatsCenter}>
+            <Text style={styles.todayStatValue}>{todayOrdersCount}</Text>
+            <Text style={styles.todayStatLabel}>Commande{todayOrdersCount > 1 ? 's' : ''} à distribuer</Text>
           </View>
         </View>
 
@@ -306,30 +296,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
-  todayStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  todayStat: {
-    flex: 1,
+  todayStatsCenter: {
     alignItems: 'center',
   },
   todayStatValue: {
-    fontSize: 36,
+    fontSize: 48,
     fontWeight: '700',
     color: '#FFFFFF',
+    marginBottom: 8,
   },
   todayStatLabel: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  todayDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: '#374151',
+    fontSize: 16,
+    color: '#D1D5DB',
+    fontWeight: '600',
   },
   actionsRow: {
     flexDirection: 'row',
