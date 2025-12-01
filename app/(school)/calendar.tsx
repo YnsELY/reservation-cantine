@@ -1,20 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Linking, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Menu, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { MenuIcon, UtensilsCrossed, ChevronLeft, ChevronRight, LogOut, Users, History, Share2, Building2, ArrowLeft, Calendar as CalendarIcon } from 'lucide-react-native';
-import Svg, { Path } from 'react-native-svg';
-
-const WhatsAppIcon = ({ size = 22, color = '#25D366' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-    <Path
-      d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"
-      fill={color}
-    />
-  </Svg>
-);
+import { ChevronLeft, ChevronRight, ArrowLeft, Users, UtensilsCrossed } from 'lucide-react-native';
 
 interface MenuWithOrderCount extends Menu {
   order_count: number;
@@ -36,7 +26,6 @@ export default function SchoolDashboard() {
   const [weekDates, setWeekDates] = useState<Date[]>([]);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [weekMenus, setWeekMenus] = useState<{[key: string]: MenuWithOrderCount[]}>({});
-  const [isMenuCardOpen, setIsMenuCardOpen] = useState(false);
   const dayScaleAnim = useRef(new Animated.Value(1)).current;
   const router = useRouter();
 
@@ -198,17 +187,6 @@ export default function SchoolDashboard() {
     return brightness > 155;
   };
 
-  const toggleMenuCard = () => {
-    setIsMenuCardOpen(!isMenuCardOpen);
-  };
-
-  const handleWhatsAppContact = () => {
-    const phoneNumber = '33612345678';
-    const message = encodeURIComponent('Bonjour, j\'ai une question concernant les repas scolaires.');
-    const whatsappUrl = `https://wa.me/${phoneNumber}?text=${message}`;
-    Linking.openURL(whatsappUrl).catch(() => {});
-  };
-
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -222,100 +200,6 @@ export default function SchoolDashboard() {
       <View style={styles.topHeader}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <ArrowLeft size={24} color="#111827" />
-        </TouchableOpacity>
-        <View style={styles.headerTitleContainer}>
-          <CalendarIcon size={20} color="#111827" />
-          <Text style={styles.headerTitle}>Calendrier des menus</Text>
-        </View>
-        <View style={styles.menuButtonContainer}>
-          <TouchableOpacity style={styles.headerButton} onPress={toggleMenuCard}>
-            <MenuIcon size={24} color="#111827" />
-          </TouchableOpacity>
-
-          {isMenuCardOpen && (
-            <View style={styles.dropdownCard}>
-              <TouchableOpacity
-                style={[styles.dropdownItem, styles.dropdownItemFirst]}
-                onPress={() => {
-                  setIsMenuCardOpen(false);
-                  router.push('/(school)/commander');
-                }}
-              >
-                <UtensilsCrossed size={22} color="#4B5563" />
-                <Text style={styles.dropdownItemText}>Commander</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.dropdownItem}
-                onPress={() => {
-                  setIsMenuCardOpen(false);
-                  router.push('/(school)/students');
-                }}
-              >
-                <Users size={22} color="#4B5563" />
-                <Text style={styles.dropdownItemText}>Liste des élèves</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.dropdownItem}
-                onPress={() => {
-                  setIsMenuCardOpen(false);
-                  router.push('/(school)/history');
-                }}
-              >
-                <History size={22} color="#4B5563" />
-                <Text style={styles.dropdownItemText}>Voir l'historique</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.dropdownItem}
-                onPress={() => {
-                  setIsMenuCardOpen(false);
-                  router.push('/(school)/share-access');
-                }}
-              >
-                <Share2 size={22} color="#4B5563" />
-                <Text style={styles.dropdownItemText}>Partager accès</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.dropdownItem}
-                onPress={() => {
-                  setIsMenuCardOpen(false);
-                  router.push('/(school)/account');
-                }}
-              >
-                <Building2 size={22} color="#4B5563" />
-                <Text style={styles.dropdownItemText}>Mon établissement</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.dropdownItem}
-                onPress={() => {
-                  setIsMenuCardOpen(false);
-                  handleWhatsAppContact();
-                }}
-              >
-                <WhatsAppIcon size={22} color="#25D366" />
-                <Text style={styles.dropdownItemText}>Contact WhatsApp</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.dropdownItem, styles.dropdownItemLogout, styles.dropdownItemLast]}
-                onPress={async () => {
-                  setIsMenuCardOpen(false);
-                  await authService.signOut();
-                  router.replace('/auth');
-                }}
-              >
-                <LogOut size={22} color="#EF4444" />
-                <Text style={[styles.dropdownItemText, styles.dropdownItemLogoutText]}>Déconnexion</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-        <TouchableOpacity style={styles.schoolButton} onPress={() => router.push('/(school)/account')}>
-          <Building2 size={24} color="#111827" />
         </TouchableOpacity>
       </View>
 
@@ -488,7 +372,7 @@ const styles = StyleSheet.create({
   },
   topHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 8,
@@ -507,42 +391,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
-  },
-  headerTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  schoolButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   fixedDaySelector: {
     backgroundColor: '#F9FAFB',
@@ -716,54 +564,5 @@ const styles = StyleSheet.create({
   viewOrdersButtonText: {
     fontSize: 14,
     fontWeight: '700',
-  },
-  menuButtonContainer: {
-    position: 'relative',
-    zIndex: 101,
-  },
-  dropdownCard: {
-    position: 'absolute',
-    top: 48,
-    left: 0,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 16,
-    minWidth: 220,
-    zIndex: 102,
-    overflow: 'hidden',
-  },
-  dropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 14,
-  },
-  dropdownItemFirst: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-  },
-  dropdownItemLast: {
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-  },
-  dropdownItemText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4B5563',
-  },
-  dropdownItemLogout: {
-    backgroundColor: '#FEF2F2',
-  },
-  dropdownItemLogoutText: {
-    color: '#EF4444',
-    fontWeight: '600',
   },
 });
