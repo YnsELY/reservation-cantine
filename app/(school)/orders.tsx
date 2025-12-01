@@ -344,86 +344,99 @@ export default function OrdersPage() {
           </View>
         ) : (
           <View style={styles.ordersList}>
-            {filteredOrders.map((order, index) => {
-              const colors = getPastelColor(index);
-              return (
-                <View key={order.id} style={styles.orderCard}>
-                  <View style={[styles.orderCardHeader, { backgroundColor: colors.bg }]}>
-                    <View style={styles.studentInfo}>
-                      <View style={[styles.studentAvatar, { backgroundColor: colors.badge }]}>
-                        <Text style={[styles.studentAvatarText, { color: colors.text }]}>
-                          {order.child_name.split(' ')[0][0]}{order.child_name.split(' ')[1]?.[0] || ''}
-                        </Text>
-                      </View>
-                      <View style={styles.studentDetails}>
-                        <Text style={[styles.studentName, { color: colors.text }]}>
-                          {order.child_name}
-                        </Text>
-                        {order.child_grade && (
-                          <Text style={[styles.studentGrade, { color: colors.text, opacity: 0.7 }]}>
-                            {order.child_grade}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                    <View style={[styles.orderNumber, { backgroundColor: colors.badge }]}>
-                      <Text style={[styles.orderNumberText, { color: colors.text }]}>#{index + 1}</Text>
-                    </View>
+            {filteredOrders.map((order, index) => (
+              <View key={order.id} style={styles.orderCard}>
+                <View style={styles.orderHeader}>
+                  <View style={styles.orderNumberContainer}>
+                    <Text style={styles.orderNumber}>#{index + 1}</Text>
                   </View>
+                  <View style={styles.orderHeaderRight}>
+                    <Text style={styles.orderDate}>{formatDate(date as string)}</Text>
+                  </View>
+                </View>
 
-                  {(order.child_allergies?.length > 0 || order.child_dietary_restrictions?.length > 0) && (
-                    <View style={styles.allergySection}>
+                <View style={styles.orderDivider} />
+
+                <View style={styles.orderSection}>
+                  <View style={styles.sectionHeader}>
+                    <User size={18} color="#111827" />
+                    <Text style={styles.sectionTitle}>Élève</Text>
+                  </View>
+                  <View style={styles.sectionContent}>
+                    <Text style={styles.personName}>{order.child_name}</Text>
+                    {order.child_grade && (
+                      <Text style={styles.personDetail}>{order.child_grade}</Text>
+                    )}
+                  </View>
+                </View>
+
+                <View style={styles.orderSection}>
+                  <View style={styles.sectionHeader}>
+                    <Users size={18} color="#111827" />
+                    <Text style={styles.sectionTitle}>Parent</Text>
+                  </View>
+                  <View style={styles.sectionContent}>
+                    <Text style={styles.personName}>{order.parent_name}</Text>
+                    {order.parent_phone && (
+                      <Text style={styles.personDetail}>{order.parent_phone}</Text>
+                    )}
+                  </View>
+                </View>
+
+                {(order.child_allergies?.length > 0 || order.child_dietary_restrictions?.length > 0) && (
+                  <View style={styles.orderSection}>
+                    <View style={styles.sectionHeader}>
+                      <Text style={styles.sectionTitle}>⚠️ ALLERGIES & RESTRICTIONS</Text>
+                    </View>
+                    <View style={styles.sectionContent}>
                       {order.child_allergies?.length > 0 && (
-                        <View style={styles.allergyContainer}>
-                          <Text style={styles.allergyLabel}>Allergies:</Text>
-                          <Text style={styles.allergyText}>
+                        <View style={styles.allergensContainer}>
+                          <Text style={styles.allergensLabel}>Allergies:</Text>
+                          <Text style={styles.allergensText}>
                             {order.child_allergies.join(', ')}
                           </Text>
                         </View>
                       )}
                       {order.child_dietary_restrictions?.length > 0 && (
-                        <View style={styles.allergyContainer}>
-                          <Text style={styles.allergyLabel}>Restrictions:</Text>
-                          <Text style={styles.allergyText}>
+                        <View style={styles.allergensContainer}>
+                          <Text style={styles.allergensLabel}>Restrictions:</Text>
+                          <Text style={styles.allergensText}>
                             {order.child_dietary_restrictions.join(', ')}
                           </Text>
                         </View>
                       )}
                     </View>
-                  )}
+                  </View>
+                )}
 
-                  {order.supplements && order.supplements.length > 0 && (
-                    <View style={styles.supplementSection}>
-                      <Text style={styles.supplementLabel}>Suppléments:</Text>
-                      <View style={styles.supplementList}>
-                        {order.supplements.map((supp: any, idx: number) => (
-                          <Text key={idx} style={styles.supplementText}>• {supp.name}</Text>
-                        ))}
-                      </View>
+                {order.supplements && order.supplements.length > 0 && (
+                  <View style={styles.orderSection}>
+                    <View style={styles.sectionHeader}>
+                      <ShoppingBag size={18} color="#111827" />
+                      <Text style={styles.sectionTitle}>Suppléments</Text>
                     </View>
-                  )}
-
-                  {order.annotations && (
-                    <View style={styles.annotationsSection}>
-                      <Text style={styles.annotationsLabel}>Annotations:</Text>
-                      <Text style={styles.annotationsText}>{order.annotations}</Text>
-                    </View>
-                  )}
-
-                  <View style={styles.orderCardFooter}>
-                    <View style={styles.parentInfo}>
-                      <Text style={styles.parentLabel}>Parent</Text>
-                      <Text style={styles.parentName}>
-                        {order.parent_name}
-                      </Text>
-                      {order.parent_phone && (
-                        <Text style={styles.parentPhone}>{order.parent_phone}</Text>
-                      )}
+                    <View style={styles.sectionContent}>
+                      {order.supplements.map((supp: any, idx: number) => (
+                        <View key={idx} style={styles.supplementItem}>
+                          <Text style={styles.supplementName}>• {supp.name}</Text>
+                        </View>
+                      ))}
                     </View>
                   </View>
-                </View>
-              );
-            })}
+                )}
+
+                {order.annotations && (
+                  <View style={styles.orderSection}>
+                    <View style={styles.sectionHeader}>
+                      <Text style={styles.sectionTitle}>📝 ANNOTATIONS</Text>
+                    </View>
+                    <View style={styles.sectionContent}>
+                      <Text style={styles.annotationsText}>{order.annotations}</Text>
+                    </View>
+                  </View>
+                )}
+              </View>
+            ))}
           </View>
         )}
       </ScrollView>
@@ -646,150 +659,110 @@ const styles = StyleSheet.create({
   },
   orderCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginBottom: 16,
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
-    overflow: 'hidden',
   },
-  orderCardHeader: {
+  orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    marginBottom: 16,
   },
-  studentInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  studentAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  studentAvatarText: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  studentDetails: {
-    flex: 1,
-  },
-  studentName: {
-    fontSize: 17,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  studentGrade: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  orderNumber: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  orderNumberContainer: {
+    backgroundColor: '#111827',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 8,
   },
-  orderNumberText: {
-    fontSize: 14,
+  orderNumber: {
+    fontSize: 16,
     fontWeight: '700',
+    color: '#FFFFFF',
   },
-  allergySection: {
-    padding: 20,
-    paddingTop: 16,
-    paddingBottom: 16,
-    backgroundColor: '#FEF3C7',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+  orderHeaderRight: {
+    alignItems: 'flex-end',
   },
-  allergyContainer: {
-    marginBottom: 8,
-  },
-  allergyLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#92400E',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  allergyText: {
-    fontSize: 14,
-    color: '#78350F',
+  orderDate: {
+    fontSize: 13,
+    color: '#6B7280',
     fontWeight: '500',
   },
-  supplementSection: {
-    padding: 20,
-    paddingTop: 16,
-    paddingBottom: 16,
-    backgroundColor: '#E0E7FF',
+  orderDivider: {
+    height: 2,
+    backgroundColor: '#E5E7EB',
+    marginBottom: 16,
+  },
+  orderSection: {
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+    paddingBottom: 6,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
-  supplementLabel: {
-    fontSize: 12,
+  sectionTitle: {
+    fontSize: 14,
     fontWeight: '700',
-    color: '#3730A3',
+    color: '#111827',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 8,
   },
-  supplementList: {
-    gap: 4,
+  sectionContent: {
+    paddingLeft: 26,
   },
-  supplementText: {
-    fontSize: 14,
-    color: '#4338CA',
-    fontWeight: '500',
-  },
-  annotationsSection: {
-    padding: 20,
-    paddingTop: 16,
-    paddingBottom: 16,
-    backgroundColor: '#F9FAFB',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  annotationsLabel: {
-    fontSize: 12,
-    fontWeight: '700',
+  personName: {
+    fontSize: 15,
+    fontWeight: '600',
     color: '#374151',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+  },
+  personDetail: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  allergensContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 8,
+    backgroundColor: '#FEF2F2',
+    padding: 8,
+    borderRadius: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: '#DC2626',
+  },
+  allergensLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#DC2626',
+    marginRight: 6,
+  },
+  allergensText: {
+    fontSize: 13,
+    color: '#DC2626',
+    flex: 1,
+  },
+  supplementItem: {
+    marginBottom: 6,
+  },
+  supplementName: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
   },
   annotationsText: {
     fontSize: 14,
-    color: '#111827',
+    color: '#374151',
     lineHeight: 20,
-  },
-  orderCardFooter: {
-    padding: 20,
-    paddingTop: 16,
-  },
-  parentInfo: {
-    gap: 4,
-  },
-  parentLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#6B7280',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  parentName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  parentPhone: {
-    fontSize: 14,
-    color: '#6B7280',
   },
 });
