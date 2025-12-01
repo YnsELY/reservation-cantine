@@ -189,7 +189,7 @@ export default function SchoolHomeScreen() {
             style={styles.secondaryActionCard}
             onPress={() => router.push('/(school)/history')}
           >
-            <View style={[styles.actionIconContainer, { backgroundColor: '#1E40AF' }]}>
+            <View style={styles.actionIconContainer}>
               <History size={28} color="#FFFFFF" />
             </View>
             <Text style={styles.actionTitle}>Voir{"\n"}l'historique</Text>
@@ -199,7 +199,7 @@ export default function SchoolHomeScreen() {
             style={styles.secondaryActionCard}
             onPress={() => router.push('/(school)/share-access')}
           >
-            <View style={[styles.actionIconContainer, { backgroundColor: '#7C3AED' }]}>
+            <View style={styles.actionIconContainer}>
               <Share2 size={28} color="#FFFFFF" />
             </View>
             <Text style={styles.actionTitle}>Partager{"\n"}l'accès</Text>
