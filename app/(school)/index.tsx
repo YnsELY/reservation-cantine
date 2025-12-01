@@ -133,7 +133,7 @@ export default function SchoolHomeScreen() {
       >
         <View style={styles.header}>
           <View>
-            <Text style={styles.greeting}>Bonjour</Text>
+            <Text style={styles.greeting}>École</Text>
             <Text style={styles.schoolName}>{school?.name}</Text>
           </View>
         </View>
