@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { Calendar, Users, ClipboardList, UtensilsCrossed, History } from 'lucide-react-native';
+import { Calendar, Users, ClipboardList, UtensilsCrossed, History, Share2 } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
 
 export default function SchoolHomeScreen() {
@@ -184,15 +184,27 @@ export default function SchoolHomeScreen() {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.historyButton}
-          onPress={() => router.push('/(school)/statistics')}
-        >
-          <View style={styles.historyButtonContent}>
-            <History size={24} color="#1E40AF" />
-            <Text style={styles.historyButtonText}>Voir l'historique</Text>
-          </View>
-        </TouchableOpacity>
+        <View style={styles.actionsRow}>
+          <TouchableOpacity
+            style={styles.secondaryActionCard}
+            onPress={() => router.push('/(school)/history')}
+          >
+            <View style={[styles.actionIconContainer, { backgroundColor: '#1E40AF' }]}>
+              <History size={28} color="#FFFFFF" />
+            </View>
+            <Text style={styles.actionTitle}>Voir{"\n"}l'historique</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.secondaryActionCard}
+            onPress={() => router.push('/(school)/share-access')}
+          >
+            <View style={[styles.actionIconContainer, { backgroundColor: '#7C3AED' }]}>
+              <Share2 size={28} color="#FFFFFF" />
+            </View>
+            <Text style={styles.actionTitle}>Partager{"\n"}l'accès</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.chartContainer}>
           <Text style={styles.chartTitle}>Commandes du mois</Text>
@@ -344,6 +356,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  secondaryActionCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
   studentsButton: {
     marginHorizontal: 20,
     marginBottom: 24,
@@ -377,29 +401,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#065F46',
-  },
-  historyButton: {
-    marginHorizontal: 20,
-    marginBottom: 24,
-    backgroundColor: '#BFDBFE',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  historyButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  historyButtonText: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1E40AF',
   },
   chartContainer: {
     backgroundColor: '#FFFFFF',
