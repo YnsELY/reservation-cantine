@@ -4,14 +4,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, ShoppingBag, ArrowUpDown } from 'lucide-react-native';
+import { ArrowLeft, ShoppingBag, ArrowUpDown, User, Users, UtensilsCrossed } from 'lucide-react-native';
 
 interface OrderDetail {
   id: string;
   child_name: string;
+  parent_name: string;
   menu_name: string;
   menu_description: string | null;
   menu_allergens: string[];
+  supplements: Array<{name: string; price: number}> | null;
 }
 
 type SortOption = 'name' | 'menu';
@@ -55,8 +57,10 @@ export default function AllOrders() {
         .from('reservations')
         .select(`
           id,
+          supplements,
           children!inner(first_name, last_name),
-          menus!inner(meal_name, description, allergens)
+          menus!inner(meal_name, description, allergens),
+          parents!inner(first_name, last_name)
         `)
         .eq('date', dateString)
         .eq('children.school_id', currentSchool.id);
@@ -66,9 +70,11 @@ export default function AllOrders() {
       const ordersList: OrderDetail[] = (reservations || []).map((res: any) => ({
         id: res.id,
         child_name: `${res.children.first_name} ${res.children.last_name}`,
+        parent_name: `${res.parents.first_name} ${res.parents.last_name}`,
         menu_name: res.menus.meal_name,
         menu_description: res.menus.description,
         menu_allergens: res.menus.allergens || [],
+        supplements: res.supplements || null,
       }));
 
       ordersList.sort((a, b) => a.child_name.localeCompare(b.child_name));
@@ -179,16 +185,24 @@ export default function AllOrders() {
         ) : (
           <View style={styles.ordersList}>
             {filteredOrders.map((order, index) => (
-              <View
-                key={order.id}
-                style={[
-                  styles.orderItem,
-                  index % 2 === 0 && styles.orderItemEven
-                ]}
-              >
-                <View style={styles.orderContent}>
-                  <Text style={styles.orderChildName}>{order.child_name}</Text>
-                  <View style={styles.menuDetails}>
+              <View key={order.id} style={styles.orderCard}>
+                <View style={styles.orderHeader}>
+                  <View style={styles.orderNumberContainer}>
+                    <Text style={styles.orderNumber}>#{index + 1}</Text>
+                  </View>
+                  <View style={styles.orderHeaderRight}>
+                    <Text style={styles.orderDate}>{formatDate(selectedDate)}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.orderDivider} />
+
+                <View style={styles.orderSection}>
+                  <View style={styles.sectionHeader}>
+                    <UtensilsCrossed size={18} color="#111827" />
+                    <Text style={styles.sectionTitle}>Menu</Text>
+                  </View>
+                  <View style={styles.sectionContent}>
                     <Text style={styles.menuName}>{order.menu_name}</Text>
                     {order.menu_description && (
                       <Text style={styles.menuDescription}>{order.menu_description}</Text>
@@ -203,6 +217,42 @@ export default function AllOrders() {
                     )}
                   </View>
                 </View>
+
+                <View style={styles.orderSection}>
+                  <View style={styles.sectionHeader}>
+                    <User size={18} color="#111827" />
+                    <Text style={styles.sectionTitle}>Élève</Text>
+                  </View>
+                  <View style={styles.sectionContent}>
+                    <Text style={styles.personName}>{order.child_name}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.orderSection}>
+                  <View style={styles.sectionHeader}>
+                    <Users size={18} color="#111827" />
+                    <Text style={styles.sectionTitle}>Parent</Text>
+                  </View>
+                  <View style={styles.sectionContent}>
+                    <Text style={styles.personName}>{order.parent_name}</Text>
+                  </View>
+                </View>
+
+                {order.supplements && order.supplements.length > 0 && (
+                  <View style={styles.orderSection}>
+                    <View style={styles.sectionHeader}>
+                      <ShoppingBag size={18} color="#111827" />
+                      <Text style={styles.sectionTitle}>Suppléments</Text>
+                    </View>
+                    <View style={styles.sectionContent}>
+                      {order.supplements.map((supp: any, idx: number) => (
+                        <View key={idx} style={styles.supplementItem}>
+                          <Text style={styles.supplementName}>• {supp.name}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
               </View>
             ))}
           </View>
@@ -350,43 +400,75 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   ordersList: {
-    backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
-    borderRadius: 16,
-    overflow: 'hidden',
+    gap: 16,
+  },
+  orderCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 3,
   },
-  orderItem: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
+  orderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  orderNumberContainer: {
+    backgroundColor: '#111827',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  orderNumber: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  orderHeaderRight: {
+    alignItems: 'flex-end',
+  },
+  orderDate: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  orderDivider: {
+    height: 2,
+    backgroundColor: '#E5E7EB',
+    marginBottom: 16,
+  },
+  orderSection: {
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+    paddingBottom: 6,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
-  orderItemEven: {
-    backgroundColor: '#FAFAFA',
-  },
-  orderContent: {
-    flex: 1,
-  },
-  orderChildName: {
-    fontSize: 17,
+  sectionTitle: {
+    fontSize: 14,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  menuDetails: {
-    backgroundColor: '#F9FAFB',
-    padding: 12,
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#111827',
+  sectionContent: {
+    paddingLeft: 26,
   },
   menuName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
     color: '#111827',
     marginBottom: 6,
@@ -400,12 +482,16 @@ const styles = StyleSheet.create({
   allergensContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: 4,
-    flexWrap: 'wrap',
+    marginTop: 8,
+    backgroundColor: '#FEF2F2',
+    padding: 8,
+    borderRadius: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: '#DC2626',
   },
   allergensLabel: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#DC2626',
     marginRight: 6,
   },
@@ -413,6 +499,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#DC2626',
     flex: 1,
-    fontStyle: 'italic',
+  },
+  personName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  supplementItem: {
+    marginBottom: 6,
+  },
+  supplementName: {
+    fontSize: 14,
+    color: '#374151',
+    fontWeight: '500',
   },
 });
