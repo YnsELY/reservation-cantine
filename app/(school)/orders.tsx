@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, FileDown, User } from 'lucide-react-native';
+import { User } from 'lucide-react-native';
 
 interface OrderDetails {
   id: string;
@@ -26,7 +26,6 @@ interface OrderDetails {
 }
 
 export default function OrdersPage() {
-  const router = useRouter();
   const { menuId, menuName, date } = useLocalSearchParams();
   const [orders, setOrders] = useState<OrderDetails[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,10 +79,6 @@ export default function OrdersPage() {
     return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]}`;
   };
 
-  const exportToExcel = () => {
-    console.log('Export to Excel');
-  };
-
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -96,36 +91,18 @@ export default function OrdersPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <ArrowLeft size={24} color="#111827" />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.exportButton}
-          onPress={exportToExcel}
-        >
-          <FileDown size={20} color="#2563EB" />
-          <Text style={styles.exportButtonText}>Excel</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.titleSection}>
-        <View style={styles.dateBadge}>
-          <Text style={styles.dateBadgeText}>{formatDate(date as string)}</Text>
-        </View>
-        <Text style={styles.menuTitle}>{menuName}</Text>
-        <Text style={styles.orderCount}>{orders.length} commande{orders.length !== 1 ? 's' : ''}</Text>
-      </View>
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.titleSection}>
+          <View style={styles.dateBadge}>
+            <Text style={styles.dateBadgeText}>{formatDate(date as string)}</Text>
+          </View>
+          <Text style={styles.menuTitle}>{menuName}</Text>
+          <Text style={styles.orderCount}>{orders.length} commande{orders.length !== 1 ? 's' : ''}</Text>
+        </View>
         {orders.length === 0 ? (
           <View style={styles.emptyContainer}>
             <User size={64} color="#D1D5DB" />
@@ -215,49 +192,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  exportButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#2563EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  exportButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#2563EB',
-  },
   titleSection: {
     paddingHorizontal: 20,
+    paddingTop: 20,
     paddingBottom: 24,
   },
   dateBadge: {
@@ -286,10 +223,11 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+    backgroundColor: '#F9FAFB',
   },
   scrollContent: {
-    padding: 20,
-    paddingTop: 0,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   emptyContainer: {
     flex: 1,
