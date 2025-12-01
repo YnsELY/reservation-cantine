@@ -303,8 +303,14 @@ export default function AddMenuScreen() {
         return `${year}-${month}-${day}`;
       };
 
-      const menuData = selectedSchools.map(schoolId => ({
-        school_id: schoolId,
+      if (selectedSchools.length !== 1) {
+        console.error('Invalid school selection:', selectedSchools);
+        Alert.alert('Erreur', 'Veuillez sélectionner exactement une école');
+        return;
+      }
+
+      const menuData = {
+        school_id: selectedSchools[0],
         meal_name: mealName.trim(),
         description: description.trim() || null,
         price: parseFloat(price),
@@ -312,10 +318,10 @@ export default function AddMenuScreen() {
         card_color: selectedColor,
         provider_id: provider?.id || null,
         image_url: imageUrl,
-      }));
+      };
 
       console.log('Inserting menu data:', menuData);
-      const { data, error } = await supabase.from('menus').insert(menuData);
+      const { data, error } = await supabase.from('menus').insert([menuData]);
 
       if (error) {
         console.error('Database insert error:', error);
