@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { Receipt, AlertCircle, History, ArrowLeft, ChevronDown } from 'lucide-react-native';
+import { Receipt, AlertCircle, History, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react-native';
 
 interface Child {
   id: string;
@@ -201,6 +201,24 @@ export default function HistoryScreen() {
     }
   };
 
+  const navigatePeriod = (direction: 'prev' | 'next') => {
+    const newDate = new Date(selectedDate);
+
+    switch (periodFilter) {
+      case 'day':
+        newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1));
+        break;
+      case 'week':
+        newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7));
+        break;
+      case 'month':
+        newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
+        break;
+    }
+
+    setSelectedDate(newDate);
+  };
+
   const filteredReservations = getFilteredReservations();
   const statistics = getStatistics();
 
@@ -251,7 +269,26 @@ export default function HistoryScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.periodLabel}>{getPeriodLabel()}</Text>
+        {periodFilter !== 'all' && (
+          <View style={styles.dateNavigator}>
+            <TouchableOpacity
+              style={styles.navButton}
+              onPress={() => navigatePeriod('prev')}
+            >
+              <ChevronLeft size={20} color="#111827" />
+            </TouchableOpacity>
+            <Text style={styles.periodLabel}>{getPeriodLabel()}</Text>
+            <TouchableOpacity
+              style={styles.navButton}
+              onPress={() => navigatePeriod('next')}
+            >
+              <ChevronRight size={20} color="#111827" />
+            </TouchableOpacity>
+          </View>
+        )}
+        {periodFilter === 'all' && (
+          <Text style={styles.periodLabel}>{getPeriodLabel()}</Text>
+        )}
       </View>
 
       <Modal
@@ -508,6 +545,20 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
     textTransform: 'capitalize',
+    flex: 1,
+  },
+  dateNavigator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  navButton: {
+    backgroundColor: '#F9FAFB',
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   statisticsContainer: {
     flexDirection: 'row',
