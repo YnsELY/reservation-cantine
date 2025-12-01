@@ -365,26 +365,32 @@ export default function ParentHomeScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-            upcomingReservations.map((reservation) => (
-              <View key={reservation.id} style={styles.reservationCard}>
-                <View style={styles.reservationDateBadge}>
-                  <Text style={styles.reservationDateText}>
-                    {formatDate(reservation.date)}
-                  </Text>
+            <ScrollView
+              style={styles.reservationsScrollView}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+            >
+              {upcomingReservations.map((reservation) => (
+                <View key={reservation.id} style={styles.reservationCard}>
+                  <View style={styles.reservationDateBadge}>
+                    <Text style={styles.reservationDateText}>
+                      {formatDate(reservation.date)}
+                    </Text>
+                  </View>
+                  <View style={styles.reservationInfo}>
+                    <Text style={styles.reservationChildName}>
+                      {reservation.children.first_name} {reservation.children.last_name}
+                    </Text>
+                    <Text style={styles.reservationMenuName}>
+                      {reservation.menus.meal_name}
+                    </Text>
+                    <Text style={styles.reservationPrice}>
+                      {reservation.total_price.toFixed(2)} €
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.reservationInfo}>
-                  <Text style={styles.reservationChildName}>
-                    {reservation.children.first_name} {reservation.children.last_name}
-                  </Text>
-                  <Text style={styles.reservationMenuName}>
-                    {reservation.menus.meal_name}
-                  </Text>
-                  <Text style={styles.reservationPrice}>
-                    {reservation.total_price.toFixed(2)} €
-                  </Text>
-                </View>
-              </View>
-            ))
+              ))}
+            </ScrollView>
           )}
         </View>
       </ScrollView>
@@ -569,6 +575,9 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: 16,
   },
+  reservationsScrollView: {
+    maxHeight: 280,
+  },
   emptyReservations: {
     alignItems: 'center',
     paddingVertical: 32,
@@ -597,6 +606,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
+    minHeight: 70,
   },
   reservationDateBadge: {
     backgroundColor: '#FEF3C7',
