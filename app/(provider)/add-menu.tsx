@@ -67,7 +67,6 @@ export default function AddMenuScreen() {
 
       if (schoolsList.length > 0) {
         setSelectedSchools([schoolsList[0].school_id]);
-        setSelectAllSchools(false);
       }
     } catch (err) {
       console.error('Error loading data:', err);
@@ -77,8 +76,31 @@ export default function AddMenuScreen() {
   };
 
   const toggleSchool = (schoolId: string) => {
-    setSelectedSchools([schoolId]);
-    setSelectAllSchools(false);
+    setSelectedSchools(prev => {
+      if (prev.includes(schoolId)) {
+        const newSelection = prev.filter(id => id !== schoolId);
+        if (newSelection.length === 0) {
+          setSelectAllSchools(false);
+        }
+        return newSelection;
+      } else {
+        const newSelection = [...prev, schoolId];
+        if (newSelection.length === schools.length) {
+          setSelectAllSchools(true);
+        }
+        return newSelection;
+      }
+    });
+  };
+
+  const toggleAllSchools = () => {
+    if (selectAllSchools) {
+      setSelectedSchools([]);
+      setSelectAllSchools(false);
+    } else {
+      setSelectedSchools(schools.map(s => s.school_id));
+      setSelectAllSchools(true);
+    }
   };
 
 
@@ -303,14 +325,8 @@ export default function AddMenuScreen() {
         return `${year}-${month}-${day}`;
       };
 
-      if (selectedSchools.length !== 1) {
-        console.error('Invalid school selection:', selectedSchools);
-        Alert.alert('Erreur', 'Veuillez sélectionner exactement une école');
-        return;
-      }
-
-      const menuData = {
-        school_id: selectedSchools[0],
+      const menuData = selectedSchools.map(schoolId => ({
+        school_id: schoolId,
         meal_name: mealName.trim(),
         description: description.trim() || null,
         price: parseFloat(price),
@@ -318,10 +334,10 @@ export default function AddMenuScreen() {
         card_color: selectedColor,
         provider_id: provider?.id || null,
         image_url: imageUrl,
-      };
+      }));
 
       console.log('Inserting menu data:', menuData);
-      const { data, error } = await supabase.from('menus').insert([menuData]);
+      const { data, error } = await supabase.from('menus').insert(menuData);
 
       if (error) {
         console.error('Database insert error:', error);
@@ -330,7 +346,7 @@ export default function AddMenuScreen() {
 
       console.log('Menu inserted successfully:', data);
 
-      Alert.alert('Succès', 'Menu créé avec succès', [
+      Alert.alert('Succès', `Menu créé avec succès pour ${selectedSchools.length} école(s)`, [
         {
           text: 'OK',
           onPress: () => router.back(),
@@ -368,7 +384,19 @@ export default function AddMenuScreen() {
 
         <View style={styles.form}>
           <View style={styles.formGroup}>
-            <Text style={styles.label}>École *</Text>
+            <Text style={styles.label}>Écoles *</Text>
+            <TouchableOpacity
+              style={styles.selectAllButton}
+              onPress={toggleAllSchools}
+            >
+              <View style={[
+                styles.checkbox,
+                selectAllSchools && styles.checkboxActive
+              ]}>
+                {selectAllSchools && <Check size={16} color="#FFFFFF" />}
+              </View>
+              <Text style={styles.selectAllText}>Toutes les écoles</Text>
+            </TouchableOpacity>
             <View style={styles.schoolsList}>
               {schools.map(school => (
                 <TouchableOpacity
@@ -377,11 +405,11 @@ export default function AddMenuScreen() {
                   onPress={() => toggleSchool(school.school_id)}
                 >
                   <View style={[
-                    styles.radioButton,
-                    selectedSchools.includes(school.school_id) && styles.radioButtonActive
+                    styles.checkbox,
+                    selectedSchools.includes(school.school_id) && styles.checkboxActive
                   ]}>
                     {selectedSchools.includes(school.school_id) && (
-                      <View style={styles.radioButtonInner} />
+                      <Check size={16} color="#FFFFFF" />
                     )}
                   </View>
                   <Text style={styles.schoolItemText}>{school.school_name}</Text>
