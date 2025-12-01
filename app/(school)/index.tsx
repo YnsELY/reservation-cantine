@@ -50,18 +50,14 @@ export default function SchoolHomeScreen() {
       today.setHours(0, 0, 0, 0);
       const todayStr = today.toISOString().split('T')[0];
 
-      const { data: todayMenusData } = await supabase
-        .from('menus')
-        .select('id')
-        .eq('school_id', currentSchool.id)
-        .eq('date', todayStr)
-        .eq('available', true);
-
       const { data: todayOrdersData } = await supabase
         .from('reservations')
-        .select('id')
+        .select(`
+          id,
+          child:children!inner(school_id)
+        `)
         .eq('date', todayStr)
-        .in('menu_id', (todayMenusData || []).map(m => m.id));
+        .eq('child.school_id', currentSchool.id);
 
       setTodayOrdersCount(todayOrdersData?.length || 0);
 
