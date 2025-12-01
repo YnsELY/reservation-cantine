@@ -79,6 +79,18 @@ export default function OrdersPage() {
     return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]}`;
   };
 
+  const getPastelColor = (index: number) => {
+    const colors = [
+      { bg: '#FEF3C7', text: '#92400E', badge: '#FCD34D' },
+      { bg: '#DBEAFE', text: '#1E3A8A', badge: '#93C5FD' },
+      { bg: '#FCE7F3', text: '#831843', badge: '#F9A8D4' },
+      { bg: '#D1FAE5', text: '#065F46', badge: '#6EE7B7' },
+      { bg: '#E0E7FF', text: '#3730A3', badge: '#A5B4FC' },
+      { bg: '#FED7AA', text: '#7C2D12', badge: '#FDBA74' },
+    ];
+    return colors[index % colors.length];
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -112,28 +124,32 @@ export default function OrdersPage() {
             </Text>
           </View>
         ) : (
-          orders.map((order, index) => (
-            <View key={order.id} style={styles.orderCard}>
-              <View style={styles.orderCardHeader}>
-                <View style={styles.studentInfo}>
-                  <View style={styles.studentAvatar}>
-                    <Text style={styles.studentAvatarText}>
-                      {order.child.first_name[0]}{order.child.last_name[0]}
-                    </Text>
+          orders.map((order, index) => {
+            const colors = getPastelColor(index);
+            return (
+              <View key={order.id} style={styles.orderCard}>
+                <View style={[styles.orderCardHeader, { backgroundColor: colors.bg }]}>
+                  <View style={styles.studentInfo}>
+                    <View style={[styles.studentAvatar, { backgroundColor: colors.badge }]}>
+                      <Text style={[styles.studentAvatarText, { color: colors.text }]}>
+                        {order.child.first_name[0]}{order.child.last_name[0]}
+                      </Text>
+                    </View>
+                    <View style={styles.studentDetails}>
+                      <Text style={[styles.studentName, { color: colors.text }]}>
+                        {order.child.first_name} {order.child.last_name}
+                      </Text>
+                      {order.child.grade && (
+                        <Text style={[styles.studentGrade, { color: colors.text, opacity: 0.7 }]}>
+                          {order.child.grade}
+                        </Text>
+                      )}
+                    </View>
                   </View>
-                  <View style={styles.studentDetails}>
-                    <Text style={styles.studentName}>
-                      {order.child.first_name} {order.child.last_name}
-                    </Text>
-                    {order.child.grade && (
-                      <Text style={styles.studentGrade}>{order.child.grade}</Text>
-                    )}
+                  <View style={[styles.orderNumber, { backgroundColor: colors.badge }]}>
+                    <Text style={[styles.orderNumberText, { color: colors.text }]}>#{index + 1}</Text>
                   </View>
                 </View>
-                <View style={styles.orderNumber}>
-                  <Text style={styles.orderNumberText}>#{index + 1}</Text>
-                </View>
-              </View>
 
               {(order.child.allergies?.length > 0 || order.child.dietary_restrictions?.length > 0) && (
                 <View style={styles.allergySection}>
@@ -175,7 +191,8 @@ export default function OrdersPage() {
                 </View>
               </View>
             </View>
-          ))
+            );
+          })
         )}
       </ScrollView>
     </SafeAreaView>
@@ -199,7 +216,7 @@ const styles = StyleSheet.create({
   },
   dateBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#E0E7FF',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -208,7 +225,7 @@ const styles = StyleSheet.create({
   dateBadgeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#2563EB',
+    color: '#3730A3',
   },
   menuTitle: {
     fontSize: 28,
@@ -263,8 +280,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
   },
   studentInfo: {
     flexDirection: 'row',
@@ -276,14 +291,12 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#EFF6FF',
     justifyContent: 'center',
     alignItems: 'center',
   },
   studentAvatarText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#2563EB',
   },
   studentDetails: {
     flex: 1,
@@ -291,16 +304,13 @@ const styles = StyleSheet.create({
   studentName: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#111827',
     marginBottom: 2,
   },
   studentGrade: {
     fontSize: 14,
-    color: '#6B7280',
     fontWeight: '500',
   },
   orderNumber: {
-    backgroundColor: '#F3F4F6',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -308,7 +318,6 @@ const styles = StyleSheet.create({
   orderNumberText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#374151',
   },
   allergySection: {
     padding: 20,
