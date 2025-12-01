@@ -47,8 +47,10 @@ export default function SchoolHomeScreen() {
       setStudentsCount(studentsData?.length || 0);
 
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayStr = today.toISOString().split('T')[0];
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
 
       const { data: todayOrdersData } = await supabase
         .from('reservations')
@@ -65,12 +67,15 @@ export default function SchoolHomeScreen() {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
+      const startMonthStr = `${startOfMonth.getFullYear()}-${String(startOfMonth.getMonth() + 1).padStart(2, '0')}-${String(startOfMonth.getDate()).padStart(2, '0')}`;
+      const endMonthStr = `${endOfMonth.getFullYear()}-${String(endOfMonth.getMonth() + 1).padStart(2, '0')}-${String(endOfMonth.getDate()).padStart(2, '0')}`;
+
       const { data: allMenusData } = await supabase
         .from('menus')
         .select('id, date')
         .eq('school_id', currentSchool.id)
-        .gte('date', startOfMonth.toISOString().split('T')[0])
-        .lte('date', endOfMonth.toISOString().split('T')[0]);
+        .gte('date', startMonthStr)
+        .lte('date', endMonthStr);
 
       const menuIds = (allMenusData || []).map(m => m.id);
 
