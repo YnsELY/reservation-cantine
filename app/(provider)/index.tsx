@@ -23,6 +23,11 @@ interface MenuWithOrderCount extends Menu {
   school_name?: string;
 }
 
+interface GroupedMenuWithOrderCount extends MenuWithOrderCount {
+  school_ids: string[];
+  school_names: string[];
+}
+
 const formatDateToLocal = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -33,6 +38,8 @@ const formatDateToLocal = (date: Date): string => {
 export default function ProviderDashboard() {
   const [provider, setProvider] = useState<Provider | null>(null);
   const [menus, setMenus] = useState<MenuWithOrderCount[]>([]);
+  const [groupedMenus, setGroupedMenus] = useState<GroupedMenuWithOrderCount[]>([]);
+  const [totalSchools, setTotalSchools] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -50,9 +57,34 @@ export default function ProviderDashboard() {
 
   useEffect(() => {
     if (selectedDate && weekMenus[selectedDate]) {
-      setMenus(weekMenus[selectedDate]);
+      const dayMenus = weekMenus[selectedDate];
+      setMenus(dayMenus);
+      const grouped = groupMenusByContent(dayMenus);
+      setGroupedMenus(grouped);
     }
   }, [weekMenus, selectedDate]);
+
+  const groupMenusByContent = (menusList: MenuWithOrderCount[]): GroupedMenuWithOrderCount[] => {
+    const groups: { [key: string]: GroupedMenuWithOrderCount } = {};
+
+    menusList.forEach((menu) => {
+      const key = `${menu.meal_name}-${menu.date}-${menu.price}-${menu.description || ''}-${menu.image_url || ''}`;
+
+      if (!groups[key]) {
+        groups[key] = {
+          ...menu,
+          school_ids: [menu.school_id],
+          school_names: [menu.school_name || 'École'],
+        };
+      } else {
+        groups[key].order_count += menu.order_count;
+        groups[key].school_ids.push(menu.school_id);
+        groups[key].school_names.push(menu.school_name || 'École');
+      }
+    });
+
+    return Object.values(groups);
+  };
 
   const loadData = async () => {
     try {
@@ -87,6 +119,7 @@ export default function ProviderDashboard() {
         .eq('provider_id', currentProvider.id);
 
       const schoolIds = schoolAccess?.map(sa => sa.school_id) || [];
+      setTotalSchools(schoolIds.length);
 
       let menusData: any[] = [];
       if (schoolIds.length > 0) {
@@ -443,14 +476,14 @@ export default function ProviderDashboard() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {menus.length > 0 && (
+        {groupedMenus.length > 0 && (
           <View style={styles.preparationSummary}>
             <View style={styles.preparationSummaryLeft}>
               <ChefHat size={24} color="#111827" />
               <View>
                 <Text style={styles.preparationSummaryLabel}>Menus à préparer</Text>
                 <Text style={styles.preparationSummaryCount}>
-                  {menus.reduce((sum, menu) => sum + menu.order_count, 0)} commandes
+                  {groupedMenus.reduce((sum, menu) => sum + menu.order_count, 0)} commandes
                 </Text>
               </View>
             </View>
@@ -468,7 +501,7 @@ export default function ProviderDashboard() {
           </View>
         )}
 
-        {menus.length === 0 ? (
+        {groupedMenus.length === 0 ? (
           <View style={styles.emptyMenusContainer}>
             <UtensilsCrossed size={48} color="#9CA3AF" />
             <Text style={styles.emptyMenusText}>
@@ -476,19 +509,28 @@ export default function ProviderDashboard() {
             </Text>
           </View>
         ) : (
-          menus.map((menu, index) => {
+          groupedMenus.map((menu, index) => {
             const cardColor = menu.card_color || getCardColor(index);
             const textColor = isLightColor(cardColor) ? '#1F2937' : '#FFFFFF';
 
             return (
               <View
-                key={menu.id}
+                key={`${menu.id}-${index}`}
                 style={[styles.menuCard, { backgroundColor: cardColor }]}
               >
                 <View style={styles.menuCardHeader}>
                   <Text style={[styles.menuCardTitle, { color: textColor }]}>
                     {menu.meal_name}
                   </Text>
+                  <View style={[styles.schoolBadgeCalendar, {
+                    backgroundColor: textColor === '#FFFFFF' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)'
+                  }]}>
+                    <Text style={[styles.schoolBadgeTextCalendar, { color: textColor }]}>
+                      {menu.school_ids.length === totalSchools && totalSchools > 1
+                        ? 'Toutes les écoles'
+                        : menu.school_names.join(', ')}
+                    </Text>
+                  </View>
                 </View>
 
                 {menu.description && (
@@ -724,6 +766,18 @@ const styles = StyleSheet.create({
   menuCardTitle: {
     fontSize: 28,
     fontWeight: '700',
+    marginBottom: 8,
+  },
+  schoolBadgeCalendar: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  schoolBadgeTextCalendar: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   menuCardDivider: {
     height: 1,

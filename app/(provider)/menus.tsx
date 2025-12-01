@@ -11,10 +11,17 @@ interface SchoolAccess {
   school_name: string;
 }
 
+interface GroupedMenu extends Menu {
+  school_ids: string[];
+  school_names: string[];
+  menu_ids: string[];
+}
+
 export default function ProviderMenus() {
   const [provider, setProvider] = useState<Provider | null>(null);
   const [schools, setSchools] = useState<SchoolAccess[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
+  const [groupedMenus, setGroupedMenus] = useState<GroupedMenu[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSchool, setSelectedSchool] = useState<string | null>(null);
   const router = useRouter();
@@ -64,16 +71,43 @@ export default function ProviderMenus() {
 
       const { data } = await supabase
         .from('menus')
-        .select('*')
+        .select('*, schools(name)')
         .in('school_id', schoolIds)
         .gte('date', today)
         .order('date', { ascending: true })
         .order('meal_name');
 
-      setMenus(data || []);
+      const menusData = data || [];
+      setMenus(menusData);
+
+      const grouped = groupMenusByContent(menusData, schoolsList);
+      setGroupedMenus(grouped);
     } catch (err) {
       console.error('Error loading menus:', err);
     }
+  };
+
+  const groupMenusByContent = (menusList: any[], schoolsList: SchoolAccess[]): GroupedMenu[] => {
+    const groups: { [key: string]: GroupedMenu } = {};
+
+    menusList.forEach((menu) => {
+      const key = `${menu.meal_name}-${menu.date}-${menu.price}-${menu.description || ''}-${menu.image_url || ''}`;
+
+      if (!groups[key]) {
+        groups[key] = {
+          ...menu,
+          school_ids: [menu.school_id],
+          school_names: [(menu.schools as any)?.name || 'École'],
+          menu_ids: [menu.id],
+        };
+      } else {
+        groups[key].school_ids.push(menu.school_id);
+        groups[key].school_names.push((menu.schools as any)?.name || 'École');
+        groups[key].menu_ids.push(menu.id);
+      }
+    });
+
+    return Object.values(groups);
   };
 
   const deleteOldMenus = async () => {
@@ -89,10 +123,15 @@ export default function ProviderMenus() {
   };
 
 
-  const handleDeleteMenu = async (menuId: string) => {
+  const handleDeleteMenu = async (menuIds: string[], schoolNames: string[]) => {
+    const isMultiple = menuIds.length > 1;
+    const message = isMultiple
+      ? `Ce menu sera supprimé pour ${schoolNames.length} école(s) : ${schoolNames.join(', ')}`
+      : 'Êtes-vous sûr de vouloir supprimer ce menu ?';
+
     Alert.alert(
       'Supprimer le menu',
-      'Êtes-vous sûr de vouloir supprimer ce menu ?',
+      message,
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -100,7 +139,7 @@ export default function ProviderMenus() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await supabase.from('menus').delete().eq('id', menuId);
+              await supabase.from('menus').delete().in('id', menuIds);
               await loadData();
             } catch (err) {
               console.error('Error deleting menu:', err);
@@ -142,13 +181,13 @@ export default function ProviderMenus() {
             </TouchableOpacity>
           </View>
 
-          {menus.length === 0 ? (
+          {groupedMenus.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>Aucun menu à venir</Text>
             </View>
           ) : (
-            menus.map(menu => (
-              <View key={menu.id} style={styles.menuItem}>
+            groupedMenus.map((menu, index) => (
+              <View key={`${menu.id}-${index}`} style={styles.menuItem}>
                 {menu.image_url && (
                   <Image
                     source={{ uri: menu.image_url }}
@@ -158,6 +197,13 @@ export default function ProviderMenus() {
                 )}
                 <View style={styles.menuItemContent}>
                   <Text style={styles.menuItemName}>{menu.meal_name}</Text>
+                  <View style={styles.schoolBadge}>
+                    <Text style={styles.schoolBadgeText}>
+                      {menu.school_ids.length === schools.length
+                        ? 'Toutes les écoles'
+                        : menu.school_names.join(', ')}
+                    </Text>
+                  </View>
                   <Text style={styles.menuItemDate}>
                     {new Date(menu.date).toLocaleDateString('fr-FR', {
                       weekday: 'long',
@@ -174,7 +220,7 @@ export default function ProviderMenus() {
                 <View style={styles.menuItemActions}>
                   <TouchableOpacity
                     style={styles.actionButton}
-                    onPress={() => handleDeleteMenu(menu.id)}
+                    onPress={() => handleDeleteMenu(menu.menu_ids, menu.school_names)}
                   >
                     <Trash2 size={18} color="#EF4444" />
                   </TouchableOpacity>
@@ -305,5 +351,19 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     padding: 8,
+  },
+  schoolBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  schoolBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4F46E5',
   },
 });
