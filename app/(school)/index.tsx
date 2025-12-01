@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { Calendar, Users, ClipboardList, UtensilsCrossed } from 'lucide-react-native';
+import { Calendar, Users, ClipboardList, UtensilsCrossed, History } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
 
 export default function SchoolHomeScreen() {
@@ -191,6 +191,16 @@ export default function SchoolHomeScreen() {
             <View style={styles.studentsBadge}>
               <Text style={styles.studentsBadgeText}>{studentsCount}</Text>
             </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.historyButton}
+          onPress={() => router.push('/(school)/statistics')}
+        >
+          <View style={styles.historyButtonContent}>
+            <History size={24} color="#FFFFFF" />
+            <Text style={styles.historyButtonText}>Voir l'historique</Text>
           </View>
         </TouchableOpacity>
 
@@ -387,6 +397,29 @@ const styles = StyleSheet.create({
   studentsBadgeText: {
     fontSize: 16,
     fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  historyButton: {
+    marginHorizontal: 20,
+    marginBottom: 24,
+    backgroundColor: '#111827',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  historyButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  historyButtonText: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
     color: '#FFFFFF',
   },
   chartContainer: {
