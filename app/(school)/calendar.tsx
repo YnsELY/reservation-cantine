@@ -101,6 +101,20 @@ export default function SchoolDashboard() {
       }
 
       setWeekMenus(menusMap);
+
+      const firstDate = formatDateToLocal(dates[0]);
+      const { data: firstDayReservations, error: ordersError } = await supabase
+        .from('reservations')
+        .select(`
+          id,
+          child:children!inner(school_id)
+        `)
+        .eq('date', firstDate)
+        .eq('child.school_id', currentSchool.id);
+
+      if (!ordersError) {
+        setTotalOrdersCount(firstDayReservations?.length || 0);
+      }
     } catch (err) {
       console.error('Error loading data:', err);
     } finally {
@@ -143,9 +157,12 @@ export default function SchoolDashboard() {
     try {
       const { data: reservations, error } = await supabase
         .from('reservations')
-        .select('id', { count: 'exact' })
+        .select(`
+          id,
+          child:children!inner(school_id)
+        `)
         .eq('date', dateString)
-        .eq('children.school_id', school.id);
+        .eq('child.school_id', school.id);
 
       if (error) throw error;
 
