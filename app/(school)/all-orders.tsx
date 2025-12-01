@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, ShoppingBag, User, Users, UtensilsCrossed, Search, X, ChevronDown } from 'lucide-react-native';
+import { ArrowLeft, ShoppingBag, User, Users, UtensilsCrossed, Search, X, ChevronDown, FileSpreadsheet } from 'lucide-react-native';
 
 interface OrderDetail {
   id: string;
@@ -27,6 +29,7 @@ export default function AllOrders() {
   const [sortBy, setSortBy] = useState<SortOption>('order');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const router = useRouter();
   const params = useLocalSearchParams();
   const selectedDate = params.date as string;
@@ -153,6 +156,50 @@ export default function AllOrders() {
     });
   };
 
+  const exportToCSV = async () => {
+    if (filteredOrders.length === 0) {
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const headers = ['N°', 'Élève', 'Parent', 'Menu', 'Description', 'Allergènes', 'Suppléments'];
+      const csvRows = [headers.join(',')];
+
+      filteredOrders.forEach((order, index) => {
+        const supplements = order.supplements?.map(s => s.name).join('; ') || '';
+        const row = [
+          index + 1,
+          `"${order.child_name}"`,
+          `"${order.parent_name}"`,
+          `"${order.menu_name}"`,
+          `"${order.menu_description || ''}"`,
+          `"${order.menu_allergens.join(', ')}"`,
+          `"${supplements}"`
+        ];
+        csvRows.push(row.join(','));
+      });
+
+      const csvContent = csvRows.join('\n');
+      const fileName = `commandes-${selectedDate}.csv`;
+      const fileUri = `${(FileSystem as any).documentDirectory}${fileName}`;
+
+      await FileSystem.writeAsStringAsync(fileUri, csvContent, {
+        encoding: (FileSystem as any).EncodingType.UTF8,
+      });
+
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'text/csv',
+        dialogTitle: 'Exporter les commandes',
+        UTI: 'public.comma-separated-values-text',
+      });
+    } catch (error) {
+      console.error('Error exporting:', error);
+    } finally {
+      setExporting(false);
+    }
+  };
+
 
   if (loading) {
     return (
@@ -168,10 +215,23 @@ export default function AllOrders() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.headerTitle}>Toutes les commandes</Text>
-          <Text style={styles.headerSubtitle}>{formatDate(selectedDate)}</Text>
-        </View>
+        <TouchableOpacity
+          style={[
+            styles.exportButton,
+            (exporting || filteredOrders.length === 0) && styles.exportButtonDisabled
+          ]}
+          onPress={exportToCSV}
+          disabled={exporting || filteredOrders.length === 0}
+        >
+          {exporting ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <FileSpreadsheet size={20} color="#FFFFFF" />
+              <Text style={styles.exportButtonText}>Excel</Text>
+            </>
+          )}
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -370,6 +430,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: '#FFFFFF',
@@ -378,20 +439,24 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 8,
-    marginRight: 12,
   },
-  headerTextContainer: {
-    flex: 1,
+  exportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#059669',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  headerSubtitle: {
+  exportButtonText: {
     fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  exportButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+    opacity: 0.6,
   },
   summaryCard: {
     backgroundColor: '#111827',
