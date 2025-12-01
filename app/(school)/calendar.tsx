@@ -1,13 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Image, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Menu, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ChevronLeft, ChevronRight, ArrowLeft, Users, UtensilsCrossed } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, ArrowLeft, Users, UtensilsCrossed, X, ShoppingBag } from 'lucide-react-native';
 
 interface MenuWithOrderCount extends Menu {
   order_count: number;
+}
+
+interface OrderDetail {
+  id: string;
+  child_name: string;
+  menu_name: string;
+  menu_price: number;
 }
 
 const formatDateToLocal = (date: Date): string => {
@@ -26,6 +33,9 @@ export default function SchoolDashboard() {
   const [weekDates, setWeekDates] = useState<Date[]>([]);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [weekMenus, setWeekMenus] = useState<{[key: string]: MenuWithOrderCount[]}>({});
+  const [showOrdersModal, setShowOrdersModal] = useState(false);
+  const [allOrders, setAllOrders] = useState<OrderDetail[]>([]);
+  const [totalOrdersCount, setTotalOrdersCount] = useState(0);
   const dayScaleAnim = useRef(new Animated.Value(1)).current;
   const router = useRouter();
 
@@ -36,6 +46,7 @@ export default function SchoolDashboard() {
   useEffect(() => {
     if (selectedDate && weekMenus[selectedDate]) {
       setMenus(weekMenus[selectedDate]);
+      loadAllOrdersForDate(selectedDate);
     }
   }, [weekMenus, selectedDate]);
 
@@ -118,6 +129,7 @@ export default function SchoolDashboard() {
     setSelectedDayIndex(index);
     const dayMenus = weekMenus[dateString] || [];
     setMenus(dayMenus);
+    loadAllOrdersForDate(dateString);
 
     Animated.sequence([
       Animated.timing(dayScaleAnim, {
@@ -132,6 +144,40 @@ export default function SchoolDashboard() {
         useNativeDriver: true,
       }),
     ]).start();
+  };
+
+  const loadAllOrdersForDate = async (dateString: string) => {
+    if (!school) return;
+
+    try {
+      const { data: reservations, error } = await supabase
+        .from('reservations')
+        .select(`
+          id,
+          children!inner(first_name, last_name),
+          menus!inner(meal_name, price)
+        `)
+        .eq('date', dateString)
+        .eq('children.school_id', school.id);
+
+      if (error) throw error;
+
+      const orders: OrderDetail[] = (reservations || []).map(res => ({
+        id: res.id,
+        child_name: `${res.children.first_name} ${res.children.last_name}`,
+        menu_name: res.menus.meal_name,
+        menu_price: res.menus.price,
+      }));
+
+      orders.sort((a, b) => a.child_name.localeCompare(b.child_name));
+
+      setAllOrders(orders);
+      setTotalOrdersCount(orders.length);
+    } catch (err) {
+      console.error('Error loading all orders:', err);
+      setAllOrders([]);
+      setTotalOrdersCount(0);
+    }
   };
 
   const navigateDay = (direction: 'prev' | 'next') => {
@@ -281,6 +327,19 @@ export default function SchoolDashboard() {
         }
         showsVerticalScrollIndicator={false}
       >
+        <TouchableOpacity
+          style={styles.totalOrdersWidget}
+          onPress={() => setShowOrdersModal(true)}
+        >
+          <View style={styles.totalOrdersIconContainer}>
+            <ShoppingBag size={32} color="#FFFFFF" />
+          </View>
+          <View style={styles.totalOrdersTextContainer}>
+            <Text style={styles.totalOrdersCount}>{totalOrdersCount}</Text>
+            <Text style={styles.totalOrdersLabel}>Commandes totales</Text>
+          </View>
+        </TouchableOpacity>
+
         {menus.length === 0 ? (
           <View style={styles.emptyMenusContainer}>
             <UtensilsCrossed size={48} color="#9CA3AF" />
@@ -355,6 +414,63 @@ export default function SchoolDashboard() {
           })
         )}
       </ScrollView>
+
+      <Modal
+        visible={showOrdersModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowOrdersModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Toutes les commandes</Text>
+              <TouchableOpacity
+                onPress={() => setShowOrdersModal(false)}
+                style={styles.modalCloseButton}
+              >
+                <X size={24} color="#111827" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalScrollView}>
+              {allOrders.length === 0 ? (
+                <View style={styles.emptyModalContainer}>
+                  <ShoppingBag size={48} color="#9CA3AF" />
+                  <Text style={styles.emptyModalText}>
+                    Aucune commande pour ce jour
+                  </Text>
+                </View>
+              ) : (
+                allOrders.map((order, index) => (
+                  <View
+                    key={order.id}
+                    style={[
+                      styles.orderItem,
+                      index % 2 === 0 && styles.orderItemEven
+                    ]}
+                  >
+                    <View style={styles.orderItemLeft}>
+                      <Text style={styles.orderChildName}>{order.child_name}</Text>
+                      <Text style={styles.orderMenuName}>{order.menu_name}</Text>
+                    </View>
+                    <Text style={styles.orderPrice}>{order.menu_price.toFixed(2)} €</Text>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+
+            {allOrders.length > 0 && (
+              <View style={styles.modalFooter}>
+                <Text style={styles.modalFooterLabel}>Total</Text>
+                <Text style={styles.modalFooterTotal}>
+                  {allOrders.reduce((sum, order) => sum + order.menu_price, 0).toFixed(2)} €
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -564,5 +680,133 @@ const styles = StyleSheet.create({
   viewOrdersButtonText: {
     fontSize: 14,
     fontWeight: '700',
+  },
+  totalOrdersWidget: {
+    backgroundColor: '#FEF3C7',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 16,
+    padding: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  totalOrdersIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F59E0B',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  totalOrdersTextContainer: {
+    flex: 1,
+  },
+  totalOrdersCount: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  totalOrdersLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#B45309',
+    marginTop: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '80%',
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalScrollView: {
+    maxHeight: 500,
+  },
+  emptyModalContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyModalText: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginTop: 16,
+  },
+  orderItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  orderItemEven: {
+    backgroundColor: '#F9FAFB',
+  },
+  orderItemLeft: {
+    flex: 1,
+    marginRight: 12,
+  },
+  orderChildName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  orderMenuName: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  orderPrice: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderTopWidth: 2,
+    borderTopColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
+  },
+  modalFooterLabel: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  modalFooterTotal: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
   },
 });
