@@ -327,18 +327,19 @@ export default function SchoolDashboard() {
         }
         showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity
-          style={styles.totalOrdersWidget}
-          onPress={() => setShowOrdersModal(true)}
-        >
-          <View style={styles.totalOrdersIconContainer}>
-            <ShoppingBag size={32} color="#FFFFFF" />
-          </View>
-          <View style={styles.totalOrdersTextContainer}>
+        <View style={styles.totalOrdersWidget}>
+          <View style={styles.totalOrdersLeft}>
+            <ShoppingBag size={20} color="#111827" />
             <Text style={styles.totalOrdersCount}>{totalOrdersCount}</Text>
-            <Text style={styles.totalOrdersLabel}>Commandes totales</Text>
+            <Text style={styles.totalOrdersLabel}>Commandes</Text>
           </View>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.viewAllOrdersButton}
+            onPress={() => setShowOrdersModal(true)}
+          >
+            <Text style={styles.viewAllOrdersButtonText}>Voir les commandes</Text>
+          </TouchableOpacity>
+        </View>
 
         {menus.length === 0 ? (
           <View style={styles.emptyMenusContainer}>
@@ -682,41 +683,45 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   totalOrdersWidget: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
     marginBottom: 20,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 12,
+    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    justifyContent: 'space-between',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
-  totalOrdersIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#F59E0B',
-    justifyContent: 'center',
+  totalOrdersLeft: {
+    flexDirection: 'row',
     alignItems: 'center',
-  },
-  totalOrdersTextContainer: {
-    flex: 1,
+    gap: 12,
   },
   totalOrdersCount: {
-    fontSize: 32,
+    fontSize: 20,
     fontWeight: '700',
-    color: '#92400E',
+    color: '#111827',
   },
   totalOrdersLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#B45309',
-    marginTop: 4,
+    color: '#6B7280',
+  },
+  viewAllOrdersButton: {
+    backgroundColor: '#111827',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  viewAllOrdersButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
