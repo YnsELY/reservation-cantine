@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, ShoppingBag, ArrowUpDown, User, Users, UtensilsCrossed } from 'lucide-react-native';
+import { ArrowLeft, ShoppingBag, ArrowUpDown, User, Users, UtensilsCrossed, Search, X } from 'lucide-react-native';
 
 interface OrderDetail {
   id: string;
@@ -16,7 +16,7 @@ interface OrderDetail {
   supplements: Array<{name: string; price: number}> | null;
 }
 
-type SortOption = 'name' | 'menu';
+type SortOption = 'order' | 'child' | 'parent' | 'menu';
 
 export default function AllOrders() {
   const [school, setSchool] = useState<School | null>(null);
@@ -24,7 +24,8 @@ export default function AllOrders() {
   const [filteredOrders, setFilteredOrders] = useState<OrderDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [sortBy, setSortBy] = useState<SortOption>('name');
+  const [sortBy, setSortBy] = useState<SortOption>('order');
+  const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
   const params = useLocalSearchParams();
   const selectedDate = params.date as string;
@@ -77,7 +78,6 @@ export default function AllOrders() {
         supplements: res.supplements || null,
       }));
 
-      ordersList.sort((a, b) => a.child_name.localeCompare(b.child_name));
       setOrders(ordersList);
       setFilteredOrders(ordersList);
     } catch (err) {
@@ -91,17 +91,44 @@ export default function AllOrders() {
     loadData();
   };
 
-  const handleSort = (option: SortOption) => {
-    setSortBy(option);
-    const sorted = [...orders];
+  const applyFilters = (sortOption: SortOption, query: string, ordersList: OrderDetail[]) => {
+    let filtered = [...ordersList];
 
-    if (option === 'name') {
-      sorted.sort((a, b) => a.child_name.localeCompare(b.child_name));
-    } else if (option === 'menu') {
-      sorted.sort((a, b) => a.menu_name.localeCompare(b.menu_name));
+    if (query.trim()) {
+      const lowerQuery = query.toLowerCase();
+      filtered = filtered.filter(order =>
+        order.child_name.toLowerCase().includes(lowerQuery) ||
+        order.parent_name.toLowerCase().includes(lowerQuery) ||
+        order.menu_name.toLowerCase().includes(lowerQuery)
+      );
     }
 
-    setFilteredOrders(sorted);
+    if (sortOption === 'order') {
+      filtered = filtered;
+    } else if (sortOption === 'child') {
+      filtered.sort((a, b) => a.child_name.localeCompare(b.child_name));
+    } else if (sortOption === 'parent') {
+      filtered.sort((a, b) => a.parent_name.localeCompare(b.parent_name));
+    } else if (sortOption === 'menu') {
+      filtered.sort((a, b) => a.menu_name.localeCompare(b.menu_name));
+    }
+
+    setFilteredOrders(filtered);
+  };
+
+  const handleSort = (option: SortOption) => {
+    setSortBy(option);
+    applyFilters(option, searchQuery, orders);
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    applyFilters(sortBy, query, orders);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    applyFilters(sortBy, '', orders);
   };
 
   const formatDate = (dateString: string) => {
@@ -145,18 +172,56 @@ export default function AllOrders() {
         </View>
       </View>
 
+      <View style={styles.searchContainer}>
+        <View style={styles.searchInputWrapper}>
+          <Search size={20} color="#6B7280" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Rechercher élève, parent ou menu..."
+            placeholderTextColor="#9CA3AF"
+            value={searchQuery}
+            onChangeText={handleSearch}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+              <X size={20} color="#6B7280" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
       <View style={styles.filtersContainer}>
         <View style={styles.filterHeader}>
           <ArrowUpDown size={20} color="#6B7280" />
           <Text style={styles.filterLabel}>Trier par:</Text>
         </View>
-        <View style={styles.filterButtons}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterButtons}
+        >
           <TouchableOpacity
-            style={[styles.filterButton, sortBy === 'name' && styles.filterButtonActive]}
-            onPress={() => handleSort('name')}
+            style={[styles.filterButton, sortBy === 'order' && styles.filterButtonActive]}
+            onPress={() => handleSort('order')}
           >
-            <Text style={[styles.filterButtonText, sortBy === 'name' && styles.filterButtonTextActive]}>
-              Nom
+            <Text style={[styles.filterButtonText, sortBy === 'order' && styles.filterButtonTextActive]}>
+              N° Commande
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, sortBy === 'child' && styles.filterButtonActive]}
+            onPress={() => handleSort('child')}
+          >
+            <Text style={[styles.filterButtonText, sortBy === 'child' && styles.filterButtonTextActive]}>
+              Nom Élève
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, sortBy === 'parent' && styles.filterButtonActive]}
+            onPress={() => handleSort('parent')}
+          >
+            <Text style={[styles.filterButtonText, sortBy === 'parent' && styles.filterButtonTextActive]}>
+              Nom Parent
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -167,8 +232,16 @@ export default function AllOrders() {
               Menu
             </Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </View>
+
+      {searchQuery.length > 0 && (
+        <View style={styles.searchResultsContainer}>
+          <Text style={styles.searchResultsText}>
+            {filteredOrders.length} résultat{filteredOrders.length > 1 ? 's' : ''} pour "{searchQuery}"
+          </Text>
+        </View>
+      )}
 
       <ScrollView
         style={styles.scrollView}
@@ -180,7 +253,9 @@ export default function AllOrders() {
         {filteredOrders.length === 0 ? (
           <View style={styles.emptyContainer}>
             <ShoppingBag size={64} color="#D1D5DB" />
-            <Text style={styles.emptyText}>Aucune commande pour ce jour</Text>
+            <Text style={styles.emptyText}>
+              {searchQuery.length > 0 ? 'Aucun résultat trouvé' : 'Aucune commande pour ce jour'}
+            </Text>
           </View>
         ) : (
           <View style={styles.ordersList}>
@@ -337,6 +412,51 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.7)',
     marginTop: 2,
   },
+  searchContainer: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 12,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  searchInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#111827',
+    padding: 0,
+  },
+  clearButton: {
+    padding: 4,
+  },
+  searchResultsContainer: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#EEF2FF',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#4F46E5',
+  },
+  searchResultsText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4F46E5',
+  },
   filtersContainer: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
@@ -362,15 +482,17 @@ const styles = StyleSheet.create({
   },
   filterButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
+    paddingRight: 20,
   },
   filterButton: {
-    flex: 1,
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     borderRadius: 8,
     backgroundColor: '#F3F4F6',
     alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 100,
   },
   filterButtonActive: {
     backgroundColor: '#111827',
