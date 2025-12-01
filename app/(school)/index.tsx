@@ -140,7 +140,7 @@ export default function SchoolHomeScreen() {
 
         <View style={styles.todayCard}>
           <View style={styles.todayHeader}>
-            <UtensilsCrossed size={24} color="#FFFFFF" />
+            <UtensilsCrossed size={24} color="#1E3A5F" />
             <Text style={styles.todayTitle}>Aujourd'hui</Text>
           </View>
           <View style={styles.todayStatsCenter}>
@@ -155,7 +155,7 @@ export default function SchoolHomeScreen() {
             onPress={() => router.push('/(school)/commander')}
           >
             <View style={styles.actionIconContainer}>
-              <ClipboardList size={28} color="#FFFFFF" />
+              <ClipboardList size={28} color="#8B1538" />
             </View>
             <Text style={styles.actionTitle}>Faire une{'\n'}commande</Text>
           </TouchableOpacity>
@@ -165,7 +165,7 @@ export default function SchoolHomeScreen() {
             onPress={() => router.push('/(school)/calendar')}
           >
             <View style={styles.actionIconContainer}>
-              <Calendar size={28} color="#FFFFFF" />
+              <Calendar size={28} color="#8B1538" />
             </View>
             <Text style={styles.actionTitle}>Voir les{'\n'}commandes</Text>
           </TouchableOpacity>
@@ -176,7 +176,7 @@ export default function SchoolHomeScreen() {
           onPress={() => router.push('/(school)/students')}
         >
           <View style={styles.studentsButtonContent}>
-            <Users size={24} color="#FFFFFF" />
+            <Users size={24} color="#1A5A3C" />
             <Text style={styles.studentsButtonText}>Liste des élèves</Text>
             <View style={styles.studentsBadge}>
               <Text style={styles.studentsBadgeText}>{studentsCount}</Text>
@@ -189,7 +189,7 @@ export default function SchoolHomeScreen() {
           onPress={() => router.push('/(school)/statistics')}
         >
           <View style={styles.historyButtonContent}>
-            <History size={24} color="#FFFFFF" />
+            <History size={24} color="#7C4A00" />
             <Text style={styles.historyButtonText}>Voir l'historique</Text>
           </View>
         </TouchableOpacity>
@@ -274,7 +274,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   todayCard: {
-    backgroundColor: '#111827',
+    backgroundColor: '#A7C7E7',
     marginHorizontal: 20,
     marginBottom: 24,
     borderRadius: 20,
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
   todayTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#1E3A5F',
   },
   todayStatsCenter: {
     alignItems: 'center',
@@ -302,12 +302,12 @@ const styles = StyleSheet.create({
   todayStatValue: {
     fontSize: 48,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#1E3A5F',
     marginBottom: 8,
   },
   todayStatLabel: {
     fontSize: 16,
-    color: '#D1D5DB',
+    color: '#2C5282',
     fontWeight: '600',
   },
   actionsRow: {
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#111827',
+    backgroundColor: '#FFB6C1',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -340,14 +340,14 @@ const styles = StyleSheet.create({
   actionTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: '#2D3748',
     textAlign: 'center',
     lineHeight: 20,
   },
   studentsButton: {
     marginHorizontal: 20,
     marginBottom: 24,
-    backgroundColor: '#111827',
+    backgroundColor: '#B4E7CE',
     borderRadius: 16,
     padding: 20,
     shadowColor: '#000',
@@ -365,10 +365,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#1A5A3C',
   },
   studentsBadge: {
-    backgroundColor: '#374151',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
@@ -376,12 +376,12 @@ const styles = StyleSheet.create({
   studentsBadgeText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#1A5A3C',
   },
   historyButton: {
     marginHorizontal: 20,
     marginBottom: 24,
-    backgroundColor: '#111827',
+    backgroundColor: '#FFD4A3',
     borderRadius: 16,
     padding: 20,
     shadowColor: '#000',
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#7C4A00',
   },
   chartContainer: {
     backgroundColor: '#FFFFFF',
