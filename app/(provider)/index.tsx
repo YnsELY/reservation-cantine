@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Linking, Alert, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Menu, Provider } from '@/lib/supabase';
@@ -519,17 +519,28 @@ export default function ProviderDashboard() {
                 style={[styles.menuCard, { backgroundColor: cardColor }]}
               >
                 <View style={styles.menuCardHeader}>
-                  <Text style={[styles.menuCardTitle, { color: textColor }]}>
-                    {menu.meal_name}
-                  </Text>
-                  <View style={[styles.schoolBadgeCalendar, {
-                    backgroundColor: textColor === '#FFFFFF' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)'
-                  }]}>
-                    <Text style={[styles.schoolBadgeTextCalendar, { color: textColor }]}>
-                      {menu.school_ids.length === totalSchools && totalSchools > 1
-                        ? 'Toutes les écoles'
-                        : menu.school_names.join(', ')}
-                    </Text>
+                  <View style={styles.menuCardTitleContainer}>
+                    <View style={styles.menuCardTitleContent}>
+                      <Text style={[styles.menuCardTitle, { color: textColor }]}>
+                        {menu.meal_name}
+                      </Text>
+                      <View style={[styles.schoolBadgeCalendar, {
+                        backgroundColor: textColor === '#FFFFFF' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)'
+                      }]}>
+                        <Text style={[styles.schoolBadgeTextCalendar, { color: textColor }]}>
+                          {menu.school_ids.length === totalSchools && totalSchools > 1
+                            ? 'Toutes les écoles'
+                            : menu.school_names.join(', ')}
+                        </Text>
+                      </View>
+                    </View>
+                    {menu.image_url && (
+                      <Image
+                        source={{ uri: menu.image_url }}
+                        style={styles.menuCardImage}
+                        resizeMode="cover"
+                      />
+                    )}
                   </View>
                 </View>
 
@@ -763,10 +774,26 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 16,
   },
+  menuCardTitleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 16,
+  },
+  menuCardTitleContent: {
+    flex: 1,
+  },
   menuCardTitle: {
     fontSize: 28,
     fontWeight: '700',
     marginBottom: 8,
+  },
+  menuCardImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   schoolBadgeCalendar: {
     alignSelf: 'flex-start',
