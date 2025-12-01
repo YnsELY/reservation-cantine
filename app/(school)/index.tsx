@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { Calendar, Users, ClipboardList, UtensilsCrossed, History, Share2 } from 'lucide-react-native';
+import { Calendar, Users, ClipboardList, UtensilsCrossed, History, Share2, ShoppingBag, BarChart3 } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
 
 export default function SchoolHomeScreen() {
@@ -184,15 +184,25 @@ export default function SchoolHomeScreen() {
           </View>
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={styles.myOrdersButton}
+          onPress={() => router.push('/(school)/my-orders')}
+        >
+          <View style={styles.myOrdersButtonContent}>
+            <ShoppingBag size={24} color="#7C3AED" />
+            <Text style={styles.myOrdersButtonText}>Mes commandes</Text>
+          </View>
+        </TouchableOpacity>
+
         <View style={styles.actionsRow}>
           <TouchableOpacity
             style={[styles.secondaryActionCard, { backgroundColor: '#BFDBFE' }]}
             onPress={() => router.push('/(school)/history')}
           >
             <View style={[styles.actionIconContainer, { backgroundColor: '#1E40AF' }]}>
-              <History size={28} color="#FFFFFF" />
+              <BarChart3 size={28} color="#FFFFFF" />
             </View>
-            <Text style={[styles.actionTitle, { color: '#1E40AF' }]}>Voir{"\n"}l'historique</Text>
+            <Text style={[styles.actionTitle, { color: '#1E40AF' }]}>Voir les{"\n"}statistiques</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -401,6 +411,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#065F46',
+  },
+  myOrdersButton: {
+    marginHorizontal: 20,
+    marginBottom: 24,
+    backgroundColor: '#DDD6FE',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  myOrdersButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  myOrdersButtonText: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#7C3AED',
   },
   chartContainer: {
     backgroundColor: '#FFFFFF',
