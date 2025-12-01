@@ -304,10 +304,10 @@ export default function SchoolDashboard() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.totalOrdersWidget}>
-          <View style={styles.totalOrdersLeft}>
-            <ShoppingBag size={20} color="#111827" />
+          <View style={styles.totalOrdersContent}>
+            <ShoppingBag size={24} color="#111827" />
             <Text style={styles.totalOrdersCount}>{totalOrdersCount}</Text>
-            <Text style={styles.totalOrdersLabel}>Commandes</Text>
+            <Text style={styles.totalOrdersLabel}>Commandes pour cette journée</Text>
           </View>
           <TouchableOpacity
             style={styles.viewAllOrdersButton}
@@ -612,35 +612,35 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderRadius: 16,
     padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 3,
   },
-  totalOrdersLeft: {
+  totalOrdersContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 16,
   },
   totalOrdersCount: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
     color: '#111827',
   },
   totalOrdersLabel: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '500',
     color: '#6B7280',
   },
   viewAllOrdersButton: {
     backgroundColor: '#111827',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 10,
+    alignItems: 'center',
   },
   viewAllOrdersButtonText: {
     color: '#FFFFFF',
