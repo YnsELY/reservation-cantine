@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, ShoppingBag, ArrowUpDown, User, Users, UtensilsCrossed, Search, X } from 'lucide-react-native';
+import { ArrowLeft, ShoppingBag, User, Users, UtensilsCrossed, Search, X, ChevronDown } from 'lucide-react-native';
 
 interface OrderDetail {
   id: string;
@@ -26,6 +26,7 @@ export default function AllOrders() {
   const [refreshing, setRefreshing] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('order');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showSortDropdown, setShowSortDropdown] = useState(false);
   const router = useRouter();
   const params = useLocalSearchParams();
   const selectedDate = params.date as string;
@@ -118,7 +119,18 @@ export default function AllOrders() {
 
   const handleSort = (option: SortOption) => {
     setSortBy(option);
+    setShowSortDropdown(false);
     applyFilters(option, searchQuery, orders);
+  };
+
+  const getSortLabel = (option: SortOption) => {
+    switch (option) {
+      case 'order': return 'N° Commande';
+      case 'child': return 'Nom Élève';
+      case 'parent': return 'Nom Parent';
+      case 'menu': return 'Menu';
+      default: return 'N° Commande';
+    }
   };
 
   const handleSearch = (query: string) => {
@@ -162,94 +174,101 @@ export default function AllOrders() {
         </View>
       </View>
 
-      <View style={styles.summaryCard}>
-        <View style={styles.summaryIconContainer}>
-          <ShoppingBag size={24} color="#FFFFFF" />
-        </View>
-        <View style={styles.summaryTextContainer}>
-          <Text style={styles.summaryCount}>{orders.length}</Text>
-          <Text style={styles.summaryLabel}>Commandes</Text>
-        </View>
-      </View>
-
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputWrapper}>
-          <Search size={20} color="#6B7280" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Rechercher élève, parent ou menu..."
-            placeholderTextColor="#9CA3AF"
-            value={searchQuery}
-            onChangeText={handleSearch}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
-              <X size={20} color="#6B7280" />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
-
-      <View style={styles.filtersContainer}>
-        <View style={styles.filterHeader}>
-          <ArrowUpDown size={20} color="#6B7280" />
-          <Text style={styles.filterLabel}>Trier par:</Text>
-        </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterButtons}
-        >
-          <TouchableOpacity
-            style={[styles.filterButton, sortBy === 'order' && styles.filterButtonActive]}
-            onPress={() => handleSort('order')}
-          >
-            <Text style={[styles.filterButtonText, sortBy === 'order' && styles.filterButtonTextActive]}>
-              N° Commande
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, sortBy === 'child' && styles.filterButtonActive]}
-            onPress={() => handleSort('child')}
-          >
-            <Text style={[styles.filterButtonText, sortBy === 'child' && styles.filterButtonTextActive]}>
-              Nom Élève
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, sortBy === 'parent' && styles.filterButtonActive]}
-            onPress={() => handleSort('parent')}
-          >
-            <Text style={[styles.filterButtonText, sortBy === 'parent' && styles.filterButtonTextActive]}>
-              Nom Parent
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, sortBy === 'menu' && styles.filterButtonActive]}
-            onPress={() => handleSort('menu')}
-          >
-            <Text style={[styles.filterButtonText, sortBy === 'menu' && styles.filterButtonTextActive]}>
-              Menu
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </View>
-
-      {searchQuery.length > 0 && (
-        <View style={styles.searchResultsContainer}>
-          <Text style={styles.searchResultsText}>
-            {filteredOrders.length} résultat{filteredOrders.length > 1 ? 's' : ''} pour "{searchQuery}"
-          </Text>
-        </View>
-      )}
-
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        style={styles.mainScrollView}
+        contentContainerStyle={styles.mainScrollContent}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryIconContainer}>
+            <ShoppingBag size={24} color="#FFFFFF" />
+          </View>
+          <View style={styles.summaryTextContainer}>
+            <Text style={styles.summaryCount}>{orders.length}</Text>
+            <Text style={styles.summaryLabel}>Commandes</Text>
+          </View>
+        </View>
+
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputWrapper}>
+            <Search size={20} color="#6B7280" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Rechercher élève, parent ou menu..."
+              placeholderTextColor="#9CA3AF"
+              value={searchQuery}
+              onChangeText={handleSearch}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                <X size={20} color="#6B7280" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.filtersContainer}>
+          <Text style={styles.filterLabel}>Trier par:</Text>
+          <TouchableOpacity
+            style={styles.dropdownButton}
+            onPress={() => setShowSortDropdown(!showSortDropdown)}
+          >
+            <Text style={styles.dropdownButtonText}>{getSortLabel(sortBy)}</Text>
+            <ChevronDown size={20} color="#111827" />
+          </TouchableOpacity>
+
+          {showSortDropdown && (
+            <View style={styles.dropdownMenu}>
+              <TouchableOpacity
+                style={[styles.dropdownItem, sortBy === 'order' && styles.dropdownItemActive]}
+                onPress={() => handleSort('order')}
+              >
+                <Text style={[styles.dropdownItemText, sortBy === 'order' && styles.dropdownItemTextActive]}>
+                  N° Commande
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.dropdownItem, sortBy === 'child' && styles.dropdownItemActive]}
+                onPress={() => handleSort('child')}
+              >
+                <Text style={[styles.dropdownItemText, sortBy === 'child' && styles.dropdownItemTextActive]}>
+                  Nom Élève
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.dropdownItem, sortBy === 'parent' && styles.dropdownItemActive]}
+                onPress={() => handleSort('parent')}
+              >
+                <Text style={[styles.dropdownItemText, sortBy === 'parent' && styles.dropdownItemTextActive]}>
+                  Nom Parent
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.dropdownItem,
+                  styles.dropdownItemLast,
+                  sortBy === 'menu' && styles.dropdownItemActive
+                ]}
+                onPress={() => handleSort('menu')}
+              >
+                <Text style={[styles.dropdownItemText, sortBy === 'menu' && styles.dropdownItemTextActive]}>
+                  Menu
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {searchQuery.length > 0 && (
+          <View style={styles.searchResultsContainer}>
+            <Text style={styles.searchResultsText}>
+              {filteredOrders.length} résultat{filteredOrders.length > 1 ? 's' : ''} pour "{searchQuery}"
+            </Text>
+          </View>
+        )}
+
         {filteredOrders.length === 0 ? (
           <View style={styles.emptyContainer}>
             <ShoppingBag size={64} color="#D1D5DB" />
@@ -457,6 +476,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#4F46E5',
   },
+  mainScrollView: {
+    flex: 1,
+  },
+  mainScrollContent: {
+    paddingBottom: 40,
+  },
   filtersContainer: {
     backgroundColor: '#FFFFFF',
     marginHorizontal: 20,
@@ -469,47 +494,61 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  filterHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
   filterLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: '#6B7280',
+    marginBottom: 12,
   },
-  filterButtons: {
+  dropdownButton: {
     flexDirection: 'row',
-    gap: 10,
-    paddingRight: 20,
-  },
-  filterButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 100,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
-  filterButtonActive: {
-    backgroundColor: '#111827',
-  },
-  filterButtonText: {
-    fontSize: 14,
+  dropdownButtonText: {
+    fontSize: 15,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#111827',
   },
-  filterButtonTextActive: {
-    color: '#FFFFFF',
+  dropdownMenu: {
+    marginTop: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  scrollView: {
-    flex: 1,
+  dropdownItem: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-  scrollContent: {
-    paddingBottom: 40,
+  dropdownItemActive: {
+    backgroundColor: '#F3F4F6',
+  },
+  dropdownItemLast: {
+    borderBottomWidth: 0,
+  },
+  dropdownItemText: {
+    fontSize: 15,
+    color: '#374151',
+    fontWeight: '500',
+  },
+  dropdownItemTextActive: {
+    color: '#111827',
+    fontWeight: '700',
   },
   emptyContainer: {
     alignItems: 'center',
