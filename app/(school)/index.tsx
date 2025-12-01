@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { Calendar, Users, ClipboardList, UtensilsCrossed, History, Share2, ShoppingBag, BarChart3 } from 'lucide-react-native';
+import { Calendar, Users, ClipboardList, UtensilsCrossed, History, Share2, ShoppingBag, BarChart3, Building2 } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
 
 export default function SchoolHomeScreen() {
@@ -132,10 +132,16 @@ export default function SchoolHomeScreen() {
         }
       >
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerLeft}>
             <Text style={styles.greeting}>École</Text>
             <Text style={styles.schoolName}>{school?.name}</Text>
           </View>
+          <TouchableOpacity
+            style={styles.accountButton}
+            onPress={() => router.push('/(school)/account')}
+          >
+            <Building2 size={24} color="#111827" />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.todayCard}>
@@ -283,6 +289,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: 24,
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  accountButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   greeting: {
     fontSize: 16,

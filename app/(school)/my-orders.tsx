@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase, Reservation, Child, Menu, School } from '@/lib/supabase';
@@ -225,150 +225,152 @@ export default function SchoolMyOrdersScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.topSection}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <ArrowLeft size={24} color="#111827" />
-        </TouchableOpacity>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>Mes commandes</Text>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.topSection}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <ArrowLeft size={24} color="#111827" />
+          </TouchableOpacity>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>Mes commandes</Text>
+          </View>
         </View>
-      </View>
 
-      <View style={styles.statsContainer}>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>{filteredOrders.length}</Text>
-          <Text style={styles.statLabel}>Affichées</Text>
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{filteredOrders.length}</Text>
+            <Text style={styles.statLabel}>Affichées</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>
+              {orders.filter(o => o.payment_status === 'paid').length}
+            </Text>
+            <Text style={styles.statLabel}>Payées</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>
+              {orders.filter(o => o.payment_status === 'pending').length}
+            </Text>
+            <Text style={styles.statLabel}>En attente</Text>
+          </View>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>
-            {orders.filter(o => o.payment_status === 'paid').length}
-          </Text>
-          <Text style={styles.statLabel}>Payées</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statValue}>
-            {orders.filter(o => o.payment_status === 'pending').length}
-          </Text>
-          <Text style={styles.statLabel}>En attente</Text>
-        </View>
-      </View>
 
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInputWrapper}>
-          <Search size={20} color="#6B7280" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Rechercher élève ou menu..."
-            placeholderTextColor="#9CA3AF"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
-              <X size={20} color="#6B7280" />
+        <View style={styles.searchContainer}>
+          <View style={styles.searchInputWrapper}>
+            <Search size={20} color="#6B7280" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Rechercher élève ou menu..."
+              placeholderTextColor="#9CA3AF"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
+                <X size={20} color="#6B7280" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.filterBar}>
+          <TouchableOpacity
+            style={[styles.filterToggleButton, hasActiveFilters() && styles.filterToggleButtonActive]}
+            onPress={() => setShowFilters(!showFilters)}
+          >
+            <Filter size={20} color={hasActiveFilters() ? '#FFFFFF' : '#111827'} />
+            <Text style={[styles.filterToggleText, hasActiveFilters() && styles.filterToggleTextActive]}>
+              Filtres
+            </Text>
+            {hasActiveFilters() && (
+              <View style={styles.filterActiveDot} />
+            )}
+          </TouchableOpacity>
+
+          {hasActiveFilters() && (
+            <TouchableOpacity onPress={resetFilters} style={styles.resetButton}>
+              <X size={18} color="#EF4444" />
+              <Text style={styles.resetButtonText}>Réinitialiser</Text>
             </TouchableOpacity>
           )}
         </View>
-      </View>
 
-      <View style={styles.filterBar}>
-        <TouchableOpacity
-          style={[styles.filterToggleButton, hasActiveFilters() && styles.filterToggleButtonActive]}
-          onPress={() => setShowFilters(!showFilters)}
-        >
-          <Filter size={20} color={hasActiveFilters() ? '#FFFFFF' : '#111827'} />
-          <Text style={[styles.filterToggleText, hasActiveFilters() && styles.filterToggleTextActive]}>
-            Filtres
-          </Text>
-          {hasActiveFilters() && (
-            <View style={styles.filterActiveDot} />
-          )}
-        </TouchableOpacity>
+        {showFilters && (
+          <View style={styles.filtersPanel}>
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>Statut</Text>
+              <View style={styles.filterOptionsRow}>
+                {(['all', 'paid', 'pending', 'cancelled'] as StatusFilter[]).map((status) => (
+                  <TouchableOpacity
+                    key={status}
+                    style={[styles.filterChip, statusFilter === status && styles.filterChipActive]}
+                    onPress={() => setStatusFilter(status)}
+                  >
+                    <Text style={[styles.filterChipText, statusFilter === status && styles.filterChipTextActive]}>
+                      {getStatusLabel(status)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
 
-        {hasActiveFilters() && (
-          <TouchableOpacity onPress={resetFilters} style={styles.resetButton}>
-            <X size={18} color="#EF4444" />
-            <Text style={styles.resetButtonText}>Réinitialiser</Text>
-          </TouchableOpacity>
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>Période</Text>
+              <View style={styles.filterOptionsRow}>
+                {(['all', 'today', 'week', 'month', 'year'] as PeriodFilter[]).map((period) => (
+                  <TouchableOpacity
+                    key={period}
+                    style={[styles.filterChip, periodFilter === period && styles.filterChipActive]}
+                    onPress={() => setPeriodFilter(period)}
+                  >
+                    <Text style={[styles.filterChipText, periodFilter === period && styles.filterChipTextActive]}>
+                      {getPeriodLabel(period)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>Trier par</Text>
+              <View style={styles.filterOptionsColumn}>
+                {(['date_desc', 'date_asc', 'price_desc', 'price_asc', 'student'] as SortOption[]).map((sort) => (
+                  <TouchableOpacity
+                    key={sort}
+                    style={[styles.sortOption, sortBy === sort && styles.sortOptionActive]}
+                    onPress={() => setSortBy(sort)}
+                  >
+                    <View style={[styles.radioButton, sortBy === sort && styles.radioButtonActive]}>
+                      {sortBy === sort && <View style={styles.radioButtonInner} />}
+                    </View>
+                    <Text style={[styles.sortOptionText, sortBy === sort && styles.sortOptionTextActive]}>
+                      {getSortLabel(sort)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          </View>
         )}
-      </View>
 
-      {showFilters && (
-        <View style={styles.filtersPanel}>
-          <View style={styles.filterSection}>
-            <Text style={styles.filterSectionTitle}>Statut</Text>
-            <View style={styles.filterOptionsRow}>
-              {(['all', 'paid', 'pending', 'cancelled'] as StatusFilter[]).map((status) => (
-                <TouchableOpacity
-                  key={status}
-                  style={[styles.filterChip, statusFilter === status && styles.filterChipActive]}
-                  onPress={() => setStatusFilter(status)}
-                >
-                  <Text style={[styles.filterChipText, statusFilter === status && styles.filterChipTextActive]}>
-                    {getStatusLabel(status)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+        {filteredOrders.length === 0 ? (
+          <View style={styles.emptyStateContainer}>
+            <Text style={styles.emptyText}>
+              {orders.length === 0 ? 'Aucune commande trouvée' : 'Aucune commande ne correspond aux filtres'}
+            </Text>
           </View>
-
-          <View style={styles.filterSection}>
-            <Text style={styles.filterSectionTitle}>Période</Text>
-            <View style={styles.filterOptionsRow}>
-              {(['all', 'today', 'week', 'month', 'year'] as PeriodFilter[]).map((period) => (
-                <TouchableOpacity
-                  key={period}
-                  style={[styles.filterChip, periodFilter === period && styles.filterChipActive]}
-                  onPress={() => setPeriodFilter(period)}
-                >
-                  <Text style={[styles.filterChipText, periodFilter === period && styles.filterChipTextActive]}>
-                    {getPeriodLabel(period)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+        ) : (
+          <View style={styles.ordersList}>
+            {filteredOrders.map((order) => renderOrder({ item: order }))}
           </View>
-
-          <View style={styles.filterSection}>
-            <Text style={styles.filterSectionTitle}>Trier par</Text>
-            <View style={styles.filterOptionsColumn}>
-              {(['date_desc', 'date_asc', 'price_desc', 'price_asc', 'student'] as SortOption[]).map((sort) => (
-                <TouchableOpacity
-                  key={sort}
-                  style={[styles.sortOption, sortBy === sort && styles.sortOptionActive]}
-                  onPress={() => setSortBy(sort)}
-                >
-                  <View style={[styles.radioButton, sortBy === sort && styles.radioButtonActive]}>
-                    {sortBy === sort && <View style={styles.radioButtonInner} />}
-                  </View>
-                  <Text style={[styles.sortOptionText, sortBy === sort && styles.sortOptionTextActive]}>
-                    {getSortLabel(sort)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        </View>
-      )}
-
-      {filteredOrders.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>
-            {orders.length === 0 ? 'Aucune commande trouvée' : 'Aucune commande ne correspond aux filtres'}
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredOrders}
-          renderItem={renderOrder}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -604,9 +606,21 @@ const styles = StyleSheet.create({
     color: '#4F46E5',
     fontWeight: '600',
   },
-  listContent: {
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 32,
+  },
+  ordersList: {
     paddingHorizontal: 16,
-    paddingBottom: 16,
+  },
+  emptyStateContainer: {
+    minHeight: 200,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    marginTop: 40,
   },
   orderCard: {
     backgroundColor: '#FFFFFF',
@@ -684,12 +698,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#1E40AF',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
   },
   emptyText: {
     fontSize: 16,
