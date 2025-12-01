@@ -67,6 +67,7 @@ export default function AddMenuScreen() {
 
       if (schoolsList.length > 0) {
         setSelectedSchools([schoolsList[0].school_id]);
+        setSelectAllSchools(false);
       }
     } catch (err) {
       console.error('Error loading data:', err);
@@ -76,32 +77,10 @@ export default function AddMenuScreen() {
   };
 
   const toggleSchool = (schoolId: string) => {
-    setSelectedSchools(prev => {
-      if (prev.includes(schoolId)) {
-        const newSelection = prev.filter(id => id !== schoolId);
-        if (newSelection.length === 0) {
-          setSelectAllSchools(false);
-        }
-        return newSelection;
-      } else {
-        const newSelection = [...prev, schoolId];
-        if (newSelection.length === schools.length) {
-          setSelectAllSchools(true);
-        }
-        return newSelection;
-      }
-    });
+    setSelectedSchools([schoolId]);
+    setSelectAllSchools(false);
   };
 
-  const toggleAllSchools = () => {
-    if (selectAllSchools) {
-      setSelectedSchools([]);
-      setSelectAllSchools(false);
-    } else {
-      setSelectedSchools(schools.map(s => s.school_id));
-      setSelectAllSchools(true);
-    }
-  };
 
   const getMinDate = () => {
     return new Date();
@@ -345,7 +324,7 @@ export default function AddMenuScreen() {
 
       console.log('Menu inserted successfully:', data);
 
-      Alert.alert('Succès', `Menu créé avec succès pour ${selectedSchools.length} école(s)`, [
+      Alert.alert('Succès', 'Menu créé avec succès', [
         {
           text: 'OK',
           onPress: () => router.back(),
@@ -383,19 +362,7 @@ export default function AddMenuScreen() {
 
         <View style={styles.form}>
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Écoles *</Text>
-            <TouchableOpacity
-              style={styles.selectAllButton}
-              onPress={toggleAllSchools}
-            >
-              <View style={[
-                styles.checkbox,
-                selectAllSchools && styles.checkboxActive
-              ]}>
-                {selectAllSchools && <Check size={16} color="#FFFFFF" />}
-              </View>
-              <Text style={styles.selectAllText}>Toutes les écoles</Text>
-            </TouchableOpacity>
+            <Text style={styles.label}>École *</Text>
             <View style={styles.schoolsList}>
               {schools.map(school => (
                 <TouchableOpacity
@@ -404,11 +371,11 @@ export default function AddMenuScreen() {
                   onPress={() => toggleSchool(school.school_id)}
                 >
                   <View style={[
-                    styles.checkbox,
-                    selectedSchools.includes(school.school_id) && styles.checkboxActive
+                    styles.radioButton,
+                    selectedSchools.includes(school.school_id) && styles.radioButtonActive
                   ]}>
                     {selectedSchools.includes(school.school_id) && (
-                      <Check size={16} color="#FFFFFF" />
+                      <View style={styles.radioButtonInner} />
                     )}
                   </View>
                   <Text style={styles.schoolItemText}>{school.school_name}</Text>
@@ -747,6 +714,24 @@ const styles = StyleSheet.create({
   checkboxActive: {
     backgroundColor: '#111827',
     borderColor: '#111827',
+  },
+  radioButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioButtonActive: {
+    borderColor: '#111827',
+  },
+  radioButtonInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#111827',
   },
   dateButton: {
     flexDirection: 'row',
