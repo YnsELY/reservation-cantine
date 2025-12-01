@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Linking, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Menu, School } from '@/lib/supabase';
@@ -407,6 +407,13 @@ export default function SchoolDashboard() {
                 key={menu.id}
                 style={[styles.menuCard, { backgroundColor: cardColor }]}
               >
+                {menu.image_url && (
+                  <Image
+                    source={{ uri: menu.image_url }}
+                    style={styles.menuCardImage}
+                    resizeMode="cover"
+                  />
+                )}
                 <View style={styles.menuCardHeader}>
                   <Text style={[styles.menuCardTitle, { color: textColor }]}>
                     {menu.meal_name}
@@ -606,6 +613,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 16,
     minHeight: 180,
+  },
+  menuCardImage: {
+    width: '100%',
+    height: 200,
   },
   menuCardHeader: {
     paddingHorizontal: 24,
