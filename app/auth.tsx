@@ -3,12 +3,14 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator,
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '@/lib/supabase';
-import { LogIn, UserPlus, School, User, Building2 } from 'lucide-react-native';
+import { LogIn, UserPlus, School, User, Building2, ArrowLeft, UtensilsCrossed } from 'lucide-react-native';
 
 type AuthMode = 'login' | 'signup';
 type UserType = 'parent' | 'school' | 'provider';
+type Screen = 'role-selection' | 'auth-form';
 
 export default function AuthScreen() {
+  const [screen, setScreen] = useState<Screen>('role-selection');
   const [mode, setMode] = useState<AuthMode>('login');
   const [userType, setUserType] = useState<UserType>('parent');
   const [email, setEmail] = useState('');
@@ -289,11 +291,89 @@ export default function AuthScreen() {
     }
   };
 
+  const handleRoleSelection = (role: UserType) => {
+    setUserType(role);
+    setScreen('auth-form');
+    setError('');
+  };
+
+  const handleBackToRoleSelection = () => {
+    setScreen('role-selection');
+    setMode('login');
+    setEmail('');
+    setPassword('');
+    setFirstName('');
+    setLastName('');
+    setSchoolName('');
+    setSchoolAccessCode('');
+    setCompanyName('');
+    setProviderCode('');
+    setError('');
+  };
+
   if (checkingSession) {
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
-        <ActivityIndicator size="large" color="#FFFFFF" />
+        <ActivityIndicator size="large" color="#000000" />
+      </View>
+    );
+  }
+
+  if (screen === 'role-selection') {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="dark" />
+        <View style={styles.roleSelectionContainer}>
+          <View style={styles.header}>
+            <View style={styles.iconContainer}>
+              <UtensilsCrossed size={48} color="#000000" />
+            </View>
+            <Text style={styles.title}>Children's Kitchen</Text>
+            <Text style={styles.subtitle}>Sélectionnez votre profil</Text>
+          </View>
+
+          <View style={styles.roleCardsContainer}>
+            <TouchableOpacity
+              style={styles.roleCard}
+              onPress={() => handleRoleSelection('parent')}
+            >
+              <View style={styles.roleIconContainer}>
+                <User size={40} color="#4F46E5" />
+              </View>
+              <Text style={styles.roleCardTitle}>Parent</Text>
+              <Text style={styles.roleCardDescription}>
+                Réservez des repas pour vos enfants
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.roleCard}
+              onPress={() => handleRoleSelection('school')}
+            >
+              <View style={styles.roleIconContainer}>
+                <School size={40} color="#10B981" />
+              </View>
+              <Text style={styles.roleCardTitle}>École</Text>
+              <Text style={styles.roleCardDescription}>
+                Gérez les commandes de votre établissement
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.roleCard}
+              onPress={() => handleRoleSelection('provider')}
+            >
+              <View style={styles.roleIconContainer}>
+                <Building2 size={40} color="#F59E0B" />
+              </View>
+              <Text style={styles.roleCardTitle}>Prestataire</Text>
+              <Text style={styles.roleCardDescription}>
+                Proposez vos menus aux écoles
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </View>
     );
   }
@@ -303,23 +383,30 @@ export default function AuthScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={handleBackToRoleSelection}
+        >
+          <ArrowLeft size={24} color="#000000" />
+        </TouchableOpacity>
+
         <View style={styles.header}>
           <View style={styles.iconContainer}>
-            {mode === 'login' ? (
-              <LogIn size={48} color="#000000" />
-            ) : (
-              <UserPlus size={48} color="#000000" />
-            )}
+            {userType === 'parent' && <User size={48} color="#4F46E5" />}
+            {userType === 'school' && <School size={48} color="#10B981" />}
+            {userType === 'provider' && <Building2 size={48} color="#F59E0B" />}
           </View>
-          <Text style={styles.title}>Réservation Repas</Text>
+          <Text style={styles.title}>Children's Kitchen</Text>
           <Text style={styles.subtitle}>
-            {mode === 'login' ? 'Connectez-vous' : 'Créez votre compte'}
+            {userType === 'parent' && 'Espace Parent'}
+            {userType === 'school' && 'Espace École'}
+            {userType === 'provider' && 'Espace Prestataire'}
           </Text>
         </View>
 
@@ -402,23 +489,6 @@ export default function AuthScreen() {
                 }}
                 editable={!loading}
               />
-
-              <View style={styles.switchAccountTypeContainer}>
-                <TouchableOpacity
-                  style={styles.switchAccountTypeButton}
-                  onPress={() => setUserType('school')}
-                >
-                  <School size={16} color="#6B7280" />
-                  <Text style={styles.switchAccountTypeText}>Je suis une école</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.switchAccountTypeButton}
-                  onPress={() => setUserType('provider')}
-                >
-                  <Building2 size={16} color="#6B7280" />
-                  <Text style={styles.switchAccountTypeText}>Je suis un prestataire</Text>
-                </TouchableOpacity>
-              </View>
             </>
           )}
 
@@ -451,23 +521,6 @@ export default function AuthScreen() {
               <Text style={styles.helperText}>
                 Ce code permettra aux parents de s'affilier à votre école
               </Text>
-
-              <View style={styles.switchAccountTypeContainer}>
-                <TouchableOpacity
-                  style={styles.switchAccountTypeButton}
-                  onPress={() => setUserType('parent')}
-                >
-                  <User size={16} color="#6B7280" />
-                  <Text style={styles.switchAccountTypeText}>Je suis un parent</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.switchAccountTypeButton}
-                  onPress={() => setUserType('provider')}
-                >
-                  <Building2 size={16} color="#6B7280" />
-                  <Text style={styles.switchAccountTypeText}>Je suis un prestataire</Text>
-                </TouchableOpacity>
-              </View>
             </>
           )}
 
@@ -500,23 +553,6 @@ export default function AuthScreen() {
               <Text style={styles.helperText}>
                 Demandez ce code à l'administrateur
               </Text>
-
-              <View style={styles.switchAccountTypeContainer}>
-                <TouchableOpacity
-                  style={styles.switchAccountTypeButton}
-                  onPress={() => setUserType('parent')}
-                >
-                  <User size={16} color="#6B7280" />
-                  <Text style={styles.switchAccountTypeText}>Je suis un parent</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.switchAccountTypeButton}
-                  onPress={() => setUserType('school')}
-                >
-                  <School size={16} color="#6B7280" />
-                  <Text style={styles.switchAccountTypeText}>Je suis une école</Text>
-                </TouchableOpacity>
-              </View>
             </>
           )}
 
@@ -548,11 +584,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
+  roleSelectionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 40,
+  },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
     paddingVertical: 40,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 60,
+    left: 24,
+    padding: 8,
+    zIndex: 10,
   },
   header: {
     alignItems: 'center',
@@ -576,6 +625,42 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: '#6B7280',
+  },
+  roleCardsContainer: {
+    gap: 16,
+  },
+  roleCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  roleIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  roleCardTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  roleCardDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -635,8 +720,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 8,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -645,29 +728,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
-  },
-  switchAccountTypeContainer: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 8,
-    marginBottom: 12,
-  },
-  switchAccountTypeButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  switchAccountTypeText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#6B7280',
   },
 });
