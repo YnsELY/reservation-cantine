@@ -5,6 +5,7 @@ export default function ProviderLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="preparation" />
+      <Stack.Screen name="menu-orders" />
       <Stack.Screen name="menus" />
       <Stack.Screen name="schools" />
       <Stack.Screen name="statistics" />
