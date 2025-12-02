@@ -324,7 +324,10 @@ export default function AuthScreen() {
     return (
       <View style={styles.container}>
         <StatusBar style="dark" />
-        <View style={styles.roleSelectionContainer}>
+        <ScrollView
+          contentContainerStyle={styles.roleSelectionScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.header}>
             <View style={styles.iconContainer}>
               <UtensilsCrossed size={48} color="#000000" />
@@ -335,45 +338,54 @@ export default function AuthScreen() {
 
           <View style={styles.roleCardsContainer}>
             <TouchableOpacity
-              style={styles.roleCard}
+              style={[styles.roleCard, styles.roleCardParent]}
               onPress={() => handleRoleSelection('parent')}
+              activeOpacity={0.7}
             >
-              <View style={styles.roleIconContainer}>
-                <User size={40} color="#4F46E5" />
+              <View style={[styles.roleIconContainer, styles.roleIconParent]}>
+                <User size={32} color="#FFFFFF" strokeWidth={2.5} />
               </View>
-              <Text style={styles.roleCardTitle}>Parent</Text>
-              <Text style={styles.roleCardDescription}>
-                Réservez des repas pour vos enfants
-              </Text>
+              <View style={styles.roleCardContent}>
+                <Text style={styles.roleCardTitle}>Parent</Text>
+                <Text style={styles.roleCardDescription}>
+                  Réservez des repas pour vos enfants
+                </Text>
+              </View>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.roleCard}
+              style={[styles.roleCard, styles.roleCardSchool]}
               onPress={() => handleRoleSelection('school')}
+              activeOpacity={0.7}
             >
-              <View style={styles.roleIconContainer}>
-                <School size={40} color="#10B981" />
+              <View style={[styles.roleIconContainer, styles.roleIconSchool]}>
+                <School size={32} color="#FFFFFF" strokeWidth={2.5} />
               </View>
-              <Text style={styles.roleCardTitle}>École</Text>
-              <Text style={styles.roleCardDescription}>
-                Gérez les commandes de votre établissement
-              </Text>
+              <View style={styles.roleCardContent}>
+                <Text style={styles.roleCardTitle}>École</Text>
+                <Text style={styles.roleCardDescription}>
+                  Gérez les commandes de votre établissement
+                </Text>
+              </View>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.roleCard}
+              style={[styles.roleCard, styles.roleCardProvider]}
               onPress={() => handleRoleSelection('provider')}
+              activeOpacity={0.7}
             >
-              <View style={styles.roleIconContainer}>
-                <Building2 size={40} color="#F59E0B" />
+              <View style={[styles.roleIconContainer, styles.roleIconProvider]}>
+                <Building2 size={32} color="#FFFFFF" strokeWidth={2.5} />
               </View>
-              <Text style={styles.roleCardTitle}>Prestataire</Text>
-              <Text style={styles.roleCardDescription}>
-                Proposez vos menus aux écoles
-              </Text>
+              <View style={styles.roleCardContent}>
+                <Text style={styles.roleCardTitle}>Prestataire</Text>
+                <Text style={styles.roleCardDescription}>
+                  Proposez vos menus aux écoles
+                </Text>
+              </View>
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
       </View>
     );
   }
@@ -584,10 +596,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  roleSelectionContainer: {
-    flex: 1,
+  roleSelectionScrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 20,
     paddingVertical: 40,
   },
   scrollContent: {
@@ -627,40 +639,60 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   roleCardsContainer: {
-    gap: 16,
+    gap: 12,
   },
   roleCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+    borderWidth: 0,
+  },
+  roleCardParent: {
+    backgroundColor: '#EEF2FF',
+  },
+  roleCardSchool: {
+    backgroundColor: '#F0FDF4',
+  },
+  roleCardProvider: {
+    backgroundColor: '#FFFBEB',
   },
   roleIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#F9FAFB',
+    width: 64,
+    height: 64,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginRight: 16,
+  },
+  roleIconParent: {
+    backgroundColor: '#4F46E5',
+  },
+  roleIconSchool: {
+    backgroundColor: '#10B981',
+  },
+  roleIconProvider: {
+    backgroundColor: '#F59E0B',
+  },
+  roleCardContent: {
+    flex: 1,
   },
   roleCardTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   roleCardDescription: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#6B7280',
-    textAlign: 'center',
+    lineHeight: 18,
   },
   tabContainer: {
     flexDirection: 'row',
