@@ -35,17 +35,12 @@ export default function MenuOrdersScreen() {
         .select(`
           id,
           supplements,
-          child:children!inner(
+          children!inner(
             id,
             first_name,
             last_name,
-            parent:parents!inner(
-              first_name,
-              last_name
-            ),
-            school:schools!inner(
-              name
-            )
+            parent_id,
+            school_id
           )
         `)
         .eq('menu_id', menuId)
@@ -53,13 +48,36 @@ export default function MenuOrdersScreen() {
 
       if (error) throw error;
 
-      const formattedOrders: OrderDetail[] = (reservationsData || []).map((reservation: any) => ({
-        id: reservation.id,
-        child_name: `${reservation.child.first_name} ${reservation.child.last_name}`,
-        parent_name: `${reservation.child.parent.first_name} ${reservation.child.parent.last_name}`,
-        school_name: reservation.child.school.name,
-        supplements: reservation.supplements,
-      }));
+      const childIds = (reservationsData || []).map((r: any) => r.children.id);
+      const parentIds = (reservationsData || []).map((r: any) => r.children.parent_id);
+      const schoolIds = (reservationsData || []).map((r: any) => r.children.school_id);
+
+      const { data: parentsData } = await supabase
+        .from('parents')
+        .select('id, first_name, last_name')
+        .in('id', parentIds);
+
+      const { data: schoolsData } = await supabase
+        .from('schools')
+        .select('id, name')
+        .in('id', schoolIds);
+
+      const parentsMap = new Map((parentsData || []).map((p: any) => [p.id, p]));
+      const schoolsMap = new Map((schoolsData || []).map((s: any) => [s.id, s]));
+
+      const formattedOrders: OrderDetail[] = (reservationsData || []).map((reservation: any) => {
+        const child = reservation.children;
+        const parent = parentsMap.get(child.parent_id);
+        const school = schoolsMap.get(child.school_id);
+
+        return {
+          id: reservation.id,
+          child_name: `${child.first_name} ${child.last_name}`,
+          parent_name: parent ? `${parent.first_name} ${parent.last_name}` : 'N/A',
+          school_name: school ? school.name : 'N/A',
+          supplements: reservation.supplements,
+        };
+      });
 
       setOrders(formattedOrders);
     } catch (err) {
