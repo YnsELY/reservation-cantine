@@ -404,15 +404,7 @@ export default function ProviderDashboard() {
                   </View>
                   <TouchableOpacity
                     style={[styles.viewOrdersButton, { backgroundColor: textColor === '#FFFFFF' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)' }]}
-                    onPress={() => router.push({
-                      pathname: '/(provider)/menu-orders',
-                      params: {
-                        menuId: menu.id,
-                        menuName: menu.meal_name,
-                        date: selectedDate,
-                        schoolIds: JSON.stringify(menu.school_ids)
-                      }
-                    })}
+                    onPress={() => router.push(`/(provider)/menu-orders?menuId=${menu.id}&menuName=${encodeURIComponent(menu.meal_name)}&date=${selectedDate}`)}
                   >
                     <ChevronRightIcon size={24} color={textColor} />
                   </TouchableOpacity>
