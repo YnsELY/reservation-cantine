@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, ShoppingBag, User, Users, UtensilsCrossed, Search, X, ChevronDown, FileSpreadsheet } from 'lucide-react-native';
 
@@ -38,6 +38,12 @@ export default function OrdersPage() {
   useEffect(() => {
     loadOrders();
   }, [menuId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadOrders();
+    }, [])
+  );
 
   const loadOrders = async () => {
     try {

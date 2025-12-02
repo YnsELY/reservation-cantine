@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Modal, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { Receipt, AlertCircle, History, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react-native';
@@ -47,6 +47,12 @@ export default function HistoryScreen() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
 
   const loadData = async () => {
     try {

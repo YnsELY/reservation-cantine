@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, CartItem, Child, Menu, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { ArrowLeft, Trash2, ShoppingCart, CreditCard } from 'lucide-react-native';
@@ -21,6 +21,12 @@ export default function CartScreen() {
   useEffect(() => {
     loadCartData();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadCartData();
+    }, [])
+  );
 
   const loadCartData = async () => {
     try {

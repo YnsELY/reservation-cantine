@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { supabase, Reservation, Child, Menu, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { ArrowLeft, Calendar, Filter, X, Search, ChevronDown } from 'lucide-react-native';
@@ -29,6 +29,12 @@ export default function SchoolMyOrdersScreen() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
 
   useEffect(() => {
     applyFilters();

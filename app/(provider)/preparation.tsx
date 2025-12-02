@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Menu, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { UtensilsCrossed, ChevronLeft, ChevronRight, ChefHat, ArrowLeft, ChevronRight as ChevronRightIcon } from 'lucide-react-native';
@@ -40,6 +40,12 @@ export default function ProviderDashboard() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [])
+  );
 
   useEffect(() => {
     if (selectedDate && weekMenus[selectedDate]) {
