@@ -177,7 +177,7 @@ export default function MenuOrdersScreen() {
                     <Text style={styles.orderValue}>{String(order.school_name || '')}</Text>
                   </View>
                 </View>
-                {order.supplements && (
+                {order.supplements && order.supplements.trim() !== '' && (
                   <View style={styles.supplementsContainer}>
                     <Text style={styles.supplementsLabel}>Suppléments</Text>
                     <Text style={styles.supplementsText}>{String(order.supplements)}</Text>
