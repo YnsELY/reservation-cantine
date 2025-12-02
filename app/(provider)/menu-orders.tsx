@@ -20,13 +20,15 @@ export default function MenuOrdersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const menuName = params.menuName as string;
-  const date = params.date as string;
-  const menuId = params.menuId as string;
+  const menuName = Array.isArray(params.menuName) ? params.menuName[0] : params.menuName || '';
+  const date = Array.isArray(params.date) ? params.date[0] : params.date || '';
+  const menuId = Array.isArray(params.menuId) ? params.menuId[0] : params.menuId || '';
 
   useEffect(() => {
-    loadOrders();
-  }, []);
+    if (menuId && date) {
+      loadOrders();
+    }
+  }, [menuId, date]);
 
   const loadOrders = async () => {
     try {
@@ -94,6 +96,7 @@ export default function MenuOrdersScreen() {
   };
 
   const formatDate = (dateStr: string) => {
+    if (!dateStr) return '';
     const date = new Date(dateStr);
     return date.toLocaleDateString('fr-FR', {
       weekday: 'long',
@@ -126,8 +129,8 @@ export default function MenuOrdersScreen() {
       </View>
 
       <View style={styles.infoCard}>
-        <Text style={styles.menuName}>{menuName}</Text>
-        <Text style={styles.dateText}>{formatDate(date)}</Text>
+        <Text style={styles.menuName}>{String(menuName)}</Text>
+        <Text style={styles.dateText}>{formatDate(String(date))}</Text>
         <View style={styles.totalBadge}>
           <UsersIcon size={20} color="#FFFFFF" />
           <Text style={styles.totalText}>{orders.length} commande{orders.length > 1 ? 's' : ''}</Text>
@@ -157,27 +160,27 @@ export default function MenuOrdersScreen() {
                   <User size={18} color="#6B7280" />
                   <View style={styles.orderInfo}>
                     <Text style={styles.orderLabel}>Élève</Text>
-                    <Text style={styles.orderValue}>{order.child_name}</Text>
+                    <Text style={styles.orderValue}>{String(order.child_name || '')}</Text>
                   </View>
                 </View>
                 <View style={styles.orderRow}>
                   <User size={18} color="#6B7280" />
                   <View style={styles.orderInfo}>
                     <Text style={styles.orderLabel}>Parent</Text>
-                    <Text style={styles.orderValue}>{order.parent_name}</Text>
+                    <Text style={styles.orderValue}>{String(order.parent_name || '')}</Text>
                   </View>
                 </View>
                 <View style={styles.orderRow}>
                   <UsersIcon size={18} color="#6B7280" />
                   <View style={styles.orderInfo}>
                     <Text style={styles.orderLabel}>École</Text>
-                    <Text style={styles.orderValue}>{order.school_name}</Text>
+                    <Text style={styles.orderValue}>{String(order.school_name || '')}</Text>
                   </View>
                 </View>
                 {order.supplements && (
                   <View style={styles.supplementsContainer}>
                     <Text style={styles.supplementsLabel}>Suppléments</Text>
-                    <Text style={styles.supplementsText}>{order.supplements}</Text>
+                    <Text style={styles.supplementsText}>{String(order.supplements)}</Text>
                   </View>
                 )}
               </View>
