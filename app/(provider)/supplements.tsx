@@ -215,9 +215,8 @@ export default function ProviderSupplements() {
                       <View style={styles.supplementItemContent}>
                         <View style={styles.supplementHeader}>
                           <Text style={styles.supplementItemName}>{supplement.name}</Text>
-                          <TouchableOpacity
+                          <View
                             style={[styles.statusBadge, supplement.available ? styles.statusAvailable : styles.statusUnavailable]}
-                            onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
                           >
                             {supplement.available ? (
                               <CheckCircle size={14} color="#10B981" />
@@ -227,7 +226,7 @@ export default function ProviderSupplements() {
                             <Text style={[styles.statusText, supplement.available ? styles.statusTextAvailable : styles.statusTextUnavailable]}>
                               {supplement.available ? 'Actif' : 'Inactif'}
                             </Text>
-                          </TouchableOpacity>
+                          </View>
                         </View>
                         <View style={styles.schoolBadge}>
                           <Text style={styles.schoolBadgeText}>
@@ -240,6 +239,14 @@ export default function ProviderSupplements() {
                           <Text style={styles.supplementItemDescription}>{supplement.description}</Text>
                         )}
                         <Text style={styles.supplementItemPrice}>+{supplement.price.toFixed(2)}€</Text>
+                        <TouchableOpacity
+                          style={[styles.toggleButton, supplement.available ? styles.toggleButtonDeactivate : styles.toggleButtonActivate]}
+                          onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
+                        >
+                          <Text style={[styles.toggleButtonText, supplement.available ? styles.toggleButtonTextDeactivate : styles.toggleButtonTextActivate]}>
+                            {supplement.available ? 'Désactiver' : 'Activer'}
+                          </Text>
+                        </TouchableOpacity>
                       </View>
                       <View style={styles.supplementItemActions}>
                         <TouchableOpacity
@@ -264,9 +271,8 @@ export default function ProviderSupplements() {
                       <View style={styles.supplementItemContent}>
                         <View style={styles.supplementHeader}>
                           <Text style={styles.supplementItemName}>{supplement.name}</Text>
-                          <TouchableOpacity
+                          <View
                             style={[styles.statusBadge, supplement.available ? styles.statusAvailable : styles.statusUnavailable]}
-                            onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
                           >
                             {supplement.available ? (
                               <CheckCircle size={14} color="#10B981" />
@@ -276,7 +282,7 @@ export default function ProviderSupplements() {
                             <Text style={[styles.statusText, supplement.available ? styles.statusTextAvailable : styles.statusTextUnavailable]}>
                               {supplement.available ? 'Actif' : 'Inactif'}
                             </Text>
-                          </TouchableOpacity>
+                          </View>
                         </View>
                         {supplement.menu_name && (
                           <View style={styles.menuBadge}>
@@ -294,6 +300,14 @@ export default function ProviderSupplements() {
                           <Text style={styles.supplementItemDescription}>{supplement.description}</Text>
                         )}
                         <Text style={styles.supplementItemPrice}>+{supplement.price.toFixed(2)}€</Text>
+                        <TouchableOpacity
+                          style={[styles.toggleButton, supplement.available ? styles.toggleButtonDeactivate : styles.toggleButtonActivate]}
+                          onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
+                        >
+                          <Text style={[styles.toggleButtonText, supplement.available ? styles.toggleButtonTextDeactivate : styles.toggleButtonTextActivate]}>
+                            {supplement.available ? 'Désactiver' : 'Activer'}
+                          </Text>
+                        </TouchableOpacity>
                       </View>
                       <View style={styles.supplementItemActions}>
                         <TouchableOpacity
@@ -497,5 +511,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#1E40AF',
+  },
+  toggleButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toggleButtonActivate: {
+    backgroundColor: '#10B981',
+  },
+  toggleButtonDeactivate: {
+    backgroundColor: '#EF4444',
+  },
+  toggleButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  toggleButtonTextActivate: {
+    color: '#FFFFFF',
+  },
+  toggleButtonTextDeactivate: {
+    color: '#FFFFFF',
   },
 });
