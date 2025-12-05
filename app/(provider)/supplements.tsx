@@ -228,30 +228,32 @@ export default function ProviderSupplements() {
                             </Text>
                           </View>
                         </View>
-                        <View style={styles.schoolBadge}>
-                          <Text style={styles.schoolBadgeText}>
-                            {supplement.school_ids.length === schools.length
-                              ? 'Toutes les écoles'
-                              : supplement.school_names.join(', ')}
-                          </Text>
+                        <View style={styles.badgeRow}>
+                          <View style={styles.schoolBadge}>
+                            <Text style={styles.schoolBadgeText}>
+                              {supplement.school_ids.length === schools.length
+                                ? 'Toutes les écoles'
+                                : supplement.school_names.join(', ')}
+                            </Text>
+                          </View>
+                          <TouchableOpacity
+                            style={[styles.toggleButton, supplement.available ? styles.toggleButtonDeactivate : styles.toggleButtonActivate]}
+                            onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
+                          >
+                            {supplement.available ? (
+                              <XCircle size={16} color="#EF4444" />
+                            ) : (
+                              <CheckCircle size={16} color="#10B981" />
+                            )}
+                            <Text style={[styles.toggleButtonText, supplement.available ? styles.toggleButtonTextDeactivate : styles.toggleButtonTextActivate]}>
+                              {supplement.available ? 'Désactiver' : 'Activer'}
+                            </Text>
+                          </TouchableOpacity>
                         </View>
                         {supplement.description && (
                           <Text style={styles.supplementItemDescription}>{supplement.description}</Text>
                         )}
                         <Text style={styles.supplementItemPrice}>+{supplement.price.toFixed(2)}€</Text>
-                        <TouchableOpacity
-                          style={[styles.toggleButton, supplement.available ? styles.toggleButtonDeactivate : styles.toggleButtonActivate]}
-                          onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
-                        >
-                          {supplement.available ? (
-                            <XCircle size={16} color="#EF4444" />
-                          ) : (
-                            <CheckCircle size={16} color="#10B981" />
-                          )}
-                          <Text style={[styles.toggleButtonText, supplement.available ? styles.toggleButtonTextDeactivate : styles.toggleButtonTextActivate]}>
-                            {supplement.available ? 'Désactiver' : 'Activer'}
-                          </Text>
-                        </TouchableOpacity>
                       </View>
                       <View style={styles.supplementItemActions}>
                         <TouchableOpacity
@@ -294,30 +296,32 @@ export default function ProviderSupplements() {
                             <Text style={styles.menuBadgeText}>Menu: {supplement.menu_name}</Text>
                           </View>
                         )}
-                        <View style={styles.schoolBadge}>
-                          <Text style={styles.schoolBadgeText}>
-                            {supplement.school_ids.length === schools.length
-                              ? 'Toutes les écoles'
-                              : supplement.school_names.join(', ')}
-                          </Text>
+                        <View style={styles.badgeRow}>
+                          <View style={styles.schoolBadge}>
+                            <Text style={styles.schoolBadgeText}>
+                              {supplement.school_ids.length === schools.length
+                                ? 'Toutes les écoles'
+                                : supplement.school_names.join(', ')}
+                            </Text>
+                          </View>
+                          <TouchableOpacity
+                            style={[styles.toggleButton, supplement.available ? styles.toggleButtonDeactivate : styles.toggleButtonActivate]}
+                            onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
+                          >
+                            {supplement.available ? (
+                              <XCircle size={16} color="#EF4444" />
+                            ) : (
+                              <CheckCircle size={16} color="#10B981" />
+                            )}
+                            <Text style={[styles.toggleButtonText, supplement.available ? styles.toggleButtonTextDeactivate : styles.toggleButtonTextActivate]}>
+                              {supplement.available ? 'Désactiver' : 'Activer'}
+                            </Text>
+                          </TouchableOpacity>
                         </View>
                         {supplement.description && (
                           <Text style={styles.supplementItemDescription}>{supplement.description}</Text>
                         )}
                         <Text style={styles.supplementItemPrice}>+{supplement.price.toFixed(2)}€</Text>
-                        <TouchableOpacity
-                          style={[styles.toggleButton, supplement.available ? styles.toggleButtonDeactivate : styles.toggleButtonActivate]}
-                          onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
-                        >
-                          {supplement.available ? (
-                            <XCircle size={16} color="#EF4444" />
-                          ) : (
-                            <CheckCircle size={16} color="#10B981" />
-                          )}
-                          <Text style={[styles.toggleButtonText, supplement.available ? styles.toggleButtonTextDeactivate : styles.toggleButtonTextActivate]}>
-                            {supplement.available ? 'Désactiver' : 'Activer'}
-                          </Text>
-                        </TouchableOpacity>
                       </View>
                       <View style={styles.supplementItemActions}>
                         <TouchableOpacity
@@ -478,13 +482,17 @@ const styles = StyleSheet.create({
   actionButton: {
     padding: 8,
   },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
   schoolBadge: {
-    alignSelf: 'flex-start',
     backgroundColor: '#EEF2FF',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 6,
-    marginBottom: 8,
   },
   schoolBadgeText: {
     fontSize: 12,
@@ -523,7 +531,7 @@ const styles = StyleSheet.create({
     color: '#1E40AF',
   },
   toggleButton: {
-    marginTop: 12,
+    flex: 1,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 8,
