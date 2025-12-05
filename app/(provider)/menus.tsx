@@ -4,11 +4,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Menu, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Plus, Trash2, Package } from 'lucide-react-native';
 
 interface SchoolAccess {
   school_id: string;
   school_name: string;
+}
+
+interface Supplement {
+  id: string;
+  name: string;
+  price: number;
 }
 
 interface GroupedMenu extends Menu {
@@ -22,6 +28,7 @@ export default function ProviderMenus() {
   const [schools, setSchools] = useState<SchoolAccess[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
   const [groupedMenus, setGroupedMenus] = useState<GroupedMenu[]>([]);
+  const [supplements, setSupplements] = useState<Map<string, Supplement>>(new Map());
   const [loading, setLoading] = useState(true);
   const [selectedSchool, setSelectedSchool] = useState<string | null>(null);
   const router = useRouter();
@@ -88,8 +95,40 @@ export default function ProviderMenus() {
 
       const grouped = groupMenusByContent(menusData, schoolsList);
       setGroupedMenus(grouped);
+
+      await loadSupplements(menusData);
     } catch (err) {
       console.error('Error loading menus:', err);
+    }
+  };
+
+  const loadSupplements = async (menusList: any[]) => {
+    try {
+      const supplementIds = new Set<string>();
+      menusList.forEach((menu) => {
+        if (menu.supplements && Array.isArray(menu.supplements)) {
+          menu.supplements.forEach((id: string) => supplementIds.add(id));
+        }
+      });
+
+      if (supplementIds.size === 0) {
+        setSupplements(new Map());
+        return;
+      }
+
+      const { data } = await supabase
+        .from('provider_supplements')
+        .select('id, name, price')
+        .in('id', Array.from(supplementIds));
+
+      const supplementsMap = new Map<string, Supplement>();
+      (data || []).forEach((supp) => {
+        supplementsMap.set(supp.id, supp);
+      });
+
+      setSupplements(supplementsMap);
+    } catch (err) {
+      console.error('Error loading supplements:', err);
     }
   };
 
@@ -222,6 +261,27 @@ export default function ProviderMenus() {
                     <Text style={styles.menuItemDescription}>{menu.description}</Text>
                   )}
                   <Text style={styles.menuItemPrice}>{menu.price.toFixed(2)}€</Text>
+                  {menu.supplements && Array.isArray(menu.supplements) && menu.supplements.length > 0 && (
+                    <View style={styles.supplementsContainer}>
+                      <View style={styles.supplementsHeader}>
+                        <Package size={14} color="#F59E0B" />
+                        <Text style={styles.supplementsTitle}>Suppléments :</Text>
+                      </View>
+                      <View style={styles.supplementsListMenu}>
+                        {menu.supplements.map((suppId: string) => {
+                          const supp = supplements.get(suppId);
+                          if (!supp) return null;
+                          return (
+                            <View key={suppId} style={styles.supplementBadge}>
+                              <Text style={styles.supplementBadgeText}>
+                                {supp.name} (+{supp.price.toFixed(2)}€)
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
                 </View>
                 <View style={styles.menuItemActions}>
                   <TouchableOpacity
@@ -371,5 +431,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#4F46E5',
+  },
+  supplementsContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  supplementsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  supplementsTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#F59E0B',
+  },
+  supplementsListMenu: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  supplementBadge: {
+    backgroundColor: '#FFFBEB',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  supplementBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#D97706',
   },
 });

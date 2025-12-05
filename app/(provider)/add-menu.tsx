@@ -4,13 +4,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, Check, Calendar, X, ChevronLeft, ChevronRight, Camera, ImageIcon } from 'lucide-react-native';
+import { ArrowLeft, Check, Calendar, X, ChevronLeft, ChevronRight, Camera, ImageIcon, Package } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 
 interface SchoolAccess {
   school_id: string;
   school_name: string;
+}
+
+interface Supplement {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  school_id: string;
 }
 
 export default function AddMenuScreen() {
@@ -26,6 +34,8 @@ export default function AddMenuScreen() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>('#FFE4E1');
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [availableSupplements, setAvailableSupplements] = useState<Supplement[]>([]);
+  const [selectedSupplements, setSelectedSupplements] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -42,6 +52,14 @@ export default function AddMenuScreen() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (selectedSchools.length > 0) {
+      loadSupplements();
+    } else {
+      setAvailableSupplements([]);
+    }
+  }, [selectedSchools]);
 
   const loadData = async () => {
     try {
@@ -75,6 +93,32 @@ export default function AddMenuScreen() {
     }
   };
 
+  const loadSupplements = async () => {
+    try {
+      if (!provider) return;
+
+      const { data } = await supabase
+        .from('provider_supplements')
+        .select('id, name, description, price, school_id')
+        .eq('provider_id', provider.id)
+        .in('school_id', selectedSchools)
+        .eq('available', true)
+        .order('name');
+
+      const uniqueSupplements = new Map<string, Supplement>();
+      (data || []).forEach((supplement) => {
+        const key = `${supplement.name}-${supplement.price}`;
+        if (!uniqueSupplements.has(key)) {
+          uniqueSupplements.set(key, supplement);
+        }
+      });
+
+      setAvailableSupplements(Array.from(uniqueSupplements.values()));
+    } catch (err) {
+      console.error('Error loading supplements:', err);
+    }
+  };
+
   const toggleSchool = (schoolId: string) => {
     setSelectedSchools(prev => {
       if (prev.includes(schoolId)) {
@@ -101,6 +145,16 @@ export default function AddMenuScreen() {
       setSelectedSchools(schools.map(s => s.school_id));
       setSelectAllSchools(true);
     }
+  };
+
+  const toggleSupplement = (supplementId: string) => {
+    setSelectedSupplements(prev => {
+      if (prev.includes(supplementId)) {
+        return prev.filter(id => id !== supplementId);
+      } else {
+        return [...prev, supplementId];
+      }
+    });
   };
 
 
@@ -334,6 +388,7 @@ export default function AddMenuScreen() {
         card_color: selectedColor,
         provider_id: provider?.id || null,
         image_url: imageUrl,
+        supplements: selectedSupplements,
       }));
 
       console.log('Inserting menu data:', menuData);
@@ -521,6 +576,50 @@ export default function AddMenuScreen() {
               </Text>
             </TouchableOpacity>
             <Text style={styles.hint}>Sélectionnez une date (du {new Date().toLocaleDateString('fr-FR')} au {getMaxDate().toLocaleDateString('fr-FR')})</Text>
+          </View>
+
+          <View style={styles.formGroup}>
+            <View style={styles.supplementsHeader}>
+              <Package size={20} color="#111827" />
+              <Text style={styles.label}>Suppléments disponibles</Text>
+            </View>
+            {availableSupplements.length === 0 ? (
+              <View style={styles.noSupplementsBox}>
+                <Text style={styles.noSupplementsText}>
+                  Aucun supplément disponible pour les écoles sélectionnées
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.supplementsList}>
+                {availableSupplements.map((supplement) => (
+                  <TouchableOpacity
+                    key={supplement.id}
+                    style={[
+                      styles.supplementItem,
+                      selectedSupplements.includes(supplement.id) && styles.supplementItemSelected
+                    ]}
+                    onPress={() => toggleSupplement(supplement.id)}
+                  >
+                    <View style={[
+                      styles.checkbox,
+                      selectedSupplements.includes(supplement.id) && styles.checkboxActive
+                    ]}>
+                      {selectedSupplements.includes(supplement.id) && (
+                        <Check size={16} color="#FFFFFF" />
+                      )}
+                    </View>
+                    <View style={styles.supplementInfo}>
+                      <Text style={styles.supplementName}>{supplement.name}</Text>
+                      {supplement.description && (
+                        <Text style={styles.supplementDescription}>{supplement.description}</Text>
+                      )}
+                      <Text style={styles.supplementPrice}>+{supplement.price.toFixed(2)}€</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            <Text style={styles.hint}>Sélectionnez les suppléments associés à ce menu</Text>
           </View>
         </View>
       </ScrollView>
@@ -962,5 +1061,60 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  supplementsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  supplementsList: {
+    gap: 8,
+    marginTop: 8,
+  },
+  supplementItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+  },
+  supplementItemSelected: {
+    borderColor: '#F59E0B',
+    backgroundColor: '#FFFBEB',
+  },
+  supplementInfo: {
+    flex: 1,
+  },
+  supplementName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  supplementDescription: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 4,
+  },
+  supplementPrice: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#F59E0B',
+  },
+  noSupplementsBox: {
+    backgroundColor: '#F3F4F6',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  noSupplementsText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
   },
 });
