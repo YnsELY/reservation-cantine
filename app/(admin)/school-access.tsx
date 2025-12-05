@@ -1,34 +1,31 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { copyToClipboard } from '@/lib/clipboard';
-import { ArrowLeft, Key, Plus, Copy, CheckCircle, XCircle, Trash2, School } from 'lucide-react-native';
+import { ArrowLeft, Key, Plus, Copy, Edit, X, School } from 'lucide-react-native';
 
-interface SchoolRegistrationCode {
+interface School {
   id: string;
-  code: string;
-  is_active: boolean;
-  description: string | null;
+  name: string;
+  access_code: string;
   created_at: string;
-  is_used?: boolean;
-  school_name?: string;
 }
 
 export default function SchoolAccessScreen() {
-  const [codes, setCodes] = useState<SchoolRegistrationCode[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newCode, setNewCode] = useState('');
-  const [newDescription, setNewDescription] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
+  const [editingSchool, setEditingSchool] = useState<School | null>(null);
+  const [newCode, setNewCode] = useState('CreateSchool2025');
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
-    loadCodes();
+    loadSchools();
   }, []);
 
-  const loadCodes = async () => {
+  const loadSchools = async () => {
     try {
       const currentParent = await authService.getCurrentParentFromAuth();
       if (!currentParent || !currentParent.is_admin) {
@@ -36,31 +33,17 @@ export default function SchoolAccessScreen() {
         return;
       }
 
-      const { data: codesData, error: codesError } = await supabase
-        .from('school_registration_codes')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (codesError) throw codesError;
-
       const { data: schoolsData, error: schoolsError } = await supabase
         .from('schools')
-        .select('access_code, name');
+        .select('*')
+        .order('name', { ascending: true });
 
       if (schoolsError) throw schoolsError;
 
-      const usedCodes = new Map(schoolsData?.map(school => [school.access_code, school.name]) || []);
-
-      const enrichedCodes = codesData?.map(code => ({
-        ...code,
-        is_used: usedCodes.has(code.code),
-        school_name: usedCodes.get(code.code),
-      })) || [];
-
-      setCodes(enrichedCodes);
+      setSchools(schoolsData || []);
     } catch (err) {
-      console.error('Error loading codes:', err);
-      Alert.alert('Erreur', 'Impossible de charger les codes');
+      console.error('Error loading schools:', err);
+      Alert.alert('Erreur', 'Impossible de charger les écoles');
     } finally {
       setLoading(false);
     }
@@ -79,65 +62,52 @@ export default function SchoolAccessScreen() {
     return code;
   };
 
-  const handleCreateCode = async () => {
-    if (!newCode.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer un code');
+  const handleEditCode = (school: School) => {
+    setEditingSchool(school);
+    setNewCode(school.access_code);
+  };
+
+  const handleUpdateCode = async () => {
+    if (!editingSchool || !newCode.trim()) {
+      Alert.alert('Erreur', 'Veuillez entrer un code valide');
       return;
     }
 
-    setIsCreating(true);
+    setIsUpdating(true);
     try {
-      const currentParent = await authService.getCurrentParentFromAuth();
-      if (!currentParent || !currentParent.is_admin) {
-        router.replace('/auth');
-        return;
-      }
-
       const codeUpper = newCode.trim().toUpperCase();
 
-      const { error } = await supabase
-        .from('school_registration_codes')
-        .insert({
-          code: codeUpper,
-          description: newDescription.trim() || null,
-          is_active: true,
-        });
+      const { data: existingSchool, error: checkError } = await supabase
+        .from('schools')
+        .select('id')
+        .eq('access_code', codeUpper)
+        .neq('id', editingSchool.id)
+        .maybeSingle();
 
-      if (error) {
-        if (error.code === '23505') {
-          Alert.alert('Erreur', 'Ce code existe déjà');
-        } else {
-          throw error;
-        }
+      if (checkError) throw checkError;
+
+      if (existingSchool) {
+        Alert.alert('Erreur', 'Ce code est déjà utilisé par une autre école');
+        setIsUpdating(false);
         return;
       }
 
-      Alert.alert('Succès', 'Code créé avec succès');
-      setNewCode('');
-      setNewDescription('');
-      loadCodes();
+      const { error: updateError } = await supabase
+        .from('schools')
+        .update({ access_code: codeUpper })
+        .eq('id', editingSchool.id);
+
+      if (updateError) throw updateError;
+
+      Alert.alert('Succès', 'Code mis à jour avec succès');
+      setEditingSchool(null);
+      setNewCode('CreateSchool2025');
+      loadSchools();
     } catch (err) {
-      console.error('Error creating code:', err);
-      Alert.alert('Erreur', 'Impossible de créer le code');
+      console.error('Error updating code:', err);
+      Alert.alert('Erreur', 'Impossible de mettre à jour le code');
     } finally {
-      setIsCreating(false);
-    }
-  };
-
-  const handleToggleStatus = async (code: SchoolRegistrationCode) => {
-    try {
-      const { error } = await supabase
-        .from('school_registration_codes')
-        .update({ is_active: !code.is_active })
-        .eq('id', code.id);
-
-      if (error) throw error;
-
-      Alert.alert('Succès', code.is_active ? 'Code désactivé' : 'Code activé');
-      loadCodes();
-    } catch (err) {
-      console.error('Error toggling code status:', err);
-      Alert.alert('Erreur', 'Impossible de modifier le statut');
+      setIsUpdating(false);
     }
   };
 
@@ -149,80 +119,6 @@ export default function SchoolAccessScreen() {
       console.error('Error copying code:', err);
       Alert.alert('Erreur', 'Impossible de copier le code');
     }
-  };
-
-  const handleDeleteCode = async (code: SchoolRegistrationCode) => {
-    if (code.is_used) {
-      Alert.alert('Erreur', 'Impossible de supprimer un code utilisé par une école');
-      return;
-    }
-
-    Alert.alert(
-      'Confirmer la suppression',
-      `Êtes-vous sûr de vouloir supprimer le code ${code.code} ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await supabase
-                .from('school_registration_codes')
-                .delete()
-                .eq('id', code.id);
-
-              if (error) throw error;
-
-              Alert.alert('Succès', 'Code supprimé');
-              loadCodes();
-            } catch (err) {
-              console.error('Error deleting code:', err);
-              Alert.alert('Erreur', 'Impossible de supprimer le code');
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleDeleteUnusedCodes = async () => {
-    const unusedCodes = codes.filter(code => !code.is_used);
-
-    if (unusedCodes.length === 0) {
-      Alert.alert('Information', 'Aucun code non utilisé à supprimer');
-      return;
-    }
-
-    Alert.alert(
-      'Confirmer la suppression',
-      `Êtes-vous sûr de vouloir supprimer ${unusedCodes.length} code(s) non utilisé(s) ?`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const unusedCodeIds = unusedCodes.map(code => code.id);
-
-              const { error } = await supabase
-                .from('school_registration_codes')
-                .delete()
-                .in('id', unusedCodeIds);
-
-              if (error) throw error;
-
-              Alert.alert('Succès', `${unusedCodes.length} code(s) supprimé(s)`);
-              loadCodes();
-            } catch (err) {
-              console.error('Error deleting unused codes:', err);
-              Alert.alert('Erreur', 'Impossible de supprimer les codes');
-            }
-          },
-        },
-      ]
-    );
   };
 
   if (loading) {
@@ -250,155 +146,53 @@ export default function SchoolAccessScreen() {
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <View style={styles.infoCard}>
           <Key size={48} color="#F59E0B" />
-          <Text style={styles.infoTitle}>Créer des codes pour les écoles</Text>
+          <Text style={styles.infoTitle}>Gérer les codes d'accès des écoles</Text>
           <Text style={styles.infoText}>
-            Les écoles utiliseront ces codes pour créer leur compte et accéder à la plateforme
+            Chaque école dispose d'un code unique pour accéder à la plateforme
           </Text>
         </View>
 
-        <View style={styles.createCard}>
-          <Text style={styles.createTitle}>Créer un nouveau code</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Code d'accès</Text>
-            <View style={styles.inputRow}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                value={newCode}
-                onChangeText={setNewCode}
-                placeholder="Ex: ABCD-EFGH"
-                placeholderTextColor="#9CA3AF"
-                autoCapitalize="characters"
-                maxLength={20}
-              />
-              <TouchableOpacity
-                style={styles.generateButton}
-                onPress={() => setNewCode(generateRandomCode())}
-              >
-                <Text style={styles.generateButtonText}>Générer</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Description (optionnel)</Text>
-            <TextInput
-              style={styles.input}
-              value={newDescription}
-              onChangeText={setNewDescription}
-              placeholder="Ex: Code pour École ABC"
-              placeholderTextColor="#9CA3AF"
-              maxLength={200}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.createButton, isCreating && styles.createButtonDisabled]}
-            onPress={handleCreateCode}
-            disabled={isCreating}
-          >
-            {isCreating ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <>
-                <Plus size={20} color="#FFFFFF" />
-                <Text style={styles.createButtonText}>Créer le code</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-
         <View style={styles.codesSection}>
-          <View style={styles.codesSectionHeader}>
-            <Text style={styles.sectionTitle}>Codes existants ({codes.length})</Text>
-            {codes.filter(c => !c.is_used).length > 0 && (
-              <TouchableOpacity
-                style={styles.deleteAllButton}
-                onPress={handleDeleteUnusedCodes}
-              >
-                <Trash2 size={18} color="#FFFFFF" />
-                <Text style={styles.deleteAllButtonText}>
-                  Supprimer non utilisés ({codes.filter(c => !c.is_used).length})
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          <Text style={styles.sectionTitle}>Écoles inscrites ({schools.length})</Text>
 
-          {codes.length === 0 ? (
+          {schools.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>Aucun code créé</Text>
+              <Text style={styles.emptyText}>Aucune école inscrite</Text>
             </View>
           ) : (
-            codes.map((code) => (
-              <View key={code.id} style={styles.codeCard}>
+            schools.map((school) => (
+              <View key={school.id} style={styles.codeCard}>
                 <View style={styles.codeHeader}>
                   <View style={styles.codeInfo}>
+                    <Text style={styles.schoolName}>{school.name}</Text>
                     <View style={styles.codeValueRow}>
-                      <Text style={styles.codeValue}>{code.code}</Text>
-                      {code.is_used && (
-                        <View style={styles.usedBadge}>
-                          <School size={14} color="#F59E0B" />
-                          <Text style={styles.usedBadgeText}>Utilisé</Text>
-                        </View>
-                      )}
+                      <Text style={styles.codeValue}>{school.access_code}</Text>
                     </View>
-                    {code.school_name && (
-                      <Text style={styles.schoolName}>École: {code.school_name}</Text>
-                    )}
-                    {code.description && (
-                      <Text style={styles.codeDescription}>{code.description}</Text>
-                    )}
                     <Text style={styles.codeDate}>
-                      Créé le {new Date(code.created_at).toLocaleDateString('fr-FR')}
+                      Inscrite le {new Date(school.created_at).toLocaleDateString('fr-FR')}
                     </Text>
                   </View>
-                  <View style={[styles.statusBadge, code.is_active ? styles.statusActive : styles.statusInactive]}>
-                    {code.is_active ? (
-                      <CheckCircle size={16} color="#10B981" />
-                    ) : (
-                      <XCircle size={16} color="#EF4444" />
-                    )}
-                    <Text style={[styles.statusText, code.is_active ? styles.statusActiveText : styles.statusInactiveText]}>
-                      {code.is_active ? 'Actif' : 'Inactif'}
-                    </Text>
+                  <View style={styles.statusBadge}>
+                    <School size={16} color="#F59E0B" />
                   </View>
                 </View>
 
                 <View style={styles.codeActions}>
                   <TouchableOpacity
                     style={styles.codeActionButton}
-                    onPress={() => handleCopyCode(code.code)}
+                    onPress={() => handleCopyCode(school.access_code)}
                   >
                     <Copy size={20} color="#F59E0B" />
                     <Text style={[styles.codeActionText, { color: '#F59E0B' }]}>Copier</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                    style={[styles.codeActionButton, styles.toggleButton]}
-                    onPress={() => handleToggleStatus(code)}
+                    style={[styles.codeActionButton, styles.editButton]}
+                    onPress={() => handleEditCode(school)}
                   >
-                    {code.is_active ? (
-                      <>
-                        <XCircle size={20} color="#EF4444" />
-                        <Text style={[styles.codeActionText, { color: '#EF4444' }]}>Désactiver</Text>
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle size={20} color="#10B981" />
-                        <Text style={[styles.codeActionText, { color: '#10B981' }]}>Activer</Text>
-                      </>
-                    )}
+                    <Edit size={20} color="#4F46E5" />
+                    <Text style={[styles.codeActionText, { color: '#4F46E5' }]}>Modifier</Text>
                   </TouchableOpacity>
-
-                  {!code.is_used && (
-                    <TouchableOpacity
-                      style={[styles.codeActionButton, styles.deleteButton]}
-                      onPress={() => handleDeleteCode(code)}
-                    >
-                      <Trash2 size={20} color="#EF4444" />
-                      <Text style={[styles.codeActionText, { color: '#EF4444' }]}>Supprimer</Text>
-                    </TouchableOpacity>
-                  )}
                 </View>
               </View>
             ))
@@ -408,22 +202,94 @@ export default function SchoolAccessScreen() {
         <View style={styles.instructionsCard}>
           <Text style={styles.instructionsTitle}>Comment ça marche ?</Text>
           <Text style={styles.instructionsText}>
-            1. Créez un code unique pour chaque école
+            1. Chaque école inscrite a son propre code d'accès
           </Text>
           <Text style={styles.instructionsText}>
-            2. Partagez le code avec l'école
+            2. Vous pouvez modifier le code d'accès d'une école en cliquant sur "Modifier"
           </Text>
           <Text style={styles.instructionsText}>
-            3. L'école utilise ce code lors de la création de son compte
+            3. Partagez le code avec l'école pour qu'elle puisse y accéder
           </Text>
           <Text style={styles.instructionsText}>
-            4. Vous pouvez activer/désactiver les codes à tout moment
-          </Text>
-          <Text style={styles.instructionsText}>
-            5. Supprimez les codes non utilisés pour garder une liste propre
+            4. Le code par défaut est "CreateSchool2025"
           </Text>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={editingSchool !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditingSchool(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Modifier le code d'accès</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={() => {
+                  setEditingSchool(null);
+                  setNewCode('CreateSchool2025');
+                }}
+              >
+                <X size={24} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            {editingSchool && (
+              <>
+                <Text style={styles.modalSchoolName}>{editingSchool.name}</Text>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Nouveau code d'accès</Text>
+                  <View style={styles.inputRow}>
+                    <TextInput
+                      style={[styles.input, { flex: 1 }]}
+                      value={newCode}
+                      onChangeText={setNewCode}
+                      placeholder="Ex: CreateSchool2025"
+                      placeholderTextColor="#9CA3AF"
+                      autoCapitalize="characters"
+                      maxLength={50}
+                    />
+                    <TouchableOpacity
+                      style={styles.generateButton}
+                      onPress={() => setNewCode(generateRandomCode())}
+                    >
+                      <Text style={styles.generateButtonText}>Générer</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={() => {
+                      setEditingSchool(null);
+                      setNewCode('CreateSchool2025');
+                    }}
+                  >
+                    <Text style={styles.cancelButtonText}>Annuler</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.modalButton, styles.saveButton, isUpdating && styles.saveButtonDisabled]}
+                    onPress={handleUpdateCode}
+                    disabled={isUpdating}
+                  >
+                    {isUpdating ? (
+                      <ActivityIndicator color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.saveButtonText}>Enregistrer</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -494,102 +360,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
-  createCard: {
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 24,
-  },
-  createTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 20,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  input: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#111827',
-  },
-  generateButton: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    justifyContent: 'center',
-  },
-  generateButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#F59E0B',
-  },
-  createButton: {
-    backgroundColor: '#F59E0B',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
-    marginTop: 8,
-  },
-  createButtonDisabled: {
-    opacity: 0.6,
-  },
-  createButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
   codesSection: {
     marginBottom: 24,
-  },
-  codesSectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-    gap: 12,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#111827',
-    flex: 1,
-  },
-  deleteAllButton: {
-    backgroundColor: '#EF4444',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
-  },
-  deleteAllButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    marginBottom: 16,
   },
   emptyState: {
     backgroundColor: '#FFFFFF',
@@ -624,67 +402,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 6,
+    marginBottom: 4,
     flexWrap: 'wrap',
   },
   codeValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-    letterSpacing: 1,
-  },
-  usedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    gap: 4,
-  },
-  usedBadgeText: {
-    fontSize: 11,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#F59E0B',
+    color: '#6B7280',
+    letterSpacing: 0.5,
   },
   schoolName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#F59E0B',
-    marginBottom: 4,
-  },
-  codeDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 4,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 6,
   },
   codeDate: {
     fontSize: 12,
     color: '#9CA3AF',
   },
   statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 12,
-    gap: 4,
-  },
-  statusActive: {
-    backgroundColor: '#D1FAE5',
-  },
-  statusInactive: {
-    backgroundColor: '#FEE2E2',
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  statusActiveText: {
-    color: '#10B981',
-  },
-  statusInactiveText: {
-    color: '#EF4444',
   },
   codeActions: {
     flexDirection: 'row',
@@ -702,17 +443,13 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     gap: 6,
   },
-  toggleButton: {
-    backgroundColor: '#F9FAFB',
-  },
-  deleteButton: {
-    backgroundColor: '#FEE2E2',
-    borderColor: '#FEE2E2',
+  editButton: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#EEF2FF',
   },
   codeActionText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#F59E0B',
   },
   instructionsCard: {
     backgroundColor: '#FFFFFF',
@@ -732,5 +469,109 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     lineHeight: 24,
     marginBottom: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 500,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalSchoolName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#F59E0B',
+    marginBottom: 20,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  input: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#111827',
+  },
+  generateButton: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    justifyContent: 'center',
+  },
+  generateButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#F59E0B',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  saveButton: {
+    backgroundColor: '#F59E0B',
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
