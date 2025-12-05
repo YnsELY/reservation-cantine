@@ -129,7 +129,8 @@ export default function ProviderMenus() {
       const { data } = await supabase
         .from('provider_supplements')
         .select('id, name, price')
-        .in('id', Array.from(supplementIds));
+        .in('id', Array.from(supplementIds))
+        .eq('available', true);
 
       const supplementsMap = new Map<string, Supplement>();
       (data || []).forEach((supp) => {
@@ -155,7 +156,8 @@ export default function ProviderMenus() {
         .select('id, name, price, description, menu_id')
         .eq('provider_id', currentProvider.id)
         .in('menu_id', menuIds)
-        .not('menu_id', 'is', null);
+        .not('menu_id', 'is', null)
+        .eq('available', true);
 
       const specificSuppsMap = new Map<string, SpecificSupplement[]>();
       (data || []).forEach((supp) => {
