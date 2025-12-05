@@ -243,6 +243,11 @@ export default function ProviderSupplements() {
                           style={[styles.toggleButton, supplement.available ? styles.toggleButtonDeactivate : styles.toggleButtonActivate]}
                           onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
                         >
+                          {supplement.available ? (
+                            <XCircle size={16} color="#EF4444" />
+                          ) : (
+                            <CheckCircle size={16} color="#10B981" />
+                          )}
                           <Text style={[styles.toggleButtonText, supplement.available ? styles.toggleButtonTextDeactivate : styles.toggleButtonTextActivate]}>
                             {supplement.available ? 'Désactiver' : 'Activer'}
                           </Text>
@@ -304,6 +309,11 @@ export default function ProviderSupplements() {
                           style={[styles.toggleButton, supplement.available ? styles.toggleButtonDeactivate : styles.toggleButtonActivate]}
                           onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
                         >
+                          {supplement.available ? (
+                            <XCircle size={16} color="#EF4444" />
+                          ) : (
+                            <CheckCircle size={16} color="#10B981" />
+                          )}
                           <Text style={[styles.toggleButtonText, supplement.available ? styles.toggleButtonTextDeactivate : styles.toggleButtonTextActivate]}>
                             {supplement.available ? 'Désactiver' : 'Activer'}
                           </Text>
@@ -519,21 +529,25 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
   },
   toggleButtonActivate: {
-    backgroundColor: '#10B981',
+    borderColor: '#10B981',
   },
   toggleButtonDeactivate: {
-    backgroundColor: '#EF4444',
+    borderColor: '#EF4444',
   },
   toggleButtonText: {
     fontSize: 14,
     fontWeight: '600',
   },
   toggleButtonTextActivate: {
-    color: '#FFFFFF',
+    color: '#10B981',
   },
   toggleButtonTextDeactivate: {
-    color: '#FFFFFF',
+    color: '#EF4444',
   },
 });
