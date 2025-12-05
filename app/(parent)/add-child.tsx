@@ -34,6 +34,9 @@ export default function AddChildScreen() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [grade, setGrade] = useState('');
+  const [birthDay, setBirthDay] = useState('');
+  const [birthMonth, setBirthMonth] = useState('');
+  const [birthYear, setBirthYear] = useState('');
   const [allergies, setAllergies] = useState<string[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
@@ -96,6 +99,51 @@ export default function AddChildScreen() {
 
   const removeAllergy = (allergy: string) => {
     setAllergies(allergies.filter(a => a !== allergy));
+  };
+
+  const calculateAge = (): number | null => {
+    if (!birthDay || !birthMonth || !birthYear) return null;
+
+    const day = parseInt(birthDay);
+    const month = parseInt(birthMonth);
+    const year = parseInt(birthYear);
+
+    if (isNaN(day) || isNaN(month) || isNaN(year) ||
+        day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > new Date().getFullYear()) {
+      return null;
+    }
+
+    const today = new Date();
+    const birthDate = new Date(year, month - 1, day);
+
+    if (birthDate > today) return null;
+
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+
+    return age;
+  };
+
+  const formatDateForDB = (): string | null => {
+    if (!birthDay || !birthMonth || !birthYear) return null;
+
+    const day = parseInt(birthDay);
+    const month = parseInt(birthMonth);
+    const year = parseInt(birthYear);
+
+    if (isNaN(day) || isNaN(month) || isNaN(year) ||
+        day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > new Date().getFullYear()) {
+      return null;
+    }
+
+    const paddedDay = day.toString().padStart(2, '0');
+    const paddedMonth = month.toString().padStart(2, '0');
+
+    return `${year}-${paddedMonth}-${paddedDay}`;
   };
 
   const handleAddSchool = async () => {
@@ -173,12 +221,15 @@ export default function AddChildScreen() {
 
     setSubmitting(true);
     try {
+      const dateOfBirth = formatDateForDB();
+
       const { error } = await supabase.from('children').insert({
         parent_id: parent.id,
         school_id: selectedSchool.id,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         grade: grade.trim() || null,
+        date_of_birth: dateOfBirth,
         allergies: allergies,
         dietary_restrictions: [],
       });
@@ -236,6 +287,67 @@ export default function AddChildScreen() {
             placeholder="Nom de l'enfant"
             placeholderTextColor="#9CA3AF"
           />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>Date de naissance</Text>
+          <View style={styles.dateInputRow}>
+            <View style={styles.dateInputContainer}>
+              <TextInput
+                style={styles.dateInput}
+                value={birthDay}
+                onChangeText={(text) => {
+                  if (text.length <= 2 && /^\d*$/.test(text)) {
+                    setBirthDay(text);
+                  }
+                }}
+                placeholder="JJ"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="number-pad"
+                maxLength={2}
+              />
+              <Text style={styles.dateInputLabel}>Jour</Text>
+            </View>
+            <Text style={styles.dateSeparator}>/</Text>
+            <View style={styles.dateInputContainer}>
+              <TextInput
+                style={styles.dateInput}
+                value={birthMonth}
+                onChangeText={(text) => {
+                  if (text.length <= 2 && /^\d*$/.test(text)) {
+                    setBirthMonth(text);
+                  }
+                }}
+                placeholder="MM"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="number-pad"
+                maxLength={2}
+              />
+              <Text style={styles.dateInputLabel}>Mois</Text>
+            </View>
+            <Text style={styles.dateSeparator}>/</Text>
+            <View style={styles.dateInputContainer}>
+              <TextInput
+                style={styles.dateInput}
+                value={birthYear}
+                onChangeText={(text) => {
+                  if (text.length <= 4 && /^\d*$/.test(text)) {
+                    setBirthYear(text);
+                  }
+                }}
+                placeholder="AAAA"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="number-pad"
+                maxLength={4}
+              />
+              <Text style={styles.dateInputLabel}>Année</Text>
+            </View>
+          </View>
+          {calculateAge() !== null && (
+            <View style={styles.ageDisplay}>
+              <Text style={styles.ageText}>Âge: {calculateAge()} ans</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -614,6 +726,50 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
     color: '#111827',
+  },
+  dateInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dateInputContainer: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  dateInput: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    fontSize: 16,
+    color: '#111827',
+    textAlign: 'center',
+    width: '100%',
+  },
+  dateInputLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 4,
+  },
+  dateSeparator: {
+    fontSize: 20,
+    color: '#6B7280',
+    marginBottom: 16,
+  },
+  ageDisplay: {
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#EEF2FF',
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  ageText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4F46E5',
   },
   gradeSelector: {
     backgroundColor: '#FFFFFF',

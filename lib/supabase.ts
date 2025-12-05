@@ -70,6 +70,7 @@ export interface Child {
   first_name: string;
   last_name: string;
   grade: string | null;
+  date_of_birth: string | null;
   allergies: string[];
   dietary_restrictions: string[];
   created_at: string;

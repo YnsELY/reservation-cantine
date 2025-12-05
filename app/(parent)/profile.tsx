@@ -19,6 +19,24 @@ export default function ProfileScreen() {
     loadData();
   }, []);
 
+  const calculateAge = (dateOfBirth: string | null): number | null => {
+    if (!dateOfBirth) return null;
+
+    const birthDate = new Date(dateOfBirth);
+    const today = new Date();
+
+    if (birthDate > today) return null;
+
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+
+    return age;
+  };
+
   const loadData = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -241,6 +259,9 @@ export default function ProfileScreen() {
                     </Text>
                     {child.grade && (
                       <Text style={styles.childDetail}>Classe: {child.grade}</Text>
+                    )}
+                    {calculateAge(child.date_of_birth) !== null && (
+                      <Text style={styles.childDetail}>Âge: {calculateAge(child.date_of_birth)} ans</Text>
                     )}
                   </View>
                   <TouchableOpacity
