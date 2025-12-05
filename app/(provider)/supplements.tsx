@@ -20,6 +20,8 @@ interface Supplement {
   price: number;
   available: boolean;
   created_at: string;
+  menu_id?: string | null;
+  menu_name?: string | null;
 }
 
 interface GroupedSupplement extends Supplement {
@@ -84,11 +86,15 @@ export default function ProviderSupplements() {
 
       const { data } = await supabase
         .from('provider_supplements')
-        .select('*, schools(name)')
+        .select('*, schools(name), menus(meal_name)')
         .in('school_id', schoolIds)
         .order('name');
 
-      const supplementsData = data || [];
+      const supplementsData = (data || []).map(s => ({
+        ...s,
+        menu_name: (s.menus as any)?.meal_name || null,
+      }));
+
       setSupplements(supplementsData);
 
       const grouped = groupSupplementsByContent(supplementsData, schoolsList);
@@ -198,47 +204,110 @@ export default function ProviderSupplements() {
               <Text style={styles.emptySubtext}>Ajoutez des suppléments pour vos menus</Text>
             </View>
           ) : (
-            groupedSupplements.map((supplement, index) => (
-              <View key={`${supplement.id}-${index}`} style={styles.supplementItem}>
-                <View style={styles.supplementItemContent}>
-                  <View style={styles.supplementHeader}>
-                    <Text style={styles.supplementItemName}>{supplement.name}</Text>
-                    <View style={[styles.statusBadge, supplement.available ? styles.statusAvailable : styles.statusUnavailable]}>
-                      <Text style={[styles.statusText, supplement.available ? styles.statusTextAvailable : styles.statusTextUnavailable]}>
-                        {supplement.available ? 'Disponible' : 'Indisponible'}
-                      </Text>
+            <>
+              {groupedSupplements.filter(s => !s.menu_id).length > 0 && (
+                <>
+                  <View style={styles.categoryHeader}>
+                    <Text style={styles.categoryTitle}>Suppléments génériques</Text>
+                  </View>
+                  {groupedSupplements.filter(s => !s.menu_id).map((supplement, index) => (
+                    <View key={`${supplement.id}-${index}`} style={styles.supplementItem}>
+                      <View style={styles.supplementItemContent}>
+                        <View style={styles.supplementHeader}>
+                          <Text style={styles.supplementItemName}>{supplement.name}</Text>
+                          <View style={[styles.statusBadge, supplement.available ? styles.statusAvailable : styles.statusUnavailable]}>
+                            <Text style={[styles.statusText, supplement.available ? styles.statusTextAvailable : styles.statusTextUnavailable]}>
+                              {supplement.available ? 'Disponible' : 'Indisponible'}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.schoolBadge}>
+                          <Text style={styles.schoolBadgeText}>
+                            {supplement.school_ids.length === schools.length
+                              ? 'Toutes les écoles'
+                              : supplement.school_names.join(', ')}
+                          </Text>
+                        </View>
+                        {supplement.description && (
+                          <Text style={styles.supplementItemDescription}>{supplement.description}</Text>
+                        )}
+                        <Text style={styles.supplementItemPrice}>+{supplement.price.toFixed(2)}€</Text>
+                      </View>
+                      <View style={styles.supplementItemActions}>
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
+                        >
+                          <Text style={styles.actionButtonText}>
+                            {supplement.available ? '👁️' : '🚫'}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={() => handleDeleteSupplement(supplement.supplement_ids, supplement.school_names)}
+                        >
+                          <Trash2 size={18} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
                     </View>
+                  ))}
+                </>
+              )}
+
+              {groupedSupplements.filter(s => s.menu_id).length > 0 && (
+                <>
+                  <View style={[styles.categoryHeader, groupedSupplements.filter(s => !s.menu_id).length > 0 && styles.categoryHeaderSpaced]}>
+                    <Text style={styles.categoryTitle}>Suppléments spécifiques à un menu</Text>
                   </View>
-                  <View style={styles.schoolBadge}>
-                    <Text style={styles.schoolBadgeText}>
-                      {supplement.school_ids.length === schools.length
-                        ? 'Toutes les écoles'
-                        : supplement.school_names.join(', ')}
-                    </Text>
-                  </View>
-                  {supplement.description && (
-                    <Text style={styles.supplementItemDescription}>{supplement.description}</Text>
-                  )}
-                  <Text style={styles.supplementItemPrice}>+{supplement.price.toFixed(2)}€</Text>
-                </View>
-                <View style={styles.supplementItemActions}>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
-                  >
-                    <Text style={styles.actionButtonText}>
-                      {supplement.available ? '👁️' : '🚫'}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.actionButton}
-                    onPress={() => handleDeleteSupplement(supplement.supplement_ids, supplement.school_names)}
-                  >
-                    <Trash2 size={18} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
+                  {groupedSupplements.filter(s => s.menu_id).map((supplement, index) => (
+                    <View key={`${supplement.id}-${index}`} style={[styles.supplementItem, styles.supplementItemSpecific]}>
+                      <View style={styles.supplementItemContent}>
+                        <View style={styles.supplementHeader}>
+                          <Text style={styles.supplementItemName}>{supplement.name}</Text>
+                          <View style={[styles.statusBadge, supplement.available ? styles.statusAvailable : styles.statusUnavailable]}>
+                            <Text style={[styles.statusText, supplement.available ? styles.statusTextAvailable : styles.statusTextUnavailable]}>
+                              {supplement.available ? 'Disponible' : 'Indisponible'}
+                            </Text>
+                          </View>
+                        </View>
+                        {supplement.menu_name && (
+                          <View style={styles.menuBadge}>
+                            <Text style={styles.menuBadgeText}>Menu: {supplement.menu_name}</Text>
+                          </View>
+                        )}
+                        <View style={styles.schoolBadge}>
+                          <Text style={styles.schoolBadgeText}>
+                            {supplement.school_ids.length === schools.length
+                              ? 'Toutes les écoles'
+                              : supplement.school_names.join(', ')}
+                          </Text>
+                        </View>
+                        {supplement.description && (
+                          <Text style={styles.supplementItemDescription}>{supplement.description}</Text>
+                        )}
+                        <Text style={styles.supplementItemPrice}>+{supplement.price.toFixed(2)}€</Text>
+                      </View>
+                      <View style={styles.supplementItemActions}>
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
+                        >
+                          <Text style={styles.actionButtonText}>
+                            {supplement.available ? '👁️' : '🚫'}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={() => handleDeleteSupplement(supplement.supplement_ids, supplement.school_names)}
+                        >
+                          <Trash2 size={18} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ))}
+                </>
+              )}
+            </>
           )}
         </View>
       </ScrollView>
@@ -397,5 +466,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#4F46E5',
+  },
+  categoryHeader: {
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  categoryHeaderSpaced: {
+    marginTop: 32,
+  },
+  categoryTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  supplementItemSpecific: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#3B82F6',
+  },
+  menuBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginBottom: 8,
+  },
+  menuBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1E40AF',
   },
 });
