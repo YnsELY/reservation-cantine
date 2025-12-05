@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, Check, Calendar, X, ChevronLeft, ChevronRight, Camera, ImageIcon, Package } from 'lucide-react-native';
+import { ArrowLeft, Check, Calendar, X, ChevronLeft, ChevronRight, Camera, ImageIcon, Package, Plus, Trash2 } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 
@@ -19,6 +19,13 @@ interface Supplement {
   description: string | null;
   price: number;
   school_id: string;
+}
+
+interface MenuSpecificSupplement {
+  tempId: string;
+  name: string;
+  description: string;
+  price: string;
 }
 
 export default function AddMenuScreen() {
@@ -36,6 +43,10 @@ export default function AddMenuScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [availableSupplements, setAvailableSupplements] = useState<Supplement[]>([]);
   const [selectedSupplements, setSelectedSupplements] = useState<string[]>([]);
+  const [menuSpecificSupplements, setMenuSpecificSupplements] = useState<MenuSpecificSupplement[]>([]);
+  const [newSupplementName, setNewSupplementName] = useState('');
+  const [newSupplementDescription, setNewSupplementDescription] = useState('');
+  const [newSupplementPrice, setNewSupplementPrice] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -103,6 +114,7 @@ export default function AddMenuScreen() {
         .eq('provider_id', provider.id)
         .in('school_id', selectedSchools)
         .eq('available', true)
+        .is('menu_id', null)
         .order('name');
 
       const uniqueSupplements = new Map<string, Supplement>();
@@ -158,6 +170,34 @@ export default function AddMenuScreen() {
         return [...prev, supplementId];
       }
     });
+  };
+
+  const addMenuSpecificSupplement = () => {
+    if (!newSupplementName.trim()) {
+      Alert.alert('Erreur', 'Veuillez entrer un nom pour le supplément');
+      return;
+    }
+
+    if (!newSupplementPrice || isNaN(parseFloat(newSupplementPrice))) {
+      Alert.alert('Erreur', 'Veuillez entrer un prix valide pour le supplément');
+      return;
+    }
+
+    const newSupplement: MenuSpecificSupplement = {
+      tempId: Date.now().toString(),
+      name: newSupplementName.trim(),
+      description: newSupplementDescription.trim(),
+      price: newSupplementPrice,
+    };
+
+    setMenuSpecificSupplements(prev => [...prev, newSupplement]);
+    setNewSupplementName('');
+    setNewSupplementDescription('');
+    setNewSupplementPrice('');
+  };
+
+  const removeMenuSpecificSupplement = (tempId: string) => {
+    setMenuSpecificSupplements(prev => prev.filter(s => s.tempId !== tempId));
   };
 
 
@@ -395,14 +435,40 @@ export default function AddMenuScreen() {
       }));
 
       console.log('Inserting menu data:', menuData);
-      const { data, error } = await supabase.from('menus').insert(menuData);
+      const { data: insertedMenus, error } = await supabase.from('menus').insert(menuData).select();
 
       if (error) {
         console.error('Database insert error:', error);
         throw error;
       }
 
-      console.log('Menu inserted successfully:', data);
+      console.log('Menu inserted successfully:', insertedMenus);
+
+      if (menuSpecificSupplements.length > 0 && insertedMenus && insertedMenus.length > 0) {
+        const specificSupplementsData = insertedMenus.flatMap(menu =>
+          menuSpecificSupplements.map(supplement => ({
+            provider_id: provider?.id || null,
+            school_id: menu.school_id,
+            menu_id: menu.id,
+            name: supplement.name,
+            description: supplement.description || null,
+            price: parseFloat(supplement.price),
+            available: true,
+          }))
+        );
+
+        const { error: supplementsError } = await supabase
+          .from('provider_supplements')
+          .insert(specificSupplementsData);
+
+        if (supplementsError) {
+          console.error('Error inserting menu-specific supplements:', supplementsError);
+          Alert.alert(
+            'Avertissement',
+            'Le menu a été créé mais certains suppléments spécifiques n\'ont pas pu être ajoutés.'
+          );
+        }
+      }
 
       Alert.alert('Succès', `Menu créé avec succès pour ${selectedSchools.length} école(s)`, [
         {
@@ -623,6 +689,71 @@ export default function AddMenuScreen() {
               </View>
             )}
             <Text style={styles.hint}>Tous les suppléments sont sélectionnés par défaut. Décochez ceux que vous ne souhaitez pas associer à ce menu.</Text>
+          </View>
+
+          <View style={styles.formGroup}>
+            <View style={styles.supplementsHeader}>
+              <Plus size={20} color="#111827" />
+              <Text style={styles.label}>Suppléments spécifiques à ce menu</Text>
+            </View>
+            <Text style={styles.hint}>Ajoutez des suppléments uniquement disponibles pour ce menu</Text>
+
+            {menuSpecificSupplements.length > 0 && (
+              <View style={styles.specificSupplementsList}>
+                {menuSpecificSupplements.map((supplement) => (
+                  <View key={supplement.tempId} style={styles.specificSupplementItem}>
+                    <View style={styles.specificSupplementInfo}>
+                      <Text style={styles.supplementName}>{supplement.name}</Text>
+                      {supplement.description && (
+                        <Text style={styles.supplementDescription}>{supplement.description}</Text>
+                      )}
+                      <Text style={styles.supplementPrice}>+{parseFloat(supplement.price).toFixed(2)}€</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => removeMenuSpecificSupplement(supplement.tempId)}
+                      style={styles.deleteSupplementButton}
+                    >
+                      <Trash2 size={20} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <View style={styles.addSupplementForm}>
+              <TextInput
+                style={styles.input}
+                value={newSupplementName}
+                onChangeText={setNewSupplementName}
+                placeholder="Nom du supplément *"
+                placeholderTextColor="#9CA3AF"
+              />
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={newSupplementDescription}
+                onChangeText={setNewSupplementDescription}
+                placeholder="Description (optionnelle)"
+                placeholderTextColor="#9CA3AF"
+                multiline
+                numberOfLines={2}
+                textAlignVertical="top"
+              />
+              <TextInput
+                style={styles.input}
+                value={newSupplementPrice}
+                onChangeText={setNewSupplementPrice}
+                placeholder="Prix (€) *"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="decimal-pad"
+              />
+              <TouchableOpacity
+                style={styles.addSupplementButton}
+                onPress={addMenuSpecificSupplement}
+              >
+                <Plus size={20} color="#FFFFFF" />
+                <Text style={styles.addSupplementButtonText}>Ajouter ce supplément</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -1119,5 +1250,52 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
+  },
+  addSupplementForm: {
+    gap: 12,
+    marginTop: 12,
+    padding: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+  },
+  addSupplementButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#10B981',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  addSupplementButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  specificSupplementsList: {
+    gap: 8,
+    marginTop: 12,
+    marginBottom: 12,
+  },
+  specificSupplementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#DBEAFE',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#3B82F6',
+  },
+  specificSupplementInfo: {
+    flex: 1,
+  },
+  deleteSupplementButton: {
+    padding: 8,
   },
 });
