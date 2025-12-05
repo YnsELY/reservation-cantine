@@ -225,7 +225,7 @@ export default function ProviderSupplements() {
                               <XCircle size={14} color="#EF4444" />
                             )}
                             <Text style={[styles.statusText, supplement.available ? styles.statusTextAvailable : styles.statusTextUnavailable]}>
-                              {supplement.available ? 'Activé' : 'Désactivé'}
+                              {supplement.available ? 'Actif' : 'Inactif'}
                             </Text>
                           </TouchableOpacity>
                         </View>
@@ -274,7 +274,7 @@ export default function ProviderSupplements() {
                               <XCircle size={14} color="#EF4444" />
                             )}
                             <Text style={[styles.statusText, supplement.available ? styles.statusTextAvailable : styles.statusTextUnavailable]}>
-                              {supplement.available ? 'Activé' : 'Désactivé'}
+                              {supplement.available ? 'Actif' : 'Inactif'}
                             </Text>
                           </TouchableOpacity>
                         </View>
