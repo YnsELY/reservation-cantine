@@ -29,6 +29,50 @@ const KNOWN_ALLERGIES = [
   'Sulfites',
 ];
 
+const MONTHS = [
+  { value: '1', label: 'Janvier' },
+  { value: '2', label: 'Février' },
+  { value: '3', label: 'Mars' },
+  { value: '4', label: 'Avril' },
+  { value: '5', label: 'Mai' },
+  { value: '6', label: 'Juin' },
+  { value: '7', label: 'Juillet' },
+  { value: '8', label: 'Août' },
+  { value: '9', label: 'Septembre' },
+  { value: '10', label: 'Octobre' },
+  { value: '11', label: 'Novembre' },
+  { value: '12', label: 'Décembre' },
+];
+
+const getDaysInMonth = (month: string, year: string): number => {
+  if (!month) return 31;
+
+  const monthNum = parseInt(month);
+  const yearNum = parseInt(year);
+
+  if (monthNum === 2) {
+    if (year && !isNaN(yearNum)) {
+      return (yearNum % 4 === 0 && yearNum % 100 !== 0) || (yearNum % 400 === 0) ? 29 : 28;
+    }
+    return 29;
+  }
+
+  const daysInMonth: { [key: number]: number } = {
+    1: 31, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31
+  };
+
+  return daysInMonth[monthNum] || 31;
+};
+
+const generateYears = (): number[] => {
+  const currentYear = new Date().getFullYear();
+  const years: number[] = [];
+  for (let i = currentYear; i >= currentYear - 25; i--) {
+    years.push(i);
+  }
+  return years;
+};
+
 export default function AddChildScreen() {
   const [parent, setParent] = useState<Parent | null>(null);
   const [firstName, setFirstName] = useState('');
@@ -43,6 +87,9 @@ export default function AddChildScreen() {
   const [showAddSchoolModal, setShowAddSchoolModal] = useState(false);
   const [showGradeModal, setShowGradeModal] = useState(false);
   const [showAllergyModal, setShowAllergyModal] = useState(false);
+  const [showDayModal, setShowDayModal] = useState(false);
+  const [showMonthModal, setShowMonthModal] = useState(false);
+  const [showYearModal, setShowYearModal] = useState(false);
   const [customAllergy, setCustomAllergy] = useState('');
   const [schoolIdentifier, setSchoolIdentifier] = useState('');
   const [loading, setLoading] = useState(true);
@@ -54,6 +101,16 @@ export default function AddChildScreen() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (birthDay && birthMonth) {
+      const maxDays = getDaysInMonth(birthMonth, birthYear);
+      const currentDay = parseInt(birthDay);
+      if (currentDay > maxDays) {
+        setBirthDay(maxDays.toString());
+      }
+    }
+  }, [birthMonth, birthYear]);
 
   const loadData = async () => {
     try {
@@ -126,6 +183,40 @@ export default function AddChildScreen() {
     }
 
     return age;
+  };
+
+  const getExpectedAgeForGrade = (gradeLevel: string): { min: number; max: number } | null => {
+    const ageRanges: { [key: string]: { min: number; max: number } } = {
+      'Petite Section': { min: 1, max: 5 },
+      'Moyenne Section': { min: 2, max: 6 },
+      'Grande Section': { min: 3, max: 7 },
+      'CP': { min: 4, max: 8 },
+      'CE1': { min: 5, max: 9 },
+      'CE2': { min: 6, max: 10 },
+      'CM1': { min: 7, max: 11 },
+      'CM2': { min: 8, max: 12 },
+      '6ème': { min: 9, max: 13 },
+      '5ème': { min: 10, max: 14 },
+      '4ème': { min: 11, max: 15 },
+      '3ème': { min: 12, max: 16 },
+      '2nde': { min: 13, max: 17 },
+      '1ère': { min: 14, max: 18 },
+      'Terminale': { min: 15, max: 19 },
+    };
+
+    return ageRanges[gradeLevel] || null;
+  };
+
+  const isAgeCompatibleWithGrade = (): boolean => {
+    if (!grade || !birthDay || !birthMonth || !birthYear) return true;
+
+    const age = calculateAge();
+    if (age === null) return true;
+
+    const expectedAge = getExpectedAgeForGrade(grade);
+    if (!expectedAge) return true;
+
+    return age >= expectedAge.min && age <= expectedAge.max;
   };
 
   const formatDateForDB = (): string | null => {
@@ -219,6 +310,11 @@ export default function AddChildScreen() {
       return;
     }
 
+    if (!isAgeCompatibleWithGrade()) {
+      Alert.alert('Erreur', 'La date de naissance ne correspond pas à la classe sélectionnée');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const dateOfBirth = formatDateForDB();
@@ -292,60 +388,44 @@ export default function AddChildScreen() {
         <View style={styles.section}>
           <Text style={styles.label}>Date de naissance</Text>
           <View style={styles.dateInputRow}>
-            <View style={styles.dateInputContainer}>
-              <TextInput
-                style={styles.dateInput}
-                value={birthDay}
-                onChangeText={(text) => {
-                  if (text.length <= 2 && /^\d*$/.test(text)) {
-                    setBirthDay(text);
-                  }
-                }}
-                placeholder="JJ"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="number-pad"
-                maxLength={2}
-              />
-              <Text style={styles.dateInputLabel}>Jour</Text>
-            </View>
-            <Text style={styles.dateSeparator}>/</Text>
-            <View style={styles.dateInputContainer}>
-              <TextInput
-                style={styles.dateInput}
-                value={birthMonth}
-                onChangeText={(text) => {
-                  if (text.length <= 2 && /^\d*$/.test(text)) {
-                    setBirthMonth(text);
-                  }
-                }}
-                placeholder="MM"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="number-pad"
-                maxLength={2}
-              />
-              <Text style={styles.dateInputLabel}>Mois</Text>
-            </View>
-            <Text style={styles.dateSeparator}>/</Text>
-            <View style={styles.dateInputContainer}>
-              <TextInput
-                style={styles.dateInput}
-                value={birthYear}
-                onChangeText={(text) => {
-                  if (text.length <= 4 && /^\d*$/.test(text)) {
-                    setBirthYear(text);
-                  }
-                }}
-                placeholder="AAAA"
-                placeholderTextColor="#9CA3AF"
-                keyboardType="number-pad"
-                maxLength={4}
-              />
-              <Text style={styles.dateInputLabel}>Année</Text>
-            </View>
+            <TouchableOpacity
+              style={styles.dateSelector}
+              onPress={() => setShowDayModal(true)}
+            >
+              <Text style={[styles.dateSelectorText, !birthDay && styles.dateSelectorPlaceholder]}>
+                {birthDay || 'Jour'}
+              </Text>
+              <ChevronDown size={16} color="#6B7280" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.dateSelector}
+              onPress={() => setShowMonthModal(true)}
+            >
+              <Text style={[styles.dateSelectorText, !birthMonth && styles.dateSelectorPlaceholder]}>
+                {birthMonth ? MONTHS.find(m => m.value === birthMonth)?.label : 'Mois'}
+              </Text>
+              <ChevronDown size={16} color="#6B7280" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.dateSelector}
+              onPress={() => setShowYearModal(true)}
+            >
+              <Text style={[styles.dateSelectorText, !birthYear && styles.dateSelectorPlaceholder]}>
+                {birthYear || 'Année'}
+              </Text>
+              <ChevronDown size={16} color="#6B7280" />
+            </TouchableOpacity>
           </View>
           {calculateAge() !== null && (
             <View style={styles.ageDisplay}>
               <Text style={styles.ageText}>Âge: {calculateAge()} ans</Text>
+            </View>
+          )}
+          {!isAgeCompatibleWithGrade() && (
+            <View style={styles.errorDisplay}>
+              <Text style={styles.errorText}>Veuillez vérifier les informations</Text>
             </View>
           )}
         </View>
@@ -662,6 +742,141 @@ export default function AddChildScreen() {
         </View>
       </Modal>
 
+      <Modal
+        visible={showDayModal}
+        transparent
+        animationType="none"
+        onRequestClose={() => setShowDayModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.dateModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Sélectionner un jour</Text>
+              <TouchableOpacity onPress={() => setShowDayModal(false)}>
+                <X size={24} color="#111827" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.dateList} showsVerticalScrollIndicator={false}>
+              {Array.from({ length: getDaysInMonth(birthMonth, birthYear) }, (_, i) => (i + 1).toString()).map((day) => (
+                <TouchableOpacity
+                  key={day}
+                  style={[
+                    styles.dateOption,
+                    birthDay === day && styles.dateOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setBirthDay(day);
+                    setShowDayModal(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.dateOptionText,
+                      birthDay === day && styles.dateOptionTextSelected,
+                    ]}
+                  >
+                    {day}
+                  </Text>
+                  {birthDay === day && (
+                    <CheckCircle size={20} color="#111827" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showMonthModal}
+        transparent
+        animationType="none"
+        onRequestClose={() => setShowMonthModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.dateModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Sélectionner un mois</Text>
+              <TouchableOpacity onPress={() => setShowMonthModal(false)}>
+                <X size={24} color="#111827" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.dateList} showsVerticalScrollIndicator={false}>
+              {MONTHS.map((month) => (
+                <TouchableOpacity
+                  key={month.value}
+                  style={[
+                    styles.dateOption,
+                    birthMonth === month.value && styles.dateOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setBirthMonth(month.value);
+                    setShowMonthModal(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.dateOptionText,
+                      birthMonth === month.value && styles.dateOptionTextSelected,
+                    ]}
+                  >
+                    {month.label}
+                  </Text>
+                  {birthMonth === month.value && (
+                    <CheckCircle size={20} color="#111827" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showYearModal}
+        transparent
+        animationType="none"
+        onRequestClose={() => setShowYearModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.dateModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Sélectionner une année</Text>
+              <TouchableOpacity onPress={() => setShowYearModal(false)}>
+                <X size={24} color="#111827" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.dateList} showsVerticalScrollIndicator={false}>
+              {generateYears().map((year) => (
+                <TouchableOpacity
+                  key={year}
+                  style={[
+                    styles.dateOption,
+                    birthYear === year.toString() && styles.dateOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setBirthYear(year.toString());
+                    setShowYearModal(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.dateOptionText,
+                      birthYear === year.toString() && styles.dateOptionTextSelected,
+                    ]}
+                  >
+                    {year}
+                  </Text>
+                  {birthYear === year.toString() && (
+                    <CheckCircle size={20} color="#111827" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {showSuccessMessage && (
         <View style={styles.successOverlay}>
           <View style={styles.successMessage}>
@@ -732,31 +947,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  dateInputContainer: {
+  dateSelector: {
     flex: 1,
-    alignItems: 'center',
-  },
-  dateInput: {
     backgroundColor: '#FFFFFF',
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dateSelectorText: {
     fontSize: 16,
     color: '#111827',
-    textAlign: 'center',
-    width: '100%',
+    fontWeight: '500',
   },
-  dateInputLabel: {
-    fontSize: 11,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-  dateSeparator: {
-    fontSize: 20,
-    color: '#6B7280',
-    marginBottom: 16,
+  dateSelectorPlaceholder: {
+    color: '#9CA3AF',
+    fontWeight: '400',
   },
   ageDisplay: {
     marginTop: 8,
@@ -770,6 +980,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#4F46E5',
+  },
+  errorDisplay: {
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  errorText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#DC2626',
   },
   gradeSelector: {
     backgroundColor: '#FFFFFF',
@@ -1073,6 +1296,43 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   gradeOptionTextSelected: {
+    color: '#111827',
+    fontWeight: '600',
+  },
+  dateModalContent: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    borderRadius: 20,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: '60%',
+  },
+  dateList: {
+    marginTop: 16,
+  },
+  dateOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  dateOptionSelected: {
+    backgroundColor: '#E5E7EB',
+    borderColor: '#111827',
+  },
+  dateOptionText: {
+    fontSize: 15,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  dateOptionTextSelected: {
     color: '#111827',
     fontWeight: '600',
   },
