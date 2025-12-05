@@ -27,7 +27,6 @@ const KNOWN_ALLERGIES = [
   'Moutarde',
   'Sésame',
   'Sulfites',
-  'Lupin',
 ];
 
 export default function AddChildScreen() {
@@ -456,8 +455,26 @@ export default function AddChildScreen() {
                 );
               })}
 
+              {allergies.filter(a => !KNOWN_ALLERGIES.includes(a)).length > 0 && (
+                <View style={styles.customAllergySection}>
+                  <Text style={styles.allergyListSubtitle}>Autres allergies</Text>
+                  {allergies.filter(a => !KNOWN_ALLERGIES.includes(a)).map((allergy, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[styles.allergyOption, styles.allergyOptionSelected]}
+                      onPress={() => handleSelectAllergy(allergy)}
+                    >
+                      <Text style={[styles.allergyOptionText, styles.allergyOptionTextSelected]}>
+                        {allergy}
+                      </Text>
+                      <CheckCircle size={20} color="#111827" />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
               <View style={styles.customAllergySection}>
-                <Text style={styles.allergyListSubtitle}>Autre allergie</Text>
+                <Text style={styles.allergyListSubtitle}>Ajouter une allergie personnalisée</Text>
                 <View style={styles.customAllergyInputContainer}>
                   <TextInput
                     style={styles.customAllergyInput}
