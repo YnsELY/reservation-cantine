@@ -191,8 +191,30 @@ export default function AdminDashboard() {
                   router.push('/(admin)/provider-access');
                 }}
               >
-                <Key size={22} color="#4B5563" />
-                <Text style={styles.dropdownItemText}>Accès Prestataire</Text>
+                <Key size={22} color="#4F46E5" />
+                <Text style={styles.dropdownItemText}>Codes Prestataire</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setIsMenuCardOpen(false);
+                  router.push('/(admin)/school-access');
+                }}
+              >
+                <Key size={22} color="#F59E0B" />
+                <Text style={styles.dropdownItemText}>Codes École</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setIsMenuCardOpen(false);
+                  router.push('/(admin)/parent-access');
+                }}
+              >
+                <Key size={22} color="#10B981" />
+                <Text style={styles.dropdownItemText}>Codes Parent</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
