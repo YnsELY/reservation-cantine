@@ -75,7 +75,7 @@ export default function ProviderMenus() {
       setSchools(schoolsList);
 
       if (schoolsList.length > 0) {
-        await loadAllMenus(schoolsList);
+        await loadAllMenus(schoolsList, currentProvider);
       }
 
       await deleteOldMenus();
@@ -86,7 +86,7 @@ export default function ProviderMenus() {
     }
   };
 
-  const loadAllMenus = async (schoolsList: SchoolAccess[]) => {
+  const loadAllMenus = async (schoolsList: SchoolAccess[], currentProvider: Provider) => {
     try {
       const schoolIds = schoolsList.map(s => s.school_id);
       const today = new Date().toISOString().split('T')[0];
@@ -106,7 +106,7 @@ export default function ProviderMenus() {
       setGroupedMenus(grouped);
 
       await loadSupplements(menusData);
-      await loadSpecificSupplements(menusData);
+      await loadSpecificSupplements(menusData, currentProvider);
     } catch (err) {
       console.error('Error loading menus:', err);
     }
@@ -142,10 +142,8 @@ export default function ProviderMenus() {
     }
   };
 
-  const loadSpecificSupplements = async (menusList: any[]) => {
+  const loadSpecificSupplements = async (menusList: any[], currentProvider: Provider) => {
     try {
-      if (!provider) return;
-
       const menuIds = menusList.map(m => m.id);
       if (menuIds.length === 0) {
         setSpecificSupplements(new Map());
@@ -155,7 +153,7 @@ export default function ProviderMenus() {
       const { data } = await supabase
         .from('provider_supplements')
         .select('id, name, price, description, menu_id')
-        .eq('provider_id', provider.id)
+        .eq('provider_id', currentProvider.id)
         .in('menu_id', menuIds)
         .not('menu_id', 'is', null);
 
