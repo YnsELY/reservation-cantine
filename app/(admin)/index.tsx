@@ -210,17 +210,6 @@ export default function AdminDashboard() {
                 style={styles.dropdownItem}
                 onPress={() => {
                   setIsMenuCardOpen(false);
-                  router.push('/(admin)/parent-access');
-                }}
-              >
-                <Key size={22} color="#10B981" />
-                <Text style={styles.dropdownItemText}>Codes Parent</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.dropdownItem}
-                onPress={() => {
-                  setIsMenuCardOpen(false);
                   router.push('/(admin)/profile');
                 }}
               >
