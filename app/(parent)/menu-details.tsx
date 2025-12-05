@@ -12,6 +12,7 @@ interface Supplement {
   description: string | null;
   price: number;
   available: boolean;
+  menu_id?: string | null;
 }
 
 export default function MenuDetailsScreen() {
@@ -66,20 +67,38 @@ export default function MenuDetailsScreen() {
       console.log('Menu school_id:', menuData?.school_id);
 
       if (menuData?.school_id) {
-        const { data: supplementsData, error: supplementsError } = await supabase
-          .from('supplements')
-          .select('*')
-          .eq('school_id', menuData.school_id)
-          .eq('available', true)
-          .order('price', { ascending: true });
+        const allSupplements: Supplement[] = [];
 
-        console.log('Supplements data:', supplementsData);
-        console.log('Supplements error:', supplementsError);
+        if (menuData.supplements && Array.isArray(menuData.supplements) && menuData.supplements.length > 0) {
+          const { data: genericSupplementsData, error: genericError } = await supabase
+            .from('provider_supplements')
+            .select('*')
+            .in('id', menuData.supplements)
+            .eq('available', true);
 
-        if (!supplementsError && supplementsData) {
-          setSupplements(supplementsData);
-          console.log('Supplements set:', supplementsData.length);
+          if (!genericError && genericSupplementsData) {
+            allSupplements.push(...genericSupplementsData);
+          }
         }
+
+        const { data: specificSupplementsData, error: specificError } = await supabase
+          .from('provider_supplements')
+          .select('*')
+          .eq('menu_id', menuData.id)
+          .eq('available', true);
+
+        if (!specificError && specificSupplementsData) {
+          allSupplements.push(...specificSupplementsData);
+        }
+
+        const uniqueSupplements = Array.from(
+          new Map(allSupplements.map(s => [s.id, s])).values()
+        );
+
+        uniqueSupplements.sort((a, b) => a.price - b.price);
+
+        setSupplements(uniqueSupplements);
+        console.log('Supplements set:', uniqueSupplements.length);
       } else {
         console.log('No school_id found in menu');
       }
@@ -250,31 +269,72 @@ export default function MenuDetailsScreen() {
         {supplements.length > 0 && (
           <View style={styles.supplementsCard}>
             <Text style={styles.supplementsTitle}>Suppléments disponibles</Text>
-            {supplements.map((supplement) => {
-              const isSelected = selectedSupplements.includes(supplement.id);
-              return (
-                <TouchableOpacity
-                  key={supplement.id}
-                  style={styles.supplementItem}
-                  onPress={() => toggleSupplement(supplement.id)}
-                >
-                  <View style={styles.supplementLeft}>
-                    {isSelected ? (
-                      <CheckSquare size={24} color="#111827" />
-                    ) : (
-                      <Square size={24} color="#9CA3AF" />
-                    )}
-                    <View style={styles.supplementInfo}>
-                      <Text style={styles.supplementName}>{supplement.name}</Text>
-                      {supplement.description && (
-                        <Text style={styles.supplementDescription}>{supplement.description}</Text>
-                      )}
-                    </View>
-                  </View>
-                  <Text style={styles.supplementPrice}>+{supplement.price.toFixed(2)} €</Text>
-                </TouchableOpacity>
-              );
-            })}
+
+            {supplements.filter(s => !s.menu_id).length > 0 && (
+              <>
+                <View style={styles.supplementsCategoryHeader}>
+                  <Text style={styles.supplementsCategoryTitle}>Suppléments génériques</Text>
+                </View>
+                {supplements.filter(s => !s.menu_id).map((supplement) => {
+                  const isSelected = selectedSupplements.includes(supplement.id);
+                  return (
+                    <TouchableOpacity
+                      key={supplement.id}
+                      style={styles.supplementItem}
+                      onPress={() => toggleSupplement(supplement.id)}
+                    >
+                      <View style={styles.supplementLeft}>
+                        {isSelected ? (
+                          <CheckSquare size={24} color="#111827" />
+                        ) : (
+                          <Square size={24} color="#9CA3AF" />
+                        )}
+                        <View style={styles.supplementInfo}>
+                          <Text style={styles.supplementName}>{supplement.name}</Text>
+                          {supplement.description && (
+                            <Text style={styles.supplementDescription}>{supplement.description}</Text>
+                          )}
+                        </View>
+                      </View>
+                      <Text style={styles.supplementPrice}>+{supplement.price.toFixed(2)} €</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </>
+            )}
+
+            {supplements.filter(s => s.menu_id).length > 0 && (
+              <>
+                <View style={[styles.supplementsCategoryHeader, supplements.filter(s => !s.menu_id).length > 0 && styles.supplementsCategoryHeaderSpaced]}>
+                  <Text style={styles.supplementsCategoryTitle}>Suppléments spécifiques à ce menu</Text>
+                </View>
+                {supplements.filter(s => s.menu_id).map((supplement) => {
+                  const isSelected = selectedSupplements.includes(supplement.id);
+                  return (
+                    <TouchableOpacity
+                      key={supplement.id}
+                      style={[styles.supplementItem, styles.supplementItemSpecific]}
+                      onPress={() => toggleSupplement(supplement.id)}
+                    >
+                      <View style={styles.supplementLeft}>
+                        {isSelected ? (
+                          <CheckSquare size={24} color="#3B82F6" />
+                        ) : (
+                          <Square size={24} color="#93C5FD" />
+                        )}
+                        <View style={styles.supplementInfo}>
+                          <Text style={styles.supplementName}>{supplement.name}</Text>
+                          {supplement.description && (
+                            <Text style={styles.supplementDescription}>{supplement.description}</Text>
+                          )}
+                        </View>
+                      </View>
+                      <Text style={[styles.supplementPrice, styles.supplementPriceSpecific]}>+{supplement.price.toFixed(2)} €</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </>
+            )}
           </View>
         )}
 
@@ -515,6 +575,28 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
     marginLeft: 12,
+  },
+  supplementsCategoryHeader: {
+    marginBottom: 12,
+  },
+  supplementsCategoryHeaderSpaced: {
+    marginTop: 24,
+  },
+  supplementsCategoryTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  supplementItemSpecific: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginHorizontal: -12,
+  },
+  supplementPriceSpecific: {
+    color: '#3B82F6',
   },
   inputCard: {
     backgroundColor: '#FFFFFF',
