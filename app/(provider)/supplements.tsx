@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, Plus, Trash2, Package } from 'lucide-react-native';
+import { ArrowLeft, Plus, Trash2, Package, Eye, EyeOff } from 'lucide-react-native';
 
 interface SchoolAccess {
   school_id: string;
@@ -238,9 +238,11 @@ export default function ProviderSupplements() {
                           style={styles.actionButton}
                           onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
                         >
-                          <Text style={styles.actionButtonText}>
-                            {supplement.available ? '👁️' : '🚫'}
-                          </Text>
+                          {supplement.available ? (
+                            <Eye size={18} color="#10B981" />
+                          ) : (
+                            <EyeOff size={18} color="#6B7280" />
+                          )}
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.actionButton}
@@ -292,9 +294,11 @@ export default function ProviderSupplements() {
                           style={styles.actionButton}
                           onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
                         >
-                          <Text style={styles.actionButtonText}>
-                            {supplement.available ? '👁️' : '🚫'}
-                          </Text>
+                          {supplement.available ? (
+                            <Eye size={18} color="#10B981" />
+                          ) : (
+                            <EyeOff size={18} color="#6B7280" />
+                          )}
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.actionButton}
@@ -450,9 +454,6 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     padding: 8,
-  },
-  actionButtonText: {
-    fontSize: 18,
   },
   schoolBadge: {
     alignSelf: 'flex-start',
