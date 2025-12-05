@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { copyToClipboard } from '@/lib/clipboard';
-import { ArrowLeft, Key, Plus, Copy, CheckCircle, XCircle } from 'lucide-react-native';
+import { ArrowLeft, Key, Plus, Copy, CheckCircle, XCircle, Trash2, School } from 'lucide-react-native';
 
 interface SchoolRegistrationCode {
   id: string;
@@ -13,6 +13,8 @@ interface SchoolRegistrationCode {
   is_active: boolean;
   description: string | null;
   created_at: string;
+  is_used?: boolean;
+  school_name?: string;
 }
 
 export default function SchoolAccessScreen() {
@@ -34,14 +36,28 @@ export default function SchoolAccessScreen() {
         return;
       }
 
-      const { data, error } = await supabase
+      const { data: codesData, error: codesError } = await supabase
         .from('school_registration_codes')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (codesError) throw codesError;
 
-      setCodes(data || []);
+      const { data: schoolsData, error: schoolsError } = await supabase
+        .from('schools')
+        .select('access_code, name');
+
+      if (schoolsError) throw schoolsError;
+
+      const usedCodes = new Map(schoolsData?.map(school => [school.access_code, school.name]) || []);
+
+      const enrichedCodes = codesData?.map(code => ({
+        ...code,
+        is_used: usedCodes.has(code.code),
+        school_name: usedCodes.get(code.code),
+      })) || [];
+
+      setCodes(enrichedCodes);
     } catch (err) {
       console.error('Error loading codes:', err);
       Alert.alert('Erreur', 'Impossible de charger les codes');
@@ -135,6 +151,80 @@ export default function SchoolAccessScreen() {
     }
   };
 
+  const handleDeleteCode = async (code: SchoolRegistrationCode) => {
+    if (code.is_used) {
+      Alert.alert('Erreur', 'Impossible de supprimer un code utilisé par une école');
+      return;
+    }
+
+    Alert.alert(
+      'Confirmer la suppression',
+      `Êtes-vous sûr de vouloir supprimer le code ${code.code} ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from('school_registration_codes')
+                .delete()
+                .eq('id', code.id);
+
+              if (error) throw error;
+
+              Alert.alert('Succès', 'Code supprimé');
+              loadCodes();
+            } catch (err) {
+              console.error('Error deleting code:', err);
+              Alert.alert('Erreur', 'Impossible de supprimer le code');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteUnusedCodes = async () => {
+    const unusedCodes = codes.filter(code => !code.is_used);
+
+    if (unusedCodes.length === 0) {
+      Alert.alert('Information', 'Aucun code non utilisé à supprimer');
+      return;
+    }
+
+    Alert.alert(
+      'Confirmer la suppression',
+      `Êtes-vous sûr de vouloir supprimer ${unusedCodes.length} code(s) non utilisé(s) ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const unusedCodeIds = unusedCodes.map(code => code.id);
+
+              const { error } = await supabase
+                .from('school_registration_codes')
+                .delete()
+                .in('id', unusedCodeIds);
+
+              if (error) throw error;
+
+              Alert.alert('Succès', `${unusedCodes.length} code(s) supprimé(s)`);
+              loadCodes();
+            } catch (err) {
+              console.error('Error deleting unused codes:', err);
+              Alert.alert('Erreur', 'Impossible de supprimer les codes');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -219,7 +309,20 @@ export default function SchoolAccessScreen() {
         </View>
 
         <View style={styles.codesSection}>
-          <Text style={styles.sectionTitle}>Codes existants ({codes.length})</Text>
+          <View style={styles.codesSectionHeader}>
+            <Text style={styles.sectionTitle}>Codes existants ({codes.length})</Text>
+            {codes.filter(c => !c.is_used).length > 0 && (
+              <TouchableOpacity
+                style={styles.deleteAllButton}
+                onPress={handleDeleteUnusedCodes}
+              >
+                <Trash2 size={18} color="#FFFFFF" />
+                <Text style={styles.deleteAllButtonText}>
+                  Supprimer non utilisés ({codes.filter(c => !c.is_used).length})
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           {codes.length === 0 ? (
             <View style={styles.emptyState}>
@@ -230,7 +333,18 @@ export default function SchoolAccessScreen() {
               <View key={code.id} style={styles.codeCard}>
                 <View style={styles.codeHeader}>
                   <View style={styles.codeInfo}>
-                    <Text style={styles.codeValue}>{code.code}</Text>
+                    <View style={styles.codeValueRow}>
+                      <Text style={styles.codeValue}>{code.code}</Text>
+                      {code.is_used && (
+                        <View style={styles.usedBadge}>
+                          <School size={14} color="#F59E0B" />
+                          <Text style={styles.usedBadgeText}>Utilisé</Text>
+                        </View>
+                      )}
+                    </View>
+                    {code.school_name && (
+                      <Text style={styles.schoolName}>École: {code.school_name}</Text>
+                    )}
                     {code.description && (
                       <Text style={styles.codeDescription}>{code.description}</Text>
                     )}
@@ -275,6 +389,16 @@ export default function SchoolAccessScreen() {
                       </>
                     )}
                   </TouchableOpacity>
+
+                  {!code.is_used && (
+                    <TouchableOpacity
+                      style={[styles.codeActionButton, styles.deleteButton]}
+                      onPress={() => handleDeleteCode(code)}
+                    >
+                      <Trash2 size={20} color="#EF4444" />
+                      <Text style={[styles.codeActionText, { color: '#EF4444' }]}>Supprimer</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             ))
@@ -294,6 +418,9 @@ export default function SchoolAccessScreen() {
           </Text>
           <Text style={styles.instructionsText}>
             4. Vous pouvez activer/désactiver les codes à tout moment
+          </Text>
+          <Text style={styles.instructionsText}>
+            5. Supprimez les codes non utilisés pour garder une liste propre
           </Text>
         </View>
       </ScrollView>
@@ -437,11 +564,32 @@ const styles = StyleSheet.create({
   codesSection: {
     marginBottom: 24,
   },
+  codesSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 16,
+    flex: 1,
+  },
+  deleteAllButton: {
+    backgroundColor: '#EF4444',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  deleteAllButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   emptyState: {
     backgroundColor: '#FFFFFF',
@@ -472,12 +620,38 @@ const styles = StyleSheet.create({
   codeInfo: {
     flex: 1,
   },
+  codeValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+    flexWrap: 'wrap',
+  },
   codeValue: {
     fontSize: 18,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 4,
     letterSpacing: 1,
+  },
+  usedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 4,
+  },
+  usedBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#F59E0B',
+  },
+  schoolName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#F59E0B',
+    marginBottom: 4,
   },
   codeDescription: {
     fontSize: 14,
@@ -530,6 +704,10 @@ const styles = StyleSheet.create({
   },
   toggleButton: {
     backgroundColor: '#F9FAFB',
+  },
+  deleteButton: {
+    backgroundColor: '#FEE2E2',
+    borderColor: '#FEE2E2',
   },
   codeActionText: {
     fontSize: 14,
