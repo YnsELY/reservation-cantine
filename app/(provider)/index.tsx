@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { Calendar, Building2, UtensilsCrossed, BarChart3, Share2, ChefHat } from 'lucide-react-native';
+import { Calendar, Building2, UtensilsCrossed, BarChart3, Share2, ChefHat, Package } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
 
 export default function ProviderHomeScreen() {
@@ -179,9 +179,19 @@ export default function ProviderHomeScreen() {
             onPress={() => router.push('/(provider)/menus')}
           >
             <View style={styles.actionIconContainer}>
-              <UtensilsCrossed size={28} color="#FFFFFF" />
+              <UtensilsCrossed size={26} color="#FFFFFF" />
             </View>
             <Text style={styles.actionTitle}>Gérer les{'\n'}menus</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => router.push('/(provider)/supplements')}
+          >
+            <View style={styles.actionIconContainer}>
+              <Package size={26} color="#FFFFFF" />
+            </View>
+            <Text style={styles.actionTitle}>Gérer les{'\n'}suppléments</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -189,7 +199,7 @@ export default function ProviderHomeScreen() {
             onPress={() => router.push('/(provider)/preparation')}
           >
             <View style={styles.actionIconContainer}>
-              <Calendar size={28} color="#FFFFFF" />
+              <Calendar size={26} color="#FFFFFF" />
             </View>
             <Text style={styles.actionTitle}>Voir les{'\n'}commandes</Text>
           </TouchableOpacity>
@@ -367,14 +377,14 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     paddingHorizontal: 20,
-    gap: 16,
+    gap: 12,
     marginBottom: 16,
   },
   actionCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -383,20 +393,20 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   actionIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: '#111827',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   actionTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#111827',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 18,
   },
   secondaryActionCard: {
     flex: 1,
