@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, Plus, Trash2, Package, Eye, EyeOff } from 'lucide-react-native';
+import { ArrowLeft, Plus, Trash2, Package, CheckCircle, XCircle } from 'lucide-react-native';
 
 interface SchoolAccess {
   school_id: string;
@@ -215,11 +215,19 @@ export default function ProviderSupplements() {
                       <View style={styles.supplementItemContent}>
                         <View style={styles.supplementHeader}>
                           <Text style={styles.supplementItemName}>{supplement.name}</Text>
-                          <View style={[styles.statusBadge, supplement.available ? styles.statusAvailable : styles.statusUnavailable]}>
+                          <TouchableOpacity
+                            style={[styles.statusBadge, supplement.available ? styles.statusAvailable : styles.statusUnavailable]}
+                            onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
+                          >
+                            {supplement.available ? (
+                              <CheckCircle size={14} color="#10B981" />
+                            ) : (
+                              <XCircle size={14} color="#EF4444" />
+                            )}
                             <Text style={[styles.statusText, supplement.available ? styles.statusTextAvailable : styles.statusTextUnavailable]}>
-                              {supplement.available ? 'Disponible' : 'Indisponible'}
+                              {supplement.available ? 'Activé' : 'Désactivé'}
                             </Text>
-                          </View>
+                          </TouchableOpacity>
                         </View>
                         <View style={styles.schoolBadge}>
                           <Text style={styles.schoolBadgeText}>
@@ -234,16 +242,6 @@ export default function ProviderSupplements() {
                         <Text style={styles.supplementItemPrice}>+{supplement.price.toFixed(2)}€</Text>
                       </View>
                       <View style={styles.supplementItemActions}>
-                        <TouchableOpacity
-                          style={styles.actionButton}
-                          onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
-                        >
-                          {supplement.available ? (
-                            <Eye size={18} color="#10B981" />
-                          ) : (
-                            <EyeOff size={18} color="#6B7280" />
-                          )}
-                        </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.actionButton}
                           onPress={() => handleDeleteSupplement(supplement.supplement_ids, supplement.school_names)}
@@ -266,11 +264,19 @@ export default function ProviderSupplements() {
                       <View style={styles.supplementItemContent}>
                         <View style={styles.supplementHeader}>
                           <Text style={styles.supplementItemName}>{supplement.name}</Text>
-                          <View style={[styles.statusBadge, supplement.available ? styles.statusAvailable : styles.statusUnavailable]}>
+                          <TouchableOpacity
+                            style={[styles.statusBadge, supplement.available ? styles.statusAvailable : styles.statusUnavailable]}
+                            onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
+                          >
+                            {supplement.available ? (
+                              <CheckCircle size={14} color="#10B981" />
+                            ) : (
+                              <XCircle size={14} color="#EF4444" />
+                            )}
                             <Text style={[styles.statusText, supplement.available ? styles.statusTextAvailable : styles.statusTextUnavailable]}>
-                              {supplement.available ? 'Disponible' : 'Indisponible'}
+                              {supplement.available ? 'Activé' : 'Désactivé'}
                             </Text>
-                          </View>
+                          </TouchableOpacity>
                         </View>
                         {supplement.menu_name && (
                           <View style={styles.menuBadge}>
@@ -290,16 +296,6 @@ export default function ProviderSupplements() {
                         <Text style={styles.supplementItemPrice}>+{supplement.price.toFixed(2)}€</Text>
                       </View>
                       <View style={styles.supplementItemActions}>
-                        <TouchableOpacity
-                          style={styles.actionButton}
-                          onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
-                        >
-                          {supplement.available ? (
-                            <Eye size={18} color="#10B981" />
-                          ) : (
-                            <EyeOff size={18} color="#6B7280" />
-                          )}
-                        </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.actionButton}
                           onPress={() => handleDeleteSupplement(supplement.supplement_ids, supplement.school_names)}
@@ -415,10 +411,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
     marginLeft: 8,
+    gap: 4,
   },
   statusAvailable: {
     backgroundColor: '#D1FAE5',
@@ -427,14 +426,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEE2E2',
   },
   statusText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
   },
   statusTextAvailable: {
-    color: '#059669',
+    color: '#10B981',
   },
   statusTextUnavailable: {
-    color: '#DC2626',
+    color: '#EF4444',
   },
   supplementItemDescription: {
     fontSize: 13,
