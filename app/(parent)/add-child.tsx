@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Parent, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, Plus, X, CheckCircle, ChevronDown } from 'lucide-react-native';
+import { ArrowLeft, Plus, X, CircleCheck as CheckCircle, ChevronDown } from 'lucide-react-native';
 
 const GRADE_OPTIONS = [
   { section: 'Maternelle', grades: ['Petite Section', 'Moyenne Section', 'Grande Section'] },
