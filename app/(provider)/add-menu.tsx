@@ -113,7 +113,10 @@ export default function AddMenuScreen() {
         }
       });
 
-      setAvailableSupplements(Array.from(uniqueSupplements.values()));
+      const supplementsList = Array.from(uniqueSupplements.values());
+      setAvailableSupplements(supplementsList);
+
+      setSelectedSupplements(supplementsList.map(s => s.id));
     } catch (err) {
       console.error('Error loading supplements:', err);
     }
@@ -581,7 +584,7 @@ export default function AddMenuScreen() {
           <View style={styles.formGroup}>
             <View style={styles.supplementsHeader}>
               <Package size={20} color="#111827" />
-              <Text style={styles.label}>Suppléments disponibles</Text>
+              <Text style={styles.label}>Suppléments génériques</Text>
             </View>
             {availableSupplements.length === 0 ? (
               <View style={styles.noSupplementsBox}>
@@ -619,7 +622,7 @@ export default function AddMenuScreen() {
                 ))}
               </View>
             )}
-            <Text style={styles.hint}>Sélectionnez les suppléments associés à ce menu</Text>
+            <Text style={styles.hint}>Tous les suppléments sont sélectionnés par défaut. Décochez ceux que vous ne souhaitez pas associer à ce menu.</Text>
           </View>
         </View>
       </ScrollView>
