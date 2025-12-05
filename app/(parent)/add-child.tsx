@@ -66,8 +66,9 @@ const getDaysInMonth = (month: string, year: string): number => {
 
 const generateYears = (): number[] => {
   const currentYear = new Date().getFullYear();
+  const startYear = 2005;
   const years: number[] = [];
-  for (let i = currentYear; i >= currentYear - 25; i--) {
+  for (let i = currentYear; i >= startYear; i--) {
     years.push(i);
   }
   return years;
