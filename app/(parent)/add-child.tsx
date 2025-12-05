@@ -13,16 +13,35 @@ const GRADE_OPTIONS = [
   { section: 'Lycée', grades: ['2nde', '1ère', 'Terminale'] },
 ];
 
+const KNOWN_ALLERGIES = [
+  'Arachide',
+  'Fruits à coque',
+  'Gluten',
+  'Lactose',
+  'Œufs',
+  'Poissons',
+  'Crustacés',
+  'Mollusques',
+  'Soja',
+  'Céleri',
+  'Moutarde',
+  'Sésame',
+  'Sulfites',
+  'Lupin',
+];
+
 export default function AddChildScreen() {
   const [parent, setParent] = useState<Parent | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [grade, setGrade] = useState('');
-  const [allergyFields, setAllergyFields] = useState<string[]>(['']);
+  const [allergies, setAllergies] = useState<string[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
   const [showAddSchoolModal, setShowAddSchoolModal] = useState(false);
   const [showGradeModal, setShowGradeModal] = useState(false);
+  const [showAllergyModal, setShowAllergyModal] = useState(false);
+  const [customAllergy, setCustomAllergy] = useState('');
   const [schoolIdentifier, setSchoolIdentifier] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -58,18 +77,26 @@ export default function AddChildScreen() {
     }
   };
 
-  const addAllergyField = () => {
-    setAllergyFields([...allergyFields, '']);
+  const handleSelectAllergy = (allergy: string) => {
+    if (allergies.includes(allergy)) {
+      setAllergies(allergies.filter(a => a !== allergy));
+    } else {
+      if (allergies.length < 2) {
+        setAllergies([...allergies, allergy]);
+      }
+    }
   };
 
-  const removeAllergyField = (index: number) => {
-    setAllergyFields(allergyFields.filter((_, i) => i !== index));
+  const handleAddCustomAllergy = () => {
+    if (customAllergy.trim() && allergies.length < 2 && !allergies.includes(customAllergy.trim())) {
+      setAllergies([...allergies, customAllergy.trim()]);
+      setCustomAllergy('');
+      setShowAllergyModal(false);
+    }
   };
 
-  const updateAllergyField = (index: number, value: string) => {
-    const updated = [...allergyFields];
-    updated[index] = value;
-    setAllergyFields(updated);
+  const removeAllergy = (allergy: string) => {
+    setAllergies(allergies.filter(a => a !== allergy));
   };
 
   const handleAddSchool = async () => {
@@ -153,7 +180,7 @@ export default function AddChildScreen() {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         grade: grade.trim() || null,
-        allergies: allergyFields.filter(a => a.trim() !== ''),
+        allergies: allergies,
         dietary_restrictions: [],
       });
 
@@ -226,33 +253,30 @@ export default function AddChildScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Allergies</Text>
-          {allergyFields.map((allergy, index) => (
-            <View key={index} style={styles.allergyFieldContainer}>
-              <TextInput
-                style={styles.allergyInput}
-                value={allergy}
-                onChangeText={(value) => updateAllergyField(index, value)}
-                placeholder="Nom de l'allergie"
-                placeholderTextColor="#9CA3AF"
-              />
-              {allergyFields.length > 1 && (
-                <TouchableOpacity
-                  onPress={() => removeAllergyField(index)}
-                  style={styles.removeButton}
-                >
-                  <X size={20} color="#EF4444" />
-                </TouchableOpacity>
-              )}
+          <Text style={styles.label}>Allergies (Maximum 2)</Text>
+          {allergies.length > 0 && (
+            <View style={styles.selectedAllergiesContainer}>
+              {allergies.map((allergy, index) => (
+                <View key={index} style={styles.allergyTag}>
+                  <Text style={styles.allergyTagText}>{allergy}</Text>
+                  <TouchableOpacity onPress={() => removeAllergy(allergy)}>
+                    <X size={16} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
+              ))}
             </View>
-          ))}
-          <TouchableOpacity
-            style={styles.addAllergyButton}
-            onPress={addAllergyField}
-          >
-            <Plus size={16} color="#111827" />
-            <Text style={styles.addAllergyButtonText}>Ajouter une allergie</Text>
-          </TouchableOpacity>
+          )}
+          {allergies.length < 2 && (
+            <TouchableOpacity
+              style={styles.addAllergyButton}
+              onPress={() => setShowAllergyModal(true)}
+            >
+              <Plus size={16} color="#111827" />
+              <Text style={styles.addAllergyButtonText}>
+                {allergies.length === 0 ? 'Ajouter une allergie' : 'Ajouter une autre allergie'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -380,6 +404,96 @@ export default function AddChildScreen() {
       </Modal>
 
       <Modal
+        visible={showAllergyModal}
+        transparent
+        animationType="none"
+        onRequestClose={() => {
+          setShowAllergyModal(false);
+          setCustomAllergy('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.allergyModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Sélectionner une allergie</Text>
+              <TouchableOpacity onPress={() => {
+                setShowAllergyModal(false);
+                setCustomAllergy('');
+              }}>
+                <X size={24} color="#111827" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.allergyList} showsVerticalScrollIndicator={false}>
+              <Text style={styles.allergyListSubtitle}>Allergies courantes</Text>
+              {KNOWN_ALLERGIES.map((allergy, index) => {
+                const isSelected = allergies.includes(allergy);
+                const isDisabled = !isSelected && allergies.length >= 2;
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.allergyOption,
+                      isSelected && styles.allergyOptionSelected,
+                      isDisabled && styles.allergyOptionDisabled,
+                    ]}
+                    onPress={() => !isDisabled && handleSelectAllergy(allergy)}
+                    disabled={isDisabled}
+                  >
+                    <Text
+                      style={[
+                        styles.allergyOptionText,
+                        isSelected && styles.allergyOptionTextSelected,
+                        isDisabled && styles.allergyOptionTextDisabled,
+                      ]}
+                    >
+                      {allergy}
+                    </Text>
+                    {isSelected && (
+                      <CheckCircle size={20} color="#111827" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+
+              <View style={styles.customAllergySection}>
+                <Text style={styles.allergyListSubtitle}>Autre allergie</Text>
+                <View style={styles.customAllergyInputContainer}>
+                  <TextInput
+                    style={styles.customAllergyInput}
+                    value={customAllergy}
+                    onChangeText={setCustomAllergy}
+                    placeholder="Entrer une allergie personnalisée"
+                    placeholderTextColor="#9CA3AF"
+                  />
+                  <TouchableOpacity
+                    style={[
+                      styles.customAllergyAddButton,
+                      (!customAllergy.trim() || allergies.length >= 2) && styles.customAllergyAddButtonDisabled
+                    ]}
+                    onPress={handleAddCustomAllergy}
+                    disabled={!customAllergy.trim() || allergies.length >= 2}
+                  >
+                    <Plus size={20} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => {
+                setShowAllergyModal(false);
+                setCustomAllergy('');
+              }}
+            >
+              <Text style={styles.modalCloseButtonText}>Fermer</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
         visible={showAddSchoolModal}
         transparent
         animationType="fade"
@@ -502,25 +616,27 @@ const styles = StyleSheet.create({
   gradeSelectorPlaceholder: {
     color: '#9CA3AF',
   },
-  allergyFieldContainer: {
+  selectedAllergiesContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
     marginBottom: 12,
   },
-  allergyInput: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
+  allergyTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEE2E2',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: '#111827',
+    borderColor: '#FECACA',
   },
-  removeButton: {
-    padding: 8,
+  allergyTagText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#DC2626',
   },
   addAllergyButton: {
     flexDirection: 'row',
@@ -532,12 +648,105 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     backgroundColor: '#FFFFFF',
-    marginTop: 4,
   },
   addAllergyButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#111827',
+  },
+  allergyModalContent: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    borderRadius: 20,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+    maxHeight: '80%',
+  },
+  allergyList: {
+    marginTop: 16,
+  },
+  allergyListSubtitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6B7280',
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  allergyOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  allergyOptionSelected: {
+    backgroundColor: '#E5E7EB',
+    borderColor: '#111827',
+  },
+  allergyOptionDisabled: {
+    opacity: 0.4,
+  },
+  allergyOptionText: {
+    fontSize: 15,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  allergyOptionTextSelected: {
+    color: '#111827',
+    fontWeight: '600',
+  },
+  allergyOptionTextDisabled: {
+    color: '#9CA3AF',
+  },
+  customAllergySection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  customAllergyInputContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  customAllergyInput: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: '#111827',
+  },
+  customAllergyAddButton: {
+    backgroundColor: '#111827',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  customAllergyAddButtonDisabled: {
+    opacity: 0.4,
+  },
+  modalCloseButton: {
+    backgroundColor: '#111827',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  modalCloseButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   addSchoolButton: {
     flexDirection: 'row',
