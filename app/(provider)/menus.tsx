@@ -17,6 +17,14 @@ interface Supplement {
   price: number;
 }
 
+interface SpecificSupplement {
+  id: string;
+  name: string;
+  price: number;
+  description?: string;
+  menu_id: string;
+}
+
 interface GroupedMenu extends Menu {
   school_ids: string[];
   school_names: string[];
@@ -29,6 +37,7 @@ export default function ProviderMenus() {
   const [menus, setMenus] = useState<Menu[]>([]);
   const [groupedMenus, setGroupedMenus] = useState<GroupedMenu[]>([]);
   const [supplements, setSupplements] = useState<Map<string, Supplement>>(new Map());
+  const [specificSupplements, setSpecificSupplements] = useState<Map<string, SpecificSupplement[]>>(new Map());
   const [loading, setLoading] = useState(true);
   const [selectedSchool, setSelectedSchool] = useState<string | null>(null);
   const router = useRouter();
@@ -97,6 +106,7 @@ export default function ProviderMenus() {
       setGroupedMenus(grouped);
 
       await loadSupplements(menusData);
+      await loadSpecificSupplements(menusData);
     } catch (err) {
       console.error('Error loading menus:', err);
     }
@@ -129,6 +139,38 @@ export default function ProviderMenus() {
       setSupplements(supplementsMap);
     } catch (err) {
       console.error('Error loading supplements:', err);
+    }
+  };
+
+  const loadSpecificSupplements = async (menusList: any[]) => {
+    try {
+      if (!provider) return;
+
+      const menuIds = menusList.map(m => m.id);
+      if (menuIds.length === 0) {
+        setSpecificSupplements(new Map());
+        return;
+      }
+
+      const { data } = await supabase
+        .from('provider_supplements')
+        .select('id, name, price, description, menu_id')
+        .eq('provider_id', provider.id)
+        .in('menu_id', menuIds)
+        .not('menu_id', 'is', null);
+
+      const specificSuppsMap = new Map<string, SpecificSupplement[]>();
+      (data || []).forEach((supp) => {
+        const menuId = supp.menu_id;
+        if (!specificSuppsMap.has(menuId)) {
+          specificSuppsMap.set(menuId, []);
+        }
+        specificSuppsMap.get(menuId)!.push(supp as SpecificSupplement);
+      });
+
+      setSpecificSupplements(specificSuppsMap);
+    } catch (err) {
+      console.error('Error loading specific supplements:', err);
     }
   };
 
@@ -282,6 +324,39 @@ export default function ProviderMenus() {
                       </View>
                     </View>
                   )}
+                  {(() => {
+                    const allSpecificSupps: SpecificSupplement[] = [];
+                    menu.menu_ids.forEach((menuId: string) => {
+                      const menuSpecificSupps = specificSupplements.get(menuId);
+                      if (menuSpecificSupps && menuSpecificSupps.length > 0) {
+                        allSpecificSupps.push(...menuSpecificSupps);
+                      }
+                    });
+
+                    const uniqueSupps = Array.from(
+                      new Map(allSpecificSupps.map(s => [s.name + s.price, s])).values()
+                    );
+
+                    if (uniqueSupps.length === 0) return null;
+
+                    return (
+                      <View style={styles.specificSupplementsContainer}>
+                        <View style={styles.supplementsHeader}>
+                          <Package size={14} color="#10B981" />
+                          <Text style={styles.specificSupplementsTitle}>Suppléments spécifiques :</Text>
+                        </View>
+                        <View style={styles.supplementsListMenu}>
+                          {uniqueSupps.map((supp) => (
+                            <View key={supp.id} style={styles.specificSupplementBadge}>
+                              <Text style={styles.specificSupplementBadgeText}>
+                                {supp.name} (+{supp.price.toFixed(2)}€)
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    );
+                  })()}
                 </View>
                 <View style={styles.menuItemActions}>
                   <TouchableOpacity
@@ -466,5 +541,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#D97706',
+  },
+  specificSupplementsContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  specificSupplementsTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#10B981',
+  },
+  specificSupplementBadge: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  specificSupplementBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#059669',
   },
 });
