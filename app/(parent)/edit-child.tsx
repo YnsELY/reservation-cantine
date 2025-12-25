@@ -14,7 +14,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Save, Calendar } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/lib/auth';
 
 interface Child {
   id: string;
@@ -28,7 +27,6 @@ interface Child {
 
 export default function EditChildScreen() {
   const { childId } = useLocalSearchParams();
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [firstName, setFirstName] = useState('');

@@ -12,7 +12,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Edit, Calendar, Clock, AlertCircle, User } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/lib/auth';
 
 interface Child {
   id: string;
@@ -41,7 +40,6 @@ interface Reservation {
 
 export default function ChildDetailsScreen() {
   const { childId } = useLocalSearchParams();
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [child, setChild] = useState<Child | null>(null);
   const [weekReservations, setWeekReservations] = useState<Reservation[]>([]);
