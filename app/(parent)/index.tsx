@@ -364,7 +364,7 @@ export default function ParentHomeScreen() {
               contentContainerStyle={styles.childrenList}
             >
               {children.map((child) => (
-                <View
+                <TouchableOpacity
                   key={child.id}
                   style={[
                     styles.childCard,
@@ -376,6 +376,10 @@ export default function ParentHomeScreen() {
                       shadowRadius: 8,
                     }
                   ]}
+                  onPress={() => router.push({
+                    pathname: '/(parent)/child-details',
+                    params: { childId: child.id }
+                  })}
                 >
                   <View style={styles.childAvatar}>
                     <User size={40} color="#6B7280" />
@@ -386,7 +390,7 @@ export default function ParentHomeScreen() {
                   <Text style={styles.childName}>
                     {child.last_name}
                   </Text>
-                </View>
+                </TouchableOpacity>
               ))}
             </ScrollView>
           ) : (
