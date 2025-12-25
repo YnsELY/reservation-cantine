@@ -332,9 +332,9 @@ export default function ParentHomeScreen() {
 
         {renderGauge()}
 
-        {children.length > 0 && (
-          <View style={styles.childrenSection}>
-            <Text style={styles.childrenTitle}>Mes enfants</Text>
+        <View style={styles.childrenSection}>
+          <Text style={styles.childrenTitle}>Mes enfants</Text>
+          {children.length > 0 ? (
             <View style={styles.childrenList}>
               {children.map((child) => (
                 <View key={child.id} style={styles.childCard}>
@@ -355,8 +355,23 @@ export default function ParentHomeScreen() {
                 </View>
               ))}
             </View>
-          </View>
-        )}
+          ) : (
+            <View style={styles.emptyChildren}>
+              <Text style={styles.emptyChildrenText}>
+                Aucun enfant enregistré
+              </Text>
+              <TouchableOpacity
+                style={styles.addChildSmallButton}
+                onPress={() => router.push('/(parent)/add-child')}
+              >
+                <UserPlus size={20} color="#FFFFFF" />
+                <Text style={styles.addChildSmallButtonText}>
+                  Ajouter un enfant
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
 
         <TouchableOpacity
           style={styles.largeButton}
@@ -624,6 +639,29 @@ const styles = StyleSheet.create({
   childStatus: {
     fontSize: 13,
     color: '#6B7280',
+  },
+  emptyChildren: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  emptyChildrenText: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 16,
+  },
+  addChildSmallButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#111827',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+  addChildSmallButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   largeButton: {
     backgroundColor: '#111827',
