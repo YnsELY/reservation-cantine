@@ -360,26 +360,31 @@ export default function ParentHomeScreen() {
         <View style={styles.childrenSection}>
           <Text style={styles.childrenTitle}>Mes enfants</Text>
           {children.length > 0 ? (
-            <View style={styles.childrenList}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.childrenList}
+            >
               {children.map((child) => (
-                <View key={child.id} style={styles.childCard}>
-                  <View style={[styles.childAvatar, { backgroundColor: getAvatarColor(child.status) }]}>
-                    <Text style={styles.childAvatarText}>
-                      {child.first_name.charAt(0).toUpperCase()}
-                      {child.last_name.charAt(0).toUpperCase()}
-                    </Text>
+                <View
+                  key={child.id}
+                  style={[
+                    styles.childCard,
+                    { borderColor: getAvatarColor(child.status) }
+                  ]}
+                >
+                  <View style={styles.childAvatar}>
+                    <User size={40} color="#6B7280" />
                   </View>
-                  <View style={styles.childInfo}>
-                    <Text style={styles.childName}>
-                      {child.first_name} {child.last_name}
-                    </Text>
-                    <Text style={styles.childStatus}>
-                      {getStatusText(child.status, child.reservationCount)}
-                    </Text>
-                  </View>
+                  <Text style={styles.childName}>
+                    {child.first_name}
+                  </Text>
+                  <Text style={styles.childName}>
+                    {child.last_name}
+                  </Text>
                 </View>
               ))}
-            </View>
+            </ScrollView>
           ) : (
             <View style={styles.emptyChildren}>
               <Text style={styles.emptyChildrenText}>
@@ -629,41 +634,37 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   childrenList: {
+    paddingVertical: 4,
     gap: 12,
   },
   childCard: {
-    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 3,
+    minWidth: 110,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   childAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
-  },
-  childAvatarText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  childInfo: {
-    flex: 1,
+    marginBottom: 12,
   },
   childName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#111827',
-    marginBottom: 4,
-  },
-  childStatus: {
-    fontSize: 13,
-    color: '#6B7280',
+    textAlign: 'center',
   },
   emptyChildren: {
     alignItems: 'center',
