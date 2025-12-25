@@ -23,6 +23,19 @@ interface WeekReservation {
   };
 }
 
+interface Child {
+  id: string;
+  first_name: string;
+  last_name: string;
+  birth_date: string | null;
+  school_id: string;
+}
+
+interface ChildWithStatus extends Child {
+  reservationCount: number;
+  status: 'none' | 'partial' | 'complete';
+}
+
 export default function ParentHomeScreen() {
   const router = useRouter();
   const [parent, setParent] = useState<Parent | null>(null);
@@ -30,6 +43,7 @@ export default function ParentHomeScreen() {
   const [upcomingReservations, setUpcomingReservations] = useState<WeekReservation[]>([]);
   const [monthlyOrders, setMonthlyOrders] = useState<number[]>([0, 0, 0, 0, 0]);
   const [childrenCount, setChildrenCount] = useState(0);
+  const [children, setChildren] = useState<ChildWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -58,7 +72,7 @@ export default function ParentHomeScreen() {
 
       const { data: childrenData } = await supabase
         .from('children')
-        .select('id')
+        .select('id, first_name, last_name, birth_date, school_id')
         .eq('parent_id', currentParent.id);
 
       setChildrenCount(childrenData?.length || 0);
@@ -73,6 +87,36 @@ export default function ParentHomeScreen() {
 
       const startDateStr = startOfWeek.toISOString().split('T')[0];
       const endDateStr = endOfWeek.toISOString().split('T')[0];
+
+      const childrenWithStatus: ChildWithStatus[] = await Promise.all(
+        (childrenData || []).map(async (child) => {
+          const { data: reservations } = await supabase
+            .from('reservations')
+            .select('id')
+            .eq('child_id', child.id)
+            .gte('date', startDateStr)
+            .lte('date', endDateStr);
+
+          const reservationCount = reservations?.length || 0;
+          let status: 'none' | 'partial' | 'complete' = 'none';
+
+          if (reservationCount === 0) {
+            status = 'none';
+          } else if (reservationCount >= 5) {
+            status = 'complete';
+          } else {
+            status = 'partial';
+          }
+
+          return {
+            ...child,
+            reservationCount,
+            status,
+          };
+        })
+      );
+
+      setChildren(childrenWithStatus);
 
       const { data: weekReservationsData } = await supabase
         .from('reservations')
@@ -159,6 +203,32 @@ export default function ParentHomeScreen() {
       day: 'numeric',
       month: 'short'
     });
+  };
+
+  const getAvatarColor = (status: 'none' | 'partial' | 'complete') => {
+    switch (status) {
+      case 'none':
+        return '#EF4444';
+      case 'partial':
+        return '#F59E0B';
+      case 'complete':
+        return '#10B981';
+      default:
+        return '#9CA3AF';
+    }
+  };
+
+  const getStatusText = (status: 'none' | 'partial' | 'complete', count: number) => {
+    switch (status) {
+      case 'none':
+        return 'Aucune réservation cette semaine';
+      case 'partial':
+        return `${count} jour${count > 1 ? 's' : ''} réservé${count > 1 ? 's' : ''}`;
+      case 'complete':
+        return 'Semaine complète';
+      default:
+        return '';
+    }
   };
 
   const renderGauge = () => {
@@ -261,6 +331,32 @@ export default function ParentHomeScreen() {
       >
 
         {renderGauge()}
+
+        {children.length > 0 && (
+          <View style={styles.childrenSection}>
+            <Text style={styles.childrenTitle}>Mes enfants</Text>
+            <View style={styles.childrenList}>
+              {children.map((child) => (
+                <View key={child.id} style={styles.childCard}>
+                  <View style={[styles.childAvatar, { backgroundColor: getAvatarColor(child.status) }]}>
+                    <Text style={styles.childAvatarText}>
+                      {child.first_name.charAt(0).toUpperCase()}
+                      {child.last_name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.childInfo}>
+                    <Text style={styles.childName}>
+                      {child.first_name} {child.last_name}
+                    </Text>
+                    <Text style={styles.childStatus}>
+                      {getStatusText(child.status, child.reservationCount)}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         <TouchableOpacity
           style={styles.largeButton}
@@ -474,6 +570,60 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 4,
+  },
+  childrenSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  childrenTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 16,
+  },
+  childrenList: {
+    gap: 12,
+  },
+  childCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+  },
+  childAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  childAvatarText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  childInfo: {
+    flex: 1,
+  },
+  childName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  childStatus: {
+    fontSize: 13,
+    color: '#6B7280',
   },
   largeButton: {
     backgroundColor: '#111827',
