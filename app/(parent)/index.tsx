@@ -370,7 +370,13 @@ export default function ParentHomeScreen() {
                   key={child.id}
                   style={[
                     styles.childCard,
-                    { borderColor: getAvatarColor(child.status) }
+                    {
+                      borderColor: getAvatarColor(child.status) + '40',
+                      shadowColor: getAvatarColor(child.status),
+                      shadowOffset: { width: 0, height: 0 },
+                      shadowOpacity: 0.3,
+                      shadowRadius: 8,
+                    }
                   ]}
                 >
                   <View style={styles.childAvatar}>
