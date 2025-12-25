@@ -371,7 +371,7 @@ export default function ParentHomeScreen() {
                   style={[
                     styles.childCard,
                     {
-                      borderColor: getAvatarColor(child.status) + '40',
+                      borderColor: getAvatarColor(child.status) + '99',
                       shadowColor: getAvatarColor(child.status),
                       shadowOffset: { width: 0, height: 0 },
                       shadowOpacity: 0.3,
