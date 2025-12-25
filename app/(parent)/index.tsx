@@ -69,11 +69,20 @@ export default function ParentHomeScreen() {
       }
 
       setParent(currentParent);
+      console.log('DEBUG - Current Parent ID:', currentParent.id);
+      console.log('DEBUG - Current Parent Email:', currentParent.email);
 
-      const { data: childrenData } = await supabase
+      const { data: childrenData, error: childrenError } = await supabase
         .from('children')
         .select('id, first_name, last_name, birth_date, school_id')
         .eq('parent_id', currentParent.id);
+
+      if (childrenError) {
+        console.error('Error loading children:', childrenError);
+      }
+
+      console.log('DEBUG - Children found:', childrenData?.length || 0);
+      console.log('DEBUG - Children data:', childrenData);
 
       setChildrenCount(childrenData?.length || 0);
 
