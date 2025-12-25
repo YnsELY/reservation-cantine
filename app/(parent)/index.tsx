@@ -27,7 +27,7 @@ interface Child {
   id: string;
   first_name: string;
   last_name: string;
-  birth_date: string | null;
+  date_of_birth: string | null;
   school_id: string;
 }
 
@@ -88,7 +88,7 @@ export default function ParentHomeScreen() {
 
       const { data: childrenData, error: childrenError } = await supabase
         .from('children')
-        .select('id, first_name, last_name, birth_date, school_id')
+        .select('id, first_name, last_name, date_of_birth, school_id')
         .eq('parent_id', parentData.id);
 
       console.log('=== DEBUG CHILDREN ===');
