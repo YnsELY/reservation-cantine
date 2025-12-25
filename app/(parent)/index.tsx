@@ -53,9 +53,7 @@ export default function ParentHomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!loading) {
-        setRefreshing(true);
-      }
+      console.log('=== PAGE FOCUSED - RELOADING DATA ===');
       loadData();
     }, [])
   );
