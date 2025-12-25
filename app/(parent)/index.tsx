@@ -68,11 +68,18 @@ export default function ParentHomeScreen() {
         return;
       }
 
+      console.log('=== DEBUG SESSION ===');
+      console.log('User ID:', session.user.id);
+      console.log('User Email:', session.user.email);
+
       const { data: parentData } = await supabase
         .from('parents')
         .select('*')
         .eq('user_id', session.user.id)
         .maybeSingle();
+
+      console.log('=== DEBUG PARENT ===');
+      console.log('Parent Data:', parentData);
 
       if (!parentData) {
         router.replace('/auth');
@@ -85,6 +92,11 @@ export default function ParentHomeScreen() {
         .from('children')
         .select('id, first_name, last_name, birth_date, school_id')
         .eq('parent_id', parentData.id);
+
+      console.log('=== DEBUG CHILDREN ===');
+      console.log('Children Query for parent_id:', parentData.id);
+      console.log('Children Data:', childrenData);
+      console.log('Children Error:', childrenError);
 
       if (childrenError) {
         console.error('Error loading children:', childrenError);
