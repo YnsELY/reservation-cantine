@@ -62,27 +62,33 @@ export default function ParentHomeScreen() {
 
   const loadData = async () => {
     try {
-      const currentParent = await authService.getCurrentParentFromAuth();
-      if (!currentParent) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
         router.replace('/auth');
         return;
       }
 
-      setParent(currentParent);
-      console.log('DEBUG - Current Parent ID:', currentParent.id);
-      console.log('DEBUG - Current Parent Email:', currentParent.email);
+      const { data: parentData } = await supabase
+        .from('parents')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      if (!parentData) {
+        router.replace('/auth');
+        return;
+      }
+
+      setParent(parentData);
 
       const { data: childrenData, error: childrenError } = await supabase
         .from('children')
         .select('id, first_name, last_name, birth_date, school_id')
-        .eq('parent_id', currentParent.id);
+        .eq('parent_id', parentData.id);
 
       if (childrenError) {
         console.error('Error loading children:', childrenError);
       }
-
-      console.log('DEBUG - Children found:', childrenData?.length || 0);
-      console.log('DEBUG - Children data:', childrenData);
 
       setChildrenCount(childrenData?.length || 0);
 
@@ -130,7 +136,7 @@ export default function ParentHomeScreen() {
       const { data: weekReservationsData } = await supabase
         .from('reservations')
         .select('id, date')
-        .eq('parent_id', currentParent.id)
+        .eq('parent_id', parentData.id)
         .gte('date', startDateStr)
         .lte('date', endDateStr);
 
@@ -147,7 +153,7 @@ export default function ParentHomeScreen() {
           children (first_name, last_name),
           menus (meal_name)
         `)
-        .eq('parent_id', currentParent.id)
+        .eq('parent_id', parentData.id)
         .gte('date', todayStr)
         .order('date', { ascending: true })
         .limit(10);
@@ -161,7 +167,7 @@ export default function ParentHomeScreen() {
       const { data: currentMonthData } = await supabase
         .from('reservations')
         .select('date')
-        .eq('parent_id', currentParent.id)
+        .eq('parent_id', parentData.id)
         .gte('date', startOfMonth.toISOString().split('T')[0])
         .lte('date', endOfMonth.toISOString().split('T')[0]);
 
