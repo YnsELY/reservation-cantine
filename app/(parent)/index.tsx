@@ -355,8 +355,6 @@ export default function ParentHomeScreen() {
         }
       >
 
-        {renderGauge()}
-
         <View style={styles.childrenSection}>
           <Text style={styles.childrenTitle}>Mes enfants</Text>
           {children.length > 0 ? (
@@ -408,6 +406,8 @@ export default function ParentHomeScreen() {
             </View>
           )}
         </View>
+
+        {renderGauge()}
 
         <TouchableOpacity
           style={styles.largeButton}
