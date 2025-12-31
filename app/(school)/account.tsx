@@ -111,6 +111,17 @@ export default function AccountScreen() {
           </View>
         </View>
 
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Documents légaux</Text>
+          </View>
+          <TouchableOpacity style={styles.legalButton} onPress={() => router.push('/legal/cgv')}>
+            <Text style={styles.legalButtonText}>Conditions générales de vente</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.legalButton} onPress={() => router.push('/legal/privacy')}>
+            <Text style={styles.legalButtonText}>Politique de confidentialité</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       <View style={styles.footer}>
@@ -244,6 +255,19 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   infoValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  legalButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 12,
+  },
+  legalButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#111827',

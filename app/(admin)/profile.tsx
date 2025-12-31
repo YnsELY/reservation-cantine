@@ -102,6 +102,18 @@ export default function AdminProfile() {
         </View>
 
         <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Documents légaux</Text>
+          </View>
+          <TouchableOpacity style={styles.legalButton} onPress={() => router.push('/legal/cgv')}>
+            <Text style={styles.legalButtonText}>Conditions générales de vente</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.legalButton} onPress={() => router.push('/legal/privacy')}>
+            <Text style={styles.legalButtonText}>Politique de confidentialité</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <LogOut size={20} color="#FFFFFF" />
             <Text style={styles.logoutText}>Se déconnecter</Text>
@@ -239,6 +251,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
     flex: 1,
+  },
+  legalButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 12,
+  },
+  legalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
   },
   logoutButton: {
     flexDirection: 'row',
