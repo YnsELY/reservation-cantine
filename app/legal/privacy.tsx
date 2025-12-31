@@ -15,13 +15,13 @@ export default function PrivacyScreen() {
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.pageTitle}>Politique de confidentialité</Text>
-        <Text style={styles.pageSubtitle}>Application Children's Kitchen</Text>
+        <Text style={styles.pageSubtitle}>Application CHILDREN'S KITCHEN</Text>
         <View style={styles.separator} />
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>1. Collecte des données personnelles</Text>
           <Text style={styles.paragraph}>
-            Dans le cadre de l'utilisation de l'application Children's Kitchen, les données suivantes peuvent être collectées :
+            Dans le cadre de l'utilisation de l'application CHILDREN'S KITCHEN, les données suivantes peuvent être collectées :
           </Text>
           <View style={styles.bulletList}>
             <Text style={styles.bulletItem}>• nom et prénom,</Text>
