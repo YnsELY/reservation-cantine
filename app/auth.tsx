@@ -311,6 +311,18 @@ export default function AuthScreen() {
     setError('');
   };
 
+  const renderLegalLinks = () => (
+    <View style={styles.legalSection}>
+      <Text style={styles.legalTitle}>Documents légaux</Text>
+      <TouchableOpacity style={styles.legalLink} onPress={() => router.push('/legal/cgv')}>
+        <Text style={styles.legalLinkText}>Conditions générales de vente</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.legalLink} onPress={() => router.push('/legal/privacy')}>
+        <Text style={styles.legalLinkText}>Politique de confidentialité</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   if (checkingSession) {
     return (
       <View style={styles.container}>
@@ -385,6 +397,8 @@ export default function AuthScreen() {
               </View>
             </TouchableOpacity>
           </View>
+
+          {renderLegalLinks()}
         </ScrollView>
       </View>
     );
@@ -586,6 +600,8 @@ export default function AuthScreen() {
             )}
           </TouchableOpacity>
         </View>
+
+        {renderLegalLinks()}
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -760,5 +776,24 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  legalSection: {
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  legalTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  legalLink: {
+    paddingVertical: 6,
+  },
+  legalLinkText: {
+    fontSize: 14,
+    color: '#111827',
+    textDecorationLine: 'underline',
+    textAlign: 'center',
   },
 });
