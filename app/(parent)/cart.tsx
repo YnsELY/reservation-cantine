@@ -207,7 +207,7 @@ export default function CartScreen() {
                       <Text style={styles.supplementsLabel}>Suppléments :</Text>
                       {item.supplements.map((supp: any, idx: number) => (
                         <Text key={idx} style={styles.supplementItem}>
-                          • {supp.name} (+{Number(supp.price).toFixed(2)} €)
+                          • {supp.name} (+{Number(supp.price).toFixed(2)} DH)
                         </Text>
                       ))}
                     </View>
@@ -222,7 +222,7 @@ export default function CartScreen() {
                 </View>
 
                 <View style={styles.itemFooter}>
-                  <Text style={styles.itemPrice}>{Number(item.total_price).toFixed(2)} €</Text>
+                  <Text style={styles.itemPrice}>{Number(item.total_price).toFixed(2)} DH</Text>
                 </View>
               </View>
             ))}
@@ -230,8 +230,8 @@ export default function CartScreen() {
 
           <View style={styles.footer}>
             <View style={styles.totalContainer}>
-              <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalAmount}>{calculateTotal().toFixed(2)} €</Text>
+              <Text style={styles.totalLabel}>Total (TTC)</Text>
+              <Text style={styles.totalAmount}>{calculateTotal().toFixed(2)} DH</Text>
             </View>
             <TouchableOpacity
               style={[styles.payButton, processingPayment && styles.payButtonDisabled]}

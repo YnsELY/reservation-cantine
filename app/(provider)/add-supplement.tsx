@@ -187,7 +187,7 @@ export default function AddSupplementScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Prix (€) *</Text>
+          <Text style={styles.label}>Prix (DH) *</Text>
           <TextInput
             style={styles.input}
             placeholder="0.00"

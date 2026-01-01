@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Dimensions, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { supabase, Child, Menu, Parent, Reservation, School } from '@/lib/supabase';
+import { supabase, Child, Menu, Parent, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { AlertCircle, ChevronUp, ChevronLeft, ChevronRight, ShoppingCart, UserPlus, School as SchoolIcon, ArrowLeft, UtensilsCrossed } from 'lucide-react-native';
+import { AlertCircle, ChevronLeft, ChevronRight, ShoppingCart, UserPlus, School as SchoolIcon, ArrowLeft, UtensilsCrossed } from 'lucide-react-native';
 
 const formatDateToLocal = (date: Date): string => {
   const year = date.getFullYear();
@@ -19,7 +19,6 @@ export default function ParentDashboard() {
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
   const [schools, setSchools] = useState<School[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -27,14 +26,9 @@ export default function ParentDashboard() {
   const [weekDates, setWeekDates] = useState<Date[]>([]);
   const [selectedDayIndex, setSelectedDayIndex] = useState(0);
   const [weekMenus, setWeekMenus] = useState<{[key: string]: Menu[]}>({});
-  const [isReservationExpanded, setIsReservationExpanded] = useState(false);
   const [cartItemCount, setCartItemCount] = useState(0);
-  const reservationHeight = useRef(new Animated.Value(90)).current;
   const dayScaleAnim = useRef(new Animated.Value(1)).current;
   const router = useRouter();
-  const screenHeight = Dimensions.get('window').height;
-  const expandedHeight = screenHeight * 0.6;
-  const collapsedHeight = 90;
 
   const loadCartCount = async (parentId: string) => {
     try {
@@ -177,9 +171,6 @@ export default function ParentDashboard() {
         setWeekMenus(menusMap);
       }
 
-      if (parent) {
-        await loadWeekReservationsForDates(parent.id, dates);
-      }
     } catch (err) {
       console.error('Error loading menus:', err);
       setError('Erreur lors du chargement des menus');
@@ -189,51 +180,6 @@ export default function ParentDashboard() {
   const handleChildSelect = (child: Child) => {
     setSelectedChild(child);
     loadMenusForChild(child);
-  };
-
-  const loadWeekReservationsForDates = async (parentId: string, dates: Date[]) => {
-    try {
-      if (!dates || dates.length === 0) {
-        setReservations([]);
-        return;
-      }
-
-      const startDate = formatDateToLocal(dates[0]);
-      const endDate = formatDateToLocal(dates[dates.length - 1]);
-
-      const { data: reservationsData, error } = await supabase
-        .from('reservations')
-        .select(`
-          id,
-          date,
-          children:child_id (
-            first_name,
-            last_name
-          ),
-          menus:menu_id (
-            meal_name,
-            date,
-            price
-          )
-        `)
-        .eq('parent_id', parentId)
-        .gte('date', startDate)
-        .lte('date', endDate)
-        .order('date');
-
-      if (error) throw error;
-
-      setReservations(reservationsData || []);
-    } catch (err) {
-      console.error('Error loading reservations:', err);
-      setReservations([]);
-    }
-  };
-
-  const loadWeekReservations = async (parentId: string) => {
-    if (weekDates && weekDates.length > 0) {
-      await loadWeekReservationsForDates(parentId, weekDates);
-    }
   };
 
   const onRefresh = () => {
@@ -329,28 +275,10 @@ export default function ParentDashboard() {
     return colors[index % colors.length];
   };
 
-  const formatFullDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-    return `${days[date.getDay()]} ${date.getDate()}/${date.getMonth() + 1}`;
-  };
-
-  const toggleReservationExpansion = () => {
-    const toValue = isReservationExpanded ? collapsedHeight : expandedHeight;
-    setIsReservationExpanded(!isReservationExpanded);
-    Animated.spring(reservationHeight, {
-      toValue,
-      useNativeDriver: false,
-      friction: 8,
-      tension: 40,
-    }).start();
-  };
-
   const handleBackToChildrenList = () => {
     setSelectedChild(null);
     setMenus([]);
     setWeekMenus({});
-    setReservations([]);
   };
 
   if (loading) {
@@ -593,7 +521,7 @@ export default function ParentDashboard() {
                         <View style={styles.priceContainer}>
                           <Text style={[styles.priceLabelText, { color: textColor }]}>Prix</Text>
                           <Text style={[styles.menuCardPrice, { color: textColor }]}>
-                            {menu.price.toFixed(2)} €
+                            {menu.price.toFixed(2)} DH
                           </Text>
                         </View>
                         <TouchableOpacity
@@ -623,98 +551,6 @@ export default function ParentDashboard() {
         </>
       )}
 
-      <Animated.View style={[styles.reservationsSection, { height: reservationHeight }]}>
-        <View style={styles.reservationsCard}>
-          <View style={styles.reservationHeader}>
-            <Text style={styles.reservationsSectionTitle}>Réservations de la semaine</Text>
-            <TouchableOpacity
-              style={styles.expandButton}
-              onPress={toggleReservationExpansion}
-            >
-              <Animated.View style={{
-                transform: [{
-                  rotate: reservationHeight.interpolate({
-                    inputRange: [collapsedHeight, expandedHeight],
-                    outputRange: ['0deg', '180deg'],
-                  })
-                }]
-              }}>
-                <ChevronUp size={24} color="#111827" />
-              </Animated.View>
-            </TouchableOpacity>
-          </View>
-          {reservations.length === 0 ? (
-            <Text style={styles.noReservationsText}>
-              Vous n'avez pas encore réservé de repas
-            </Text>
-          ) : (
-            <ScrollView
-              style={styles.reservationsScroll}
-              showsVerticalScrollIndicator={false}
-            >
-              {reservations.map((reservation: any, index: number) => {
-                const pastelColors = [
-                  { bg: '#FFE5E5', left: '#FF9999', dash: '#FFCCCC', price: '#FFB3B3' },
-                  { bg: '#E5F5FF', left: '#99D6FF', dash: '#CCE9FF', price: '#B3DFFF' },
-                  { bg: '#FFF4E5', left: '#FFCC99', dash: '#FFE5CC', price: '#FFD9B3' },
-                  { bg: '#F0E5FF', left: '#CC99FF', dash: '#E5CCFF', price: '#D9B3FF' },
-                  { bg: '#E5FFE5', left: '#99FF99', dash: '#CCFFCC', price: '#B3FFB3' },
-                  { bg: '#FFE5F5', left: '#FF99CC', dash: '#FFCCE5', price: '#FFB3D9' },
-                ];
-                const colors = pastelColors[index % pastelColors.length];
-
-                const reservationDate = reservation.date || reservation.menus?.date;
-                const childData = reservation.children || {};
-                const menuData = reservation.menus || {};
-
-                return (
-                  <View key={reservation.id} style={[styles.couponCard, { backgroundColor: colors.bg }]}>
-                    <View style={[styles.couponLeft, { backgroundColor: colors.left }]}>
-                      <View style={styles.couponDateBadge}>
-                        <Text style={styles.couponDay}>
-                          {new Date(reservationDate).getDate()}
-                        </Text>
-                        <Text style={styles.couponMonth}>
-                          {new Date(reservationDate).toLocaleDateString('fr-FR', { month: 'short' }).toUpperCase()}
-                        </Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.couponDivider}>
-                      <View style={styles.couponCircleTop} />
-                      <View style={styles.dashedLineContainer}>
-                        {Array.from({ length: 8 }).map((_, i) => (
-                          <View key={i} style={[styles.dash, { backgroundColor: colors.dash }]} />
-                        ))}
-                      </View>
-                      <View style={styles.couponCircleBottom} />
-                    </View>
-
-                    <View style={styles.couponRight}>
-                      <View style={styles.couponContent}>
-                        <Text style={styles.couponChildName}>
-                          {childData.first_name} {childData.last_name}
-                        </Text>
-                        <Text style={styles.couponMealName}>
-                          {menuData.meal_name}
-                        </Text>
-                        <Text style={styles.couponDate}>
-                          {formatFullDate(reservationDate)}
-                        </Text>
-                      </View>
-                      <View style={[styles.couponPriceTag, { backgroundColor: colors.price }]}>
-                        <Text style={styles.couponPrice}>
-                          {Number(menuData.price || 0).toFixed(2)} €
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
-            </ScrollView>
-          )}
-        </View>
-      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -954,154 +790,6 @@ const styles = StyleSheet.create({
   menuCardButtonText: {
     fontSize: 16,
     fontWeight: '700',
-  },
-  reservationsSection: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-  },
-  reservationHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  reservationsSectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  expandButton: {
-    padding: 4,
-  },
-  reservationsCard: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 24,
-    paddingTop: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 8,
-    flex: 1,
-  },
-  reservationsScroll: {
-    flex: 1,
-  },
-  noReservationsText: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    paddingVertical: 20,
-  },
-  couponCard: {
-    flexDirection: 'row',
-    borderRadius: 16,
-    marginBottom: 16,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  couponLeft: {
-    width: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 12,
-  },
-  couponDateBadge: {
-    alignItems: 'center',
-  },
-  couponDay: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    lineHeight: 36,
-  },
-  couponMonth: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginTop: 2,
-    opacity: 0.8,
-  },
-  couponDivider: {
-    width: 16,
-    position: 'relative',
-    backgroundColor: 'transparent',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  couponCircleTop: {
-    position: 'absolute',
-    top: -12,
-    left: -2,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-  },
-  couponCircleBottom: {
-    position: 'absolute',
-    bottom: -12,
-    left: -2,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-  },
-  dashedLineContainer: {
-    flex: 1,
-    justifyContent: 'space-evenly',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  dash: {
-    width: 3,
-    height: 6,
-    borderRadius: 1.5,
-  },
-  couponRight: {
-    flex: 1,
-    flexDirection: 'row',
-    padding: 16,
-    alignItems: 'center',
-  },
-  couponContent: {
-    flex: 1,
-  },
-  couponChildName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  couponMealName: {
-    fontSize: 14,
-    color: '#374151',
-    marginBottom: 6,
-  },
-  couponDate: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  couponPriceTag: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginLeft: 12,
-  },
-  couponPrice: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
   },
   emptyState: {
     alignItems: 'center',

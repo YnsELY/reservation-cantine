@@ -145,7 +145,7 @@ export default function MenusManagement() {
                 )}
 
                 <View style={styles.menuFooter}>
-                  <Text style={styles.menuPrice}>{menu.price.toFixed(2)} €</Text>
+                  <Text style={styles.menuPrice}>{menu.price.toFixed(2)} DH</Text>
                   {!menu.available && (
                     <View style={styles.unavailableBadge}>
                       <Text style={styles.unavailableText}>Indisponible</Text>

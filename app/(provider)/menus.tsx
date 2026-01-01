@@ -302,7 +302,7 @@ export default function ProviderMenus() {
                   {menu.description && (
                     <Text style={styles.menuItemDescription}>{menu.description}</Text>
                   )}
-                  <Text style={styles.menuItemPrice}>{menu.price.toFixed(2)}€</Text>
+                  <Text style={styles.menuItemPrice}>{menu.price.toFixed(2)} DH</Text>
                   {menu.supplements && Array.isArray(menu.supplements) && menu.supplements.length > 0 && (
                     <View style={styles.supplementsContainer}>
                       <View style={styles.supplementsHeader}>
@@ -316,7 +316,7 @@ export default function ProviderMenus() {
                           return (
                             <View key={suppId} style={styles.supplementBadge}>
                               <Text style={styles.supplementBadgeText}>
-                                {supp.name} (+{supp.price.toFixed(2)}€)
+                                {supp.name} (+{supp.price.toFixed(2)} DH)
                               </Text>
                             </View>
                           );
@@ -349,7 +349,7 @@ export default function ProviderMenus() {
                           {uniqueSupps.map((supp) => (
                             <View key={supp.id} style={styles.specificSupplementBadge}>
                               <Text style={styles.specificSupplementBadgeText}>
-                                {supp.name} (+{supp.price.toFixed(2)}€)
+                                {supp.name} (+{supp.price.toFixed(2)} DH)
                               </Text>
                             </View>
                           ))}
@@ -360,10 +360,11 @@ export default function ProviderMenus() {
                 </View>
                 <View style={styles.menuItemActions}>
                   <TouchableOpacity
-                    style={styles.actionButton}
+                    style={styles.deleteButton}
                     onPress={() => handleDeleteMenu(menu.menu_ids, menu.school_names)}
                   >
-                    <Trash2 size={18} color="#EF4444" />
+                    <Trash2 size={16} color="#FFFFFF" />
+                    <Text style={styles.deleteButtonText}>Supprimer</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -487,11 +488,23 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   menuItemActions: {
-    flexDirection: 'row',
-    gap: 8,
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
   },
-  actionButton: {
-    padding: 8,
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#EF4444',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  deleteButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   schoolBadge: {
     alignSelf: 'flex-start',

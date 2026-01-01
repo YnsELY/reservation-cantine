@@ -212,7 +212,7 @@ export default function SchoolMyOrdersScreen() {
         </View>
       </View>
       <Text style={styles.orderMeal}>{item.menu.meal_name}</Text>
-      <Text style={styles.orderPrice}>{item.total_price.toFixed(2)} €</Text>
+      <Text style={styles.orderPrice}>{item.total_price.toFixed(2)} DH</Text>
       {item.created_by_school && (
         <View style={styles.schoolBadge}>
           <Text style={styles.schoolBadgeText}>Commande école</Text>

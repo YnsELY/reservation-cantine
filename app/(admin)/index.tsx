@@ -264,7 +264,7 @@ export default function AdminDashboard() {
 
           <View style={[styles.statCard, styles.statCardHalf, { backgroundColor: '#D1FAE5' }]}>
             <Text style={styles.statLabel}>Revenus du jour</Text>
-            <Text style={styles.statValue}>{todayRevenue.toFixed(2)} €</Text>
+            <Text style={styles.statValue}>{todayRevenue.toFixed(2)} DH</Text>
           </View>
         </View>
 

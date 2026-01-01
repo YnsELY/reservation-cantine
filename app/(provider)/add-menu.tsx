@@ -344,7 +344,7 @@ export default function AddMenuScreen() {
       const formData = new FormData();
       formData.append('image', base64);
 
-      const apiKey = process.env.EXPO_PUBLIC_IMGBB_API_KEY;
+      const apiKey = process.env.EXPO_PUBLIC_IMGBB_API_KEY || '6adc05d703cb5647f72cd5d8c38a5051';
       console.log('API Key available:', !!apiKey);
 
       const uploadResponse = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
@@ -568,7 +568,7 @@ export default function AddMenuScreen() {
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Prix (€) *</Text>
+            <Text style={styles.label}>Prix (DH) *</Text>
             <TextInput
               style={styles.input}
               value={price}
@@ -682,7 +682,7 @@ export default function AddMenuScreen() {
                       {supplement.description && (
                         <Text style={styles.supplementDescription}>{supplement.description}</Text>
                       )}
-                      <Text style={styles.supplementPrice}>+{supplement.price.toFixed(2)}€</Text>
+                      <Text style={styles.supplementPrice}>+{supplement.price.toFixed(2)} DH</Text>
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -707,7 +707,7 @@ export default function AddMenuScreen() {
                       {supplement.description && (
                         <Text style={styles.supplementDescription}>{supplement.description}</Text>
                       )}
-                      <Text style={styles.supplementPrice}>+{parseFloat(supplement.price).toFixed(2)}€</Text>
+                      <Text style={styles.supplementPrice}>+{parseFloat(supplement.price).toFixed(2)} DH</Text>
                     </View>
                     <TouchableOpacity
                       onPress={() => removeMenuSpecificSupplement(supplement.tempId)}
@@ -742,7 +742,7 @@ export default function AddMenuScreen() {
                 style={styles.input}
                 value={newSupplementPrice}
                 onChangeText={setNewSupplementPrice}
-                placeholder="Prix (€) *"
+                placeholder="Prix (DH) *"
                 placeholderTextColor="#9CA3AF"
                 keyboardType="decimal-pad"
               />

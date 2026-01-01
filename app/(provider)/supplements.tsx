@@ -238,7 +238,7 @@ export default function ProviderSupplements() {
                         {supplement.description && (
                           <Text style={styles.supplementItemDescription}>{supplement.description}</Text>
                         )}
-                        <Text style={styles.supplementItemPrice}>+{supplement.price.toFixed(2)}€</Text>
+                        <Text style={styles.supplementItemPrice}>+{supplement.price.toFixed(2)} DH</Text>
                         <TouchableOpacity
                           style={[styles.toggleButton, supplement.available ? styles.toggleButtonDeactivate : styles.toggleButtonActivate]}
                           onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}
@@ -304,7 +304,7 @@ export default function ProviderSupplements() {
                         {supplement.description && (
                           <Text style={styles.supplementItemDescription}>{supplement.description}</Text>
                         )}
-                        <Text style={styles.supplementItemPrice}>+{supplement.price.toFixed(2)}€</Text>
+                        <Text style={styles.supplementItemPrice}>+{supplement.price.toFixed(2)} DH</Text>
                         <TouchableOpacity
                           style={[styles.toggleButton, supplement.available ? styles.toggleButtonDeactivate : styles.toggleButtonActivate]}
                           onPress={() => toggleAvailability(supplement.supplement_ids, supplement.available)}

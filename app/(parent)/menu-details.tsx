@@ -261,8 +261,8 @@ export default function MenuDetailsScreen() {
           <View style={styles.divider} />
 
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Prix unitaire</Text>
-            <Text style={styles.priceText}>{menu.price.toFixed(2)} €</Text>
+            <Text style={styles.sectionLabel}>Prix unitaire (TTC)</Text>
+            <Text style={styles.priceText}>{menu.price.toFixed(2)} DH</Text>
           </View>
         </View>
 
@@ -296,7 +296,7 @@ export default function MenuDetailsScreen() {
                           )}
                         </View>
                       </View>
-                      <Text style={styles.supplementPrice}>+{supplement.price.toFixed(2)} €</Text>
+                      <Text style={styles.supplementPrice}>+{supplement.price.toFixed(2)} DH</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -329,7 +329,7 @@ export default function MenuDetailsScreen() {
                           )}
                         </View>
                       </View>
-                      <Text style={[styles.supplementPrice, styles.supplementPriceSpecific]}>+{supplement.price.toFixed(2)} €</Text>
+                      <Text style={[styles.supplementPrice, styles.supplementPriceSpecific]}>+{supplement.price.toFixed(2)} DH</Text>
                     </TouchableOpacity>
                   );
                 })}
@@ -355,7 +355,7 @@ export default function MenuDetailsScreen() {
       <View style={styles.footer}>
         <View style={styles.totalContainer}>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalPrice}>{totalPrice.toFixed(2)} €</Text>
+          <Text style={styles.totalPrice}>{totalPrice.toFixed(2)} DH</Text>
         </View>
         <TouchableOpacity
           style={[styles.addToCartButton, addingToCart && styles.addToCartButtonDisabled]}

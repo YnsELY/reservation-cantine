@@ -536,7 +536,7 @@ export default function ParentHomeScreen() {
                       {reservation.menus.meal_name}
                     </Text>
                     <Text style={styles.reservationPrice}>
-                      {reservation.total_price.toFixed(2)} €
+                      {reservation.total_price.toFixed(2)} DH
                     </Text>
                   </View>
                 </View>

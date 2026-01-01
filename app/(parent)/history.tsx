@@ -386,7 +386,7 @@ export default function HistoryScreen() {
           <Text style={styles.statLabel}>Commande{statistics.count > 1 ? 's' : ''}</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statValue}>{statistics.total.toFixed(2)} €</Text>
+          <Text style={styles.statValue}>{statistics.total.toFixed(2)} DH</Text>
           <Text style={styles.statLabel}>Total payé</Text>
         </View>
       </View>
@@ -466,7 +466,7 @@ export default function HistoryScreen() {
                   <View style={styles.priceRow}>
                     <Text style={styles.priceLabel}>Total:</Text>
                     <Text style={styles.priceValue}>
-                      {reservation.total_price.toFixed(2)} €
+                      {reservation.total_price.toFixed(2)} DH
                     </Text>
                   </View>
                 </View>

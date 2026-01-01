@@ -301,7 +301,7 @@ export default function SchoolStatistics() {
             <View style={styles.statIconContainer}>
               <DollarSign size={24} color="#065F46" />
             </View>
-            <Text style={styles.statValue}>{totalRevenue.toFixed(2)} €</Text>
+            <Text style={styles.statValue}>{totalRevenue.toFixed(2)} DH</Text>
             <Text style={styles.statLabel}>Revenu total</Text>
           </View>
         </View>

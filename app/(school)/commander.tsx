@@ -231,7 +231,7 @@ export default function SchoolCommanderScreen() {
                       {menu.meal_name}
                     </Text>
                     <Text style={[styles.menuPrice, isSelected && styles.menuPriceSelected]}>
-                      {menu.price.toFixed(2)} €
+                      {menu.price.toFixed(2)} DH
                     </Text>
                   </View>
                   {isSelected && (
@@ -297,11 +297,11 @@ export default function SchoolCommanderScreen() {
           </Text>
           {selectedMenu && (
             <Text style={styles.summaryText}>
-              Menu: {selectedMenu.meal_name} ({selectedMenu.price.toFixed(2)} €)
+              Menu: {selectedMenu.meal_name} ({selectedMenu.price.toFixed(2)} DH)
             </Text>
           )}
           <Text style={styles.summaryTotal}>
-            Total: {(selectedChildren.size * (selectedMenu?.price || 0)).toFixed(2)} €
+            Total: {(selectedChildren.size * (selectedMenu?.price || 0)).toFixed(2)} DH
           </Text>
         </View>
       </ScrollView>

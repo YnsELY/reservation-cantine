@@ -256,7 +256,7 @@ export default function AdminOrdersScreen() {
           <Text style={styles.statLabel}>Commandes affichées</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={styles.statCurrency}>€</Text>
+          <Text style={styles.statCurrency}>DH</Text>
           <Text style={styles.statValue}>
             {filteredOrders.reduce((sum, o) => sum + Number(o.total_price), 0).toFixed(2)}
           </Text>
@@ -362,7 +362,7 @@ export default function AdminOrdersScreen() {
                 <View style={styles.schoolBadge}>
                   <Text style={styles.schoolBadgeText}>{order.school.name}</Text>
                 </View>
-                <Text style={styles.orderPrice}>{Number(order.total_price).toFixed(2)} €</Text>
+                <Text style={styles.orderPrice}>{Number(order.total_price).toFixed(2)} DH</Text>
               </View>
 
               <View style={styles.orderBody}>

@@ -31,7 +31,7 @@ interface Reservation {
   date: string;
   menus: {
     id: string;
-    name: string;
+    meal_name: string;
     description: string;
     price: number;
     date: string;
@@ -84,7 +84,7 @@ export default function ChildDetailsScreen() {
           *,
           menus (
             id,
-            name,
+            meal_name,
             description,
             price,
             date
@@ -104,7 +104,7 @@ export default function ChildDetailsScreen() {
           *,
           menus (
             id,
-            name,
+            meal_name,
             description,
             price,
             date
@@ -252,11 +252,11 @@ export default function ChildDetailsScreen() {
                         {formatDate(reservation.date)}
                       </Text>
                       <Text style={styles.reservationMenuName}>
-                        {reservation.menus.name}
+                        {reservation.menus.meal_name}
                       </Text>
                     </View>
                     <Text style={styles.reservationPrice}>
-                      {reservation.menus.price.toFixed(2)}€
+                      {reservation.menus.price.toFixed(2)} DH
                     </Text>
                   </View>
                   {reservation.menus.description && (
@@ -290,10 +290,10 @@ export default function ChildDetailsScreen() {
                     </Text>
                   </View>
                   <Text style={styles.historyMenuName}>
-                    {reservation.menus.name}
+                    {reservation.menus.meal_name}
                   </Text>
                   <Text style={styles.historyPrice}>
-                    {reservation.menus.price.toFixed(2)}€
+                    {reservation.menus.price.toFixed(2)} DH
                   </Text>
                 </View>
               ))}
