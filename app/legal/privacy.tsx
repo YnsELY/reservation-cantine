@@ -15,13 +15,13 @@ export default function PrivacyScreen() {
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.pageTitle}>Politique de confidentialité</Text>
-        <Text style={styles.pageSubtitle}>Application CHILDREN'S KITCHEN</Text>
+        <Text style={styles.pageSubtitle}>Application Children’s Kitchen</Text>
         <View style={styles.separator} />
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>1. Collecte des données personnelles</Text>
           <Text style={styles.paragraph}>
-            Dans le cadre de l'utilisation de l'application CHILDREN'S KITCHEN, les données suivantes peuvent être collectées :
+            Dans le cadre de l'utilisation de l'application Children’s Kitchen, les données suivantes peuvent être collectées :
           </Text>
           <View style={styles.bulletList}>
             <Text style={styles.bulletItem}>• nom et prénom,</Text>
@@ -44,7 +44,7 @@ export default function PrivacyScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>3. Paiement sécurisé</Text>
           <Text style={styles.paragraph}>
-            Les paiements sont traités par la plateforme sécurisée Payzone. CHILDREN'S KITCHEN ne conserve aucune donnée bancaire.
+            Les paiements sont traités par la plateforme sécurisée Payzone. Children’s Kitchen ne conserve aucune donnée bancaire.
           </Text>
         </View>
 
@@ -64,14 +64,14 @@ export default function PrivacyScreen() {
             <Text style={styles.bulletItem}>• de suppression.</Text>
           </View>
           <Text style={styles.paragraph}>
-            Toute demande peut être adressée à l'adresse suivante : kitchenschool60@gmail.com
+            Toute demande peut être adressée à l'adresse suivante : kitchenchildren26@gmail.com
           </Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>6. Sécurité des données</Text>
           <Text style={styles.paragraph}>
-            CHILDREN'S KITCHEN met en œuvre toutes les mesures techniques et organisationnelles nécessaires afin de garantir la sécurité et la confidentialité des données personnelles.
+            Children’s Kitchen met en œuvre toutes les mesures techniques et organisationnelles nécessaires afin de garantir la sécurité et la confidentialité des données personnelles.
           </Text>
         </View>
 
