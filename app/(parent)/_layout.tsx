@@ -9,6 +9,8 @@ export default function ParentLayout() {
       <Stack.Screen name="profile" />
       <Stack.Screen name="reservation" />
       <Stack.Screen name="cart" />
+      <Stack.Screen name="payment" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="order-summary" />
     </Stack>
   );
 }

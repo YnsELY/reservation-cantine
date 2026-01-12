@@ -6,6 +6,7 @@ export default function SchoolLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="calendar" />
       <Stack.Screen name="students" />
+      <Stack.Screen name="student-details" />
       <Stack.Screen name="commander" />
       <Stack.Screen name="history" />
       <Stack.Screen name="statistics" />

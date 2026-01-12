@@ -6,6 +6,13 @@ import { supabase, Child, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { Search, ArrowLeft } from 'lucide-react-native';
 
+const formatDateToLocal = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function SchoolChildrenScreen() {
   const [school, setSchool] = useState<School | null>(null);
   const [children, setChildren] = useState<Child[]>([]);
@@ -41,6 +48,33 @@ export default function SchoolChildrenScreen() {
 
       setSchool(currentSchool);
 
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const endDate = new Date(today);
+      endDate.setDate(today.getDate() + 6);
+
+      const startDateString = formatDateToLocal(today);
+      const endDateString = formatDateToLocal(endDate);
+
+      const { data: activeReservations, error: activeError } = await supabase
+        .from('reservations')
+        .select('child_id, child:children!inner(school_id)')
+        .eq('child.school_id', currentSchool.id)
+        .gte('date', startDateString)
+        .lte('date', endDateString);
+
+      if (activeError) throw activeError;
+
+      const activeChildIds = Array.from(
+        new Set((activeReservations || []).map((res: any) => res.child_id).filter(Boolean))
+      );
+
+      if (activeChildIds.length === 0) {
+        setChildren([]);
+        setFilteredChildren([]);
+        return;
+      }
+
       const { data: childrenData } = await supabase
         .from('children')
         .select(`
@@ -51,6 +85,7 @@ export default function SchoolChildrenScreen() {
           )
         `)
         .eq('school_id', currentSchool.id)
+        .in('id', activeChildIds)
         .order('last_name')
         .order('first_name');
 
@@ -64,7 +99,11 @@ export default function SchoolChildrenScreen() {
   };
 
   const renderChild = ({ item }: { item: any }) => (
-    <View style={styles.childCard}>
+    <TouchableOpacity
+      style={styles.childCard}
+      activeOpacity={0.8}
+      onPress={() => router.push({ pathname: '/(school)/student-details', params: { childId: item.id } })}
+    >
       <View style={styles.childInfo}>
         <Text style={styles.childName}>
           {item.first_name} {item.last_name}
@@ -78,12 +117,12 @@ export default function SchoolChildrenScreen() {
           <Text style={styles.childGrade}>Classe: {item.grade}</Text>
         )}
       </View>
-      {item.allergies.length > 0 && (
+      {Array.isArray(item.allergies) && item.allergies.length > 0 && (
         <View style={styles.allergyBadge}>
           <Text style={styles.allergyText}>Allergies</Text>
         </View>
       )}
-    </View>
+    </TouchableOpacity>
   );
 
   if (loading) {
@@ -122,11 +161,11 @@ export default function SchoolChildrenScreen() {
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{children.length}</Text>
-          <Text style={styles.statLabel}>Élèves inscrits</Text>
+          <Text style={styles.statLabel}>Élèves actifs</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>
-            {children.filter(c => c.allergies.length > 0).length}
+            {children.filter(c => Array.isArray(c.allergies) && c.allergies.length > 0).length}
           </Text>
           <Text style={styles.statLabel}>Avec allergies</Text>
         </View>
@@ -135,7 +174,7 @@ export default function SchoolChildrenScreen() {
       {filteredChildren.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>
-            {searchQuery ? 'Aucun élève trouvé' : 'Aucun élève inscrit'}
+            {searchQuery ? 'Aucun élève trouvé' : 'Aucun élève actif'}
           </Text>
         </View>
       ) : (

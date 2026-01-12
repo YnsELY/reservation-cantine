@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, CartItem, Child, Menu, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, Trash2, ShoppingCart, CreditCard } from 'lucide-react-native';
+import { payzoneService, CartItemForPayment } from '@/lib/payzone';
+import { ArrowLeft, Trash2, ShoppingCart, CreditCard, Lock } from 'lucide-react-native';
 
 interface CartItemWithDetails extends CartItem {
   child: Child;
@@ -93,48 +94,60 @@ export default function CartScreen() {
   };
 
   const handlePayment = async () => {
-    if (cartItems.length === 0) return;
+    if (cartItems.length === 0 || !parent) return;
 
     setProcessingPayment(true);
     try {
-      const reservations = cartItems.map(item => ({
-        parent_id: parent?.id,
+      // Préparer les données du panier pour PayZone
+      const cartItemsForPayment: CartItemForPayment[] = cartItems.map(item => ({
+        id: item.id,
         child_id: item.child_id,
         menu_id: item.menu_id,
         date: item.date,
         supplements: item.supplements || [],
         annotations: item.annotations,
         total_price: item.total_price,
-        payment_status: 'paid',
+        child: {
+          first_name: item.child.first_name,
+          last_name: item.child.last_name,
+        },
+        menu: {
+          meal_name: item.menu.meal_name,
+        },
       }));
 
-      const { error: insertError } = await supabase
-        .from('reservations')
-        .insert(reservations);
+      const totalAmount = calculateTotal();
 
-      if (insertError) throw insertError;
-
-      const cartItemIds = cartItems.map(item => item.id);
-      const { error: deleteError } = await supabase
-        .from('cart_items')
-        .delete()
-        .in('id', cartItemIds);
-
-      if (deleteError) throw deleteError;
-
-      Alert.alert(
-        'Succès',
-        'Votre commande a été confirmée !',
-        [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/(parent)/history'),
-          },
-        ]
+      // Initialiser le paiement PayZone
+      const response = await payzoneService.initializePayment(
+        parent.id,
+        cartItemsForPayment,
+        totalAmount,
+        parent.email || undefined,
+        `${parent.first_name} ${parent.last_name}`
       );
+
+      if (!response.success || !response.paywallUrl || !response.payload || !response.signature) {
+        throw new Error(response.error || 'Erreur lors de l\'initialisation du paiement');
+      }
+
+      // Naviguer vers l'écran de paiement avec les paramètres PayZone
+      router.push({
+        pathname: '/(parent)/payment',
+        params: {
+          paywallUrl: response.paywallUrl,
+          payload: response.payload,
+          signature: response.signature,
+          orderId: response.orderId,
+        },
+      });
+
     } catch (err) {
       console.error('Error processing payment:', err);
-      Alert.alert('Erreur', 'Erreur lors du paiement');
+      Alert.alert(
+        'Erreur',
+        err instanceof Error ? err.message : 'Erreur lors de l\'initialisation du paiement'
+      );
     } finally {
       setProcessingPayment(false);
     }
@@ -242,11 +255,14 @@ export default function CartScreen() {
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
                 <>
-                  <CreditCard size={20} color="#FFFFFF" />
-                  <Text style={styles.payButtonText}>Payer et commander</Text>
+                  <Lock size={18} color="#FFFFFF" />
+                  <Text style={styles.payButtonText}>Payer par carte bancaire</Text>
                 </>
               )}
             </TouchableOpacity>
+            <View style={styles.securePaymentNote}>
+              <Text style={styles.securePaymentText}>Paiement sécurisé par PayZone</Text>
+            </View>
           </View>
         </>
       )}
@@ -463,5 +479,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  securePaymentNote: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+  },
+  securePaymentText: {
+    fontSize: 12,
+    color: '#6B7280',
   },
 });

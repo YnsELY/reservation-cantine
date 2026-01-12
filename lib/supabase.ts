@@ -159,3 +159,21 @@ export interface ProviderSchoolAccess {
   granted_at: string;
   granted_by: string | null;
 }
+
+export interface PendingPayment {
+  id: string;
+  order_id: string;
+  charge_id: string | null;
+  parent_id: string;
+  cart_items: any[];
+  total_amount: number;
+  status: 'pending' | 'completed' | 'failed' | 'refunded' | 'expired';
+  payzone_transaction_id: string | null;
+  payzone_status: string | null;
+  failure_reason: string | null;
+  created_at: string;
+  completed_at: string | null;
+  failed_at: string | null;
+  refunded_at: string | null;
+  expires_at: string;
+}

@@ -1,0 +1,2 @@
+[functions.payzone-callback]
+verify_jwt = false
