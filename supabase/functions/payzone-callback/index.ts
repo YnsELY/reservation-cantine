@@ -64,14 +64,20 @@ serve(async (req) => {
       console.log('Calculated signature:', calculatedSignature)
 
       if (calculatedSignature.toLowerCase() !== receivedSignature.toLowerCase()) {
-        console.error('Signature mismatch!')
-        // Pour le debug en sandbox, on continue quand même mais on log l'erreur
-        console.warn('WARNING: Signature validation failed but continuing for sandbox testing')
+        console.error('Signature mismatch! Rejecting callback.')
+        return new Response(
+          JSON.stringify({ error: 'Invalid signature' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       } else {
         console.log('Signature validated successfully')
       }
     } else if (!receivedSignature) {
-      console.warn('No signature header received from PayZone')
+      console.warn('No signature header received from PayZone - rejecting')
+      return new Response(
+        JSON.stringify({ error: 'Missing signature' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     // Parser la notification

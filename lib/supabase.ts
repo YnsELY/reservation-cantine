@@ -38,6 +38,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: false,
   },
+  global: {
+    fetch: (...args: Parameters<typeof fetch>) => fetch(...args),
+  },
 });
 
 export interface School {

@@ -12,7 +12,7 @@ const corsHeaders = {
 // Configuration PayZone (à configurer dans les secrets Supabase)
 const PAYZONE_MERCHANT_ACCOUNT = Deno.env.get('PAYZONE_MERCHANT_ACCOUNT') || ''
 const PAYZONE_SECRET_KEY = Deno.env.get('PAYZONE_SECRET_KEY') || ''
-const PAYZONE_URL = Deno.env.get('PAYZONE_URL') || 'https://payment-sandbox.payzone.ma/pwthree/launch'
+const PAYZONE_URL = Deno.env.get('PAYZONE_URL') || 'https://payment.payzone.ma/pwthree/launch'
 const APP_BASE_URL = Deno.env.get('APP_BASE_URL') || 'https://childrens-kitchen.netlify.app'
 
 interface PaymentRequest {

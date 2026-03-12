@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Dimensions, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Parent, Reservation } from '@/lib/supabase';
@@ -544,6 +544,12 @@ export default function ParentHomeScreen() {
             </ScrollView>
           )}
         </View>
+
+        <Image
+          source={require('@/assets/images/Box2.png')}
+          style={styles.bottomBanner}
+          resizeMode="contain"
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -862,5 +868,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#111827',
+  },
+  bottomBanner: {
+    width: '100%',
+    height: 200,
+    marginTop: 16,
+    marginBottom: -100,
+    borderRadius: 0,
   },
 });
