@@ -53,15 +53,17 @@ export default function PaymentScreen() {
   const handleNavigationStateChange = (navState: WebViewNavigation) => {
     const { url } = navState;
 
-    // Détecter les URLs de retour PayZone
-    if (url.includes('/payment-success') || url.includes('success')) {
+    // Détecter uniquement les URLs de retour de NOTRE app (pas les URLs 3DS bancaires)
+    const isOurUrl = url.includes('childrens-kitchen.netlify.app') || url.includes('localhost');
+    if (!isOurUrl) return;
+
+    if (url.includes('/payment-success')) {
       setStatus('success');
-      // Vérifier le statut réel via le polling
       checkPaymentConfirmation();
-    } else if (url.includes('/payment-failure') || url.includes('failure')) {
+    } else if (url.includes('/payment-failure')) {
       setStatus('failure');
       setErrorMessage('Le paiement a été refusé');
-    } else if (url.includes('/payment-cancel') || url.includes('cancel')) {
+    } else if (url.includes('/payment-cancel')) {
       setStatus('cancelled');
       setErrorMessage('Paiement annulé');
     }
@@ -279,6 +281,11 @@ export default function PaymentScreen() {
           onNavigationStateChange={handleNavigationStateChange}
           javaScriptEnabled={true}
           domStorageEnabled={true}
+          thirdPartyCookiesEnabled={true}
+          setSupportMultipleWindows={false}
+          javaScriptCanOpenWindowsAutomatically={true}
+          mixedContentMode="compatibility"
+          originWhitelist={['*']}
           startInLoadingState={true}
           renderLoading={() => (
             <View style={styles.webViewLoading}>
