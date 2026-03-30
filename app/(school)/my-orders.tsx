@@ -24,6 +24,8 @@ export default function SchoolMyOrdersScreen() {
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('all');
   const [sortBy, setSortBy] = useState<SortOption>('date_desc');
   const [searchQuery, setSearchQuery] = useState('');
+  const [gradeFilter, setGradeFilter] = useState<string>('all');
+  const [availableGrades, setAvailableGrades] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
@@ -38,7 +40,7 @@ export default function SchoolMyOrdersScreen() {
 
   useEffect(() => {
     applyFilters();
-  }, [orders, statusFilter, periodFilter, sortBy, searchQuery]);
+  }, [orders, statusFilter, periodFilter, gradeFilter, sortBy, searchQuery]);
 
   const loadData = async () => {
     try {
@@ -67,6 +69,14 @@ export default function SchoolMyOrdersScreen() {
       }));
 
       setOrders(ordersWithDetails);
+
+      // Extraire les classes disponibles
+      const grades = [...new Set(
+        ordersWithDetails
+          .map((o: OrderWithDetails) => (o.child as any).grade)
+          .filter(Boolean)
+      )].sort() as string[];
+      setAvailableGrades(grades);
     } catch (err) {
       console.error('Error loading orders:', err);
     } finally {
@@ -79,6 +89,10 @@ export default function SchoolMyOrdersScreen() {
 
     if (statusFilter !== 'all') {
       filtered = filtered.filter(order => order.payment_status === statusFilter);
+    }
+
+    if (gradeFilter !== 'all') {
+      filtered = filtered.filter(order => (order.child as any).grade === gradeFilter);
     }
 
     if (periodFilter !== 'all') {
@@ -138,12 +152,13 @@ export default function SchoolMyOrdersScreen() {
   const resetFilters = () => {
     setStatusFilter('all');
     setPeriodFilter('all');
+    setGradeFilter('all');
     setSortBy('date_desc');
     setSearchQuery('');
   };
 
   const hasActiveFilters = () => {
-    return statusFilter !== 'all' || periodFilter !== 'all' || sortBy !== 'date_desc' || searchQuery.trim() !== '';
+    return statusFilter !== 'all' || periodFilter !== 'all' || gradeFilter !== 'all' || sortBy !== 'date_desc' || searchQuery.trim() !== '';
   };
 
   const formatDate = (dateString: string) => {
@@ -343,6 +358,34 @@ export default function SchoolMyOrdersScreen() {
               </View>
             </View>
 
+            {availableGrades.length > 0 && (
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionTitle}>Classe</Text>
+                <View style={styles.filterOptionsRow}>
+                  <TouchableOpacity
+                    key="all"
+                    style={[styles.filterChip, gradeFilter === 'all' && styles.filterChipActive]}
+                    onPress={() => setGradeFilter('all')}
+                  >
+                    <Text style={[styles.filterChipText, gradeFilter === 'all' && styles.filterChipTextActive]}>
+                      Toutes
+                    </Text>
+                  </TouchableOpacity>
+                  {availableGrades.map((grade) => (
+                    <TouchableOpacity
+                      key={grade}
+                      style={[styles.filterChip, gradeFilter === grade && styles.filterChipActive]}
+                      onPress={() => setGradeFilter(grade)}
+                    >
+                      <Text style={[styles.filterChipText, gradeFilter === grade && styles.filterChipTextActive]}>
+                        {grade}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
             <View style={styles.filterSection}>
               <Text style={styles.filterSectionTitle}>Trier par</Text>
               <View style={styles.filterOptionsColumn}>
@@ -373,7 +416,11 @@ export default function SchoolMyOrdersScreen() {
           </View>
         ) : (
           <View style={styles.ordersList}>
-            {filteredOrders.map((order) => renderOrder({ item: order }))}
+            {filteredOrders.map((order) => (
+              <View key={order.id}>
+                {renderOrder({ item: order })}
+              </View>
+            ))}
           </View>
         )}
       </ScrollView>

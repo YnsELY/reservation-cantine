@@ -203,6 +203,14 @@ export default function MenuDetailsScreen() {
         >
           <ChevronLeft size={24} color="#111827" />
         </TouchableOpacity>
+        <View style={styles.dateBanner}>
+          <Text style={styles.dateBannerDay}>
+            {new Date(date).toLocaleDateString('fr-FR', { weekday: 'long' })}
+          </Text>
+          <Text style={styles.dateBannerDate}>
+            {new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+          </Text>
+        </View>
       </View>
 
       <ScrollView
@@ -210,6 +218,7 @@ export default function MenuDetailsScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+
         {error ? (
           <View style={styles.errorBanner}>
             <AlertCircle size={20} color="#EF4444" />
@@ -250,13 +259,6 @@ export default function MenuDetailsScreen() {
               </View>
             </>
           )}
-
-          <View style={styles.divider} />
-
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Date</Text>
-            <Text style={styles.sectionText}>{formatDate(date)}</Text>
-          </View>
 
           <View style={styles.divider} />
 
@@ -388,6 +390,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 12,
     backgroundColor: '#F9FAFB',
@@ -411,6 +415,23 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 20,
     paddingBottom: 120,
+  },
+  dateBanner: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  dateBannerDay: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+    textTransform: 'capitalize',
+    marginBottom: 4,
+  },
+  dateBannerDate: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#111827',
+    textTransform: 'capitalize',
   },
   errorContainer: {
     flex: 1,

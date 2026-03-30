@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Menu, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, Plus, Trash2, Package } from 'lucide-react-native';
+import { ArrowLeft, Plus, Trash2, Package, Edit } from 'lucide-react-native';
 
 interface SchoolAccess {
   school_id: string;
@@ -360,6 +360,27 @@ export default function ProviderMenus() {
                 </View>
                 <View style={styles.menuItemActions}>
                   <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={() => router.push({
+                      pathname: '/(provider)/add-menu',
+                      params: {
+                        editMenuId: menu.menu_ids[0],
+                        editMenuIds: JSON.stringify(menu.menu_ids),
+                        editSchoolIds: JSON.stringify(menu.school_ids),
+                        editMealName: menu.meal_name,
+                        editDescription: menu.description || '',
+                        editPrice: menu.price.toString(),
+                        editDate: menu.date,
+                        editColor: menu.card_color || '#FFE4E1',
+                        editImageUrl: menu.image_url || '',
+                        editSupplements: JSON.stringify(menu.supplements || []),
+                      },
+                    })}
+                  >
+                    <Edit size={16} color="#FFFFFF" />
+                    <Text style={styles.editButtonText}>Modifier</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
                     style={styles.deleteButton}
                     onPress={() => handleDeleteMenu(menu.menu_ids, menu.school_names)}
                   >
@@ -491,6 +512,22 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 16,
     bottom: 16,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#4F46E5',
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  editButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   deleteButton: {
     flexDirection: 'row',

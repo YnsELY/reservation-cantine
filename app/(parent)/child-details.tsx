@@ -17,8 +17,8 @@ interface Child {
   id: string;
   first_name: string;
   last_name: string;
-  birth_date: string;
-  class_name: string;
+  date_of_birth: string | null;
+  grade: string;
   allergies: string;
   school_id: string;
   schools?: {
@@ -211,18 +211,18 @@ export default function ChildDetailsScreen() {
             </View>
             <View style={styles.profileRow}>
               <Text style={styles.profileLabel}>Classe</Text>
-              <Text style={styles.profileValue}>{child.class_name || 'Non définie'}</Text>
+              <Text style={styles.profileValue}>{child.grade || 'Non définie'}</Text>
             </View>
             <View style={styles.profileRow}>
               <Text style={styles.profileLabel}>Âge</Text>
               <Text style={styles.profileValue}>
-                {child.birth_date ? `${calculateAge(child.birth_date)} ans` : 'Non défini'}
+                {child.date_of_birth ? `${calculateAge(child.date_of_birth)} ans` : 'Non défini'}
               </Text>
             </View>
             <View style={styles.profileRow}>
               <Text style={styles.profileLabel}>Date de naissance</Text>
               <Text style={styles.profileValue}>
-                {child.birth_date ? new Date(child.birth_date).toLocaleDateString('fr-FR') : 'Non définie'}
+                {child.date_of_birth ? new Date(child.date_of_birth).toLocaleDateString('fr-FR') : 'Non définie'}
               </Text>
             </View>
             {child.allergies && (

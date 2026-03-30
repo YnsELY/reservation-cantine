@@ -41,6 +41,7 @@ export default function AddMenuScreen() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>('#FFE4E1');
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
   const [availableSupplements, setAvailableSupplements] = useState<Supplement[]>([]);
   const [selectedSupplements, setSelectedSupplements] = useState<string[]>([]);
   const [menuSpecificSupplements, setMenuSpecificSupplements] = useState<MenuSpecificSupplement[]>([]);
@@ -50,6 +51,10 @@ export default function AddMenuScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  const isEditMode = !!params.editMenuId;
+  const editMenuIds: string[] = params.editMenuIds ? JSON.parse(params.editMenuIds as string) : [];
+  const editSchoolIds: string[] = params.editSchoolIds ? JSON.parse(params.editSchoolIds as string) : [];
 
   const pastelColors = [
     { id: 1, color: '#FFE4E1', name: 'Rose' },
@@ -94,7 +99,24 @@ export default function AddMenuScreen() {
 
       setSchools(schoolsList);
 
-      if (schoolsList.length > 0) {
+      if (isEditMode) {
+        setMealName(params.editMealName as string || '');
+        setDescription(params.editDescription as string || '');
+        setPrice(params.editPrice as string || '');
+        setSelectedColor(params.editColor as string || '#FFE4E1');
+        if (params.editImageUrl) {
+          setExistingImageUrl(params.editImageUrl as string);
+        }
+        if (params.editDate) {
+          const editDate = new Date(params.editDate as string + 'T00:00:00');
+          setSelectedDate(editDate);
+          setCalendarMonth(editDate);
+        }
+        setSelectedSchools(editSchoolIds);
+        setSelectAllSchools(editSchoolIds.length === schoolsList.length);
+        const editSupps = params.editSupplements ? JSON.parse(params.editSupplements as string) : [];
+        setSelectedSupplements(editSupps);
+      } else if (schoolsList.length > 0) {
         setSelectedSchools([schoolsList[0].school_id]);
       }
     } catch (err) {
@@ -422,60 +444,113 @@ export default function AddMenuScreen() {
         return `${year}-${month}-${day}`;
       };
 
-      const menuData = selectedSchools.map(schoolId => ({
-        school_id: schoolId,
-        meal_name: mealName.trim(),
-        description: description.trim() || null,
-        price: parseFloat(price),
-        date: formatDateForDB(selectedDate),
-        card_color: selectedColor,
-        provider_id: provider?.id || null,
-        image_url: imageUrl,
-        supplements: selectedSupplements,
-      }));
+      if (isEditMode) {
+        // Mode édition : mettre à jour les menus existants
+        const updateData = {
+          meal_name: mealName.trim(),
+          description: description.trim() || null,
+          price: parseFloat(price),
+          date: formatDateForDB(selectedDate),
+          card_color: selectedColor,
+          image_url: imageUrl || existingImageUrl,
+          supplements: selectedSupplements,
+        };
 
-      console.log('Inserting menu data:', menuData);
-      const { data: insertedMenus, error } = await supabase.from('menus').insert(menuData).select();
+        for (const menuId of editMenuIds) {
+          const { error } = await supabase
+            .from('menus')
+            .update(updateData)
+            .eq('id', menuId);
 
-      if (error) {
-        console.error('Database insert error:', error);
-        throw error;
-      }
-
-      console.log('Menu inserted successfully:', insertedMenus);
-
-      if (menuSpecificSupplements.length > 0 && insertedMenus && insertedMenus.length > 0) {
-        const specificSupplementsData = insertedMenus.flatMap(menu =>
-          menuSpecificSupplements.map(supplement => ({
-            provider_id: provider?.id || null,
-            school_id: menu.school_id,
-            menu_id: menu.id,
-            name: supplement.name,
-            description: supplement.description || null,
-            price: parseFloat(supplement.price),
-            available: true,
-          }))
-        );
-
-        const { error: supplementsError } = await supabase
-          .from('provider_supplements')
-          .insert(specificSupplementsData);
-
-        if (supplementsError) {
-          console.error('Error inserting menu-specific supplements:', supplementsError);
-          Alert.alert(
-            'Avertissement',
-            'Le menu a été créé mais certains suppléments spécifiques n\'ont pas pu être ajoutés.'
-          );
+          if (error) {
+            console.error('Database update error:', error);
+            throw error;
+          }
         }
-      }
 
-      Alert.alert('Succès', `Menu créé avec succès pour ${selectedSchools.length} école(s)`, [
-        {
-          text: 'OK',
-          onPress: () => router.back(),
-        },
-      ]);
+        // Mettre à jour les suppléments spécifiques
+        if (menuSpecificSupplements.length > 0) {
+          // Supprimer les anciens suppléments spécifiques
+          await supabase
+            .from('provider_supplements')
+            .delete()
+            .in('menu_id', editMenuIds)
+            .eq('provider_id', provider?.id || '');
+
+          // Insérer les nouveaux
+          const specificSupplementsData = editMenuIds.flatMap(menuId => {
+            const menu = menus.find((m: any) => m.id === menuId) || { school_id: editSchoolIds[0] };
+            return menuSpecificSupplements.map(supplement => ({
+              provider_id: provider?.id || null,
+              school_id: (menu as any).school_id || editSchoolIds[0],
+              menu_id: menuId,
+              name: supplement.name,
+              description: supplement.description || null,
+              price: parseFloat(supplement.price),
+              available: true,
+            }));
+          });
+
+          await supabase.from('provider_supplements').insert(specificSupplementsData);
+        }
+
+        Alert.alert('Succès', 'Menu modifié avec succès', [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+      } else {
+        // Mode création
+        const menuData = selectedSchools.map(schoolId => ({
+          school_id: schoolId,
+          meal_name: mealName.trim(),
+          description: description.trim() || null,
+          price: parseFloat(price),
+          date: formatDateForDB(selectedDate),
+          card_color: selectedColor,
+          provider_id: provider?.id || null,
+          image_url: imageUrl,
+          supplements: selectedSupplements,
+        }));
+
+        console.log('Inserting menu data:', menuData);
+        const { data: insertedMenus, error } = await supabase.from('menus').insert(menuData).select();
+
+        if (error) {
+          console.error('Database insert error:', error);
+          throw error;
+        }
+
+        console.log('Menu inserted successfully:', insertedMenus);
+
+        if (menuSpecificSupplements.length > 0 && insertedMenus && insertedMenus.length > 0) {
+          const specificSupplementsData = insertedMenus.flatMap(menu =>
+            menuSpecificSupplements.map(supplement => ({
+              provider_id: provider?.id || null,
+              school_id: menu.school_id,
+              menu_id: menu.id,
+              name: supplement.name,
+              description: supplement.description || null,
+              price: parseFloat(supplement.price),
+              available: true,
+            }))
+          );
+
+          const { error: supplementsError } = await supabase
+            .from('provider_supplements')
+            .insert(specificSupplementsData);
+
+          if (supplementsError) {
+            console.error('Error inserting menu-specific supplements:', supplementsError);
+            Alert.alert(
+              'Avertissement',
+              'Le menu a été créé mais certains suppléments spécifiques n\'ont pas pu être ajoutés.'
+            );
+          }
+        }
+
+        Alert.alert('Succès', `Menu créé avec succès pour ${selectedSchools.length} école(s)`, [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+      }
     } catch (err) {
       console.error('Error saving menu:', err);
       Alert.alert('Erreur', 'Erreur lors de la création du menu');
@@ -504,7 +579,7 @@ export default function AddMenuScreen() {
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
-        <Text style={styles.pageTitle}>Nouveau menu</Text>
+        <Text style={styles.pageTitle}>{isEditMode ? 'Modifier le menu' : 'Nouveau menu'}</Text>
 
         <View style={styles.form}>
           <View style={styles.formGroup}>
@@ -581,12 +656,12 @@ export default function AddMenuScreen() {
 
           <View style={styles.formGroup}>
             <Text style={styles.label}>Photo du menu</Text>
-            {imageUri ? (
+            {imageUri || existingImageUrl ? (
               <View style={styles.imagePreviewContainer}>
-                <Image source={{ uri: imageUri }} style={styles.imagePreview} />
+                <Image source={{ uri: imageUri || existingImageUrl! }} style={styles.imagePreview} />
                 <TouchableOpacity
                   style={styles.removeImageButton}
-                  onPress={() => setImageUri(null)}
+                  onPress={() => { setImageUri(null); setExistingImageUrl(null); }}
                 >
                   <X size={16} color="#FFFFFF" />
                 </TouchableOpacity>
@@ -767,7 +842,7 @@ export default function AddMenuScreen() {
           {saving ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={styles.saveButtonText}>Créer le menu</Text>
+            <Text style={styles.saveButtonText}>{isEditMode ? 'Enregistrer les modifications' : 'Créer le menu'}</Text>
           )}
         </TouchableOpacity>
       </View>

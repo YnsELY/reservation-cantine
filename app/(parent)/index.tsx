@@ -44,6 +44,7 @@ export default function ParentHomeScreen() {
   const [monthlyOrders, setMonthlyOrders] = useState<number[]>([0, 0, 0, 0, 0]);
   const [childrenCount, setChildrenCount] = useState(0);
   const [children, setChildren] = useState<ChildWithStatus[]>([]);
+  const [cartCount, setCartCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -85,6 +86,12 @@ export default function ParentHomeScreen() {
       }
 
       setParent(parentData);
+
+      const { count: cartItemCount } = await supabase
+        .from('cart_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('parent_id', parentData.id);
+      setCartCount(cartItemCount || 0);
 
       const { data: childrenData, error: childrenError } = await supabase
         .from('children')
@@ -337,6 +344,11 @@ export default function ParentHomeScreen() {
             onPress={() => router.push('/(parent)/cart')}
           >
             <ShoppingCart size={24} color="#111827" />
+            {cartCount > 0 && (
+              <View style={styles.cartBadge}>
+                <Text style={styles.cartBadgeText}>{cartCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerButton}
@@ -590,6 +602,23 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+  },
+  cartBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+  },
+  cartBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   scrollView: {
     flex: 1,

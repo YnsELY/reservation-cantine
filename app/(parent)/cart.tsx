@@ -5,7 +5,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, CartItem, Child, Menu, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { payzoneService, CartItemForPayment } from '@/lib/payzone';
-import { ArrowLeft, Trash2, ShoppingCart, CreditCard, Lock } from 'lucide-react-native';
+import { ArrowLeft, Trash2, ShoppingCart, CreditCard, Lock, User } from 'lucide-react-native';
 
 interface CartItemWithDetails extends CartItem {
   child: Child;
@@ -188,57 +188,82 @@ export default function CartScreen() {
       ) : (
         <>
           <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-            {cartItems.map((item) => (
-              <View key={item.id} style={styles.cartItem}>
-                <View style={styles.itemHeader}>
-                  <Text style={styles.childName}>
-                    {item.child.first_name} {item.child.last_name}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => removeFromCart(item.id)}
-                    style={styles.deleteButton}
-                  >
-                    <Trash2 size={20} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-
-                <View style={styles.itemDetails}>
-                  <Text style={styles.menuName}>{item.menu.meal_name}</Text>
-                  <Text style={styles.menuDate}>
-                    {new Date(item.date).toLocaleDateString('fr-FR', {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                    })}
-                  </Text>
-                  {item.menu.description && (
-                    <Text style={styles.menuDescription}>{item.menu.description}</Text>
-                  )}
-
-                  {item.supplements && item.supplements.length > 0 && (
-                    <View style={styles.supplementsContainer}>
-                      <Text style={styles.supplementsLabel}>Suppléments :</Text>
-                      {item.supplements.map((supp: any, idx: number) => (
-                        <Text key={idx} style={styles.supplementItem}>
-                          • {supp.name} (+{Number(supp.price).toFixed(2)} DH)
-                        </Text>
-                      ))}
+            {Object.entries(
+              cartItems.reduce((groups, item) => {
+                const key = item.child_id;
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(item);
+                return groups;
+              }, {} as Record<string, CartItemWithDetails[]>)
+            ).map(([childId, items]) => {
+              const child = items[0].child;
+              const childTotal = items.reduce((sum, item) => sum + Number(item.total_price), 0);
+              return (
+                <View key={childId} style={styles.childSection}>
+                  <View style={styles.childSectionHeader}>
+                    <View style={styles.childAvatar}>
+                      <User size={20} color="#4F46E5" />
                     </View>
-                  )}
-
-                  {item.annotations && (
-                    <View style={styles.annotationsContainer}>
-                      <Text style={styles.annotationsLabel}>Note :</Text>
-                      <Text style={styles.annotationsText}>{item.annotations}</Text>
+                    <View style={styles.childSectionInfo}>
+                      <Text style={styles.childSectionName}>
+                        {child.first_name} {child.last_name}
+                      </Text>
+                      <Text style={styles.childSectionCount}>
+                        {items.length} repas — {childTotal.toFixed(2)} DH
+                      </Text>
                     </View>
-                  )}
-                </View>
+                  </View>
 
-                <View style={styles.itemFooter}>
-                  <Text style={styles.itemPrice}>{Number(item.total_price).toFixed(2)} DH</Text>
+                  {items.map((item) => (
+                    <View key={item.id} style={styles.cartItem}>
+                      <View style={styles.itemHeader}>
+                        <Text style={styles.menuName}>{item.menu.meal_name}</Text>
+                        <TouchableOpacity
+                          onPress={() => removeFromCart(item.id)}
+                          style={styles.deleteButton}
+                        >
+                          <Trash2 size={18} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
+
+                      <Text style={styles.menuDate}>
+                        {new Date(item.date).toLocaleDateString('fr-FR', {
+                          weekday: 'long',
+                          day: 'numeric',
+                          month: 'long',
+                        })}
+                      </Text>
+
+                      {item.menu.description && (
+                        <Text style={styles.menuDescription}>{item.menu.description}</Text>
+                      )}
+
+                      {item.supplements && item.supplements.length > 0 && (
+                        <View style={styles.supplementsContainer}>
+                          <Text style={styles.supplementsLabel}>Suppléments :</Text>
+                          {item.supplements.map((supp: any, idx: number) => (
+                            <Text key={idx} style={styles.supplementItem}>
+                              • {supp.name} (+{Number(supp.price).toFixed(2)} DH)
+                            </Text>
+                          ))}
+                        </View>
+                      )}
+
+                      {item.annotations && (
+                        <View style={styles.annotationsContainer}>
+                          <Text style={styles.annotationsLabel}>Note :</Text>
+                          <Text style={styles.annotationsText}>{item.annotations}</Text>
+                        </View>
+                      )}
+
+                      <View style={styles.itemFooter}>
+                        <Text style={styles.itemPrice}>{Number(item.total_price).toFixed(2)} DH</Text>
+                      </View>
+                    </View>
+                  ))}
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </ScrollView>
 
           <View style={styles.footer}>
@@ -344,11 +369,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  childSection: {
+    marginBottom: 20,
+  },
+  childSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#4F46E5',
+  },
+  childAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#EEF2FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  childSectionInfo: {
+    flex: 1,
+  },
+  childSectionName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  childSectionCount: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
+  },
   cartItem: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
+    marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -359,12 +417,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-  },
-  childName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#4F46E5',
+    marginBottom: 8,
   },
   deleteButton: {
     padding: 4,
