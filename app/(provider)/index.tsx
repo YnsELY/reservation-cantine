@@ -6,6 +6,7 @@ import { supabase, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { Calendar, Building2, UtensilsCrossed, BarChart3, Share2, ChefHat, Package } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
+import { useNotifications } from '@/hooks/useNotifications';
 
 export default function ProviderHomeScreen() {
   const router = useRouter();
@@ -15,6 +16,9 @@ export default function ProviderHomeScreen() {
   const [monthlyOrders, setMonthlyOrders] = useState<number[]>([0, 0, 0, 0, 0]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Register push notifications
+  useNotifications(provider?.id, 'provider');
 
   useEffect(() => {
     loadData();

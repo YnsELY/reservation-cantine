@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase, Parent, School, Provider } from './supabase';
+import { notificationService } from './notifications';
 
 const ACCESS_CODE_KEY = 'access_code';
 const PARENT_DATA_KEY = 'parent_data';
@@ -88,6 +89,23 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
+    // Deactivate push token before signing out
+    try {
+      const userType = await this.getUserType();
+      if (userType === 'parent') {
+        const parent = await this.getCurrentParent();
+        if (parent) await notificationService.unregisterToken(parent.id);
+      } else if (userType === 'school') {
+        const school = await this.getCurrentSchool();
+        if (school) await notificationService.unregisterToken(school.id);
+      } else if (userType === 'provider') {
+        const provider = await this.getCurrentProvider();
+        if (provider) await notificationService.unregisterToken(provider.id);
+      }
+    } catch (e) {
+      console.error('Error unregistering push token on logout:', e);
+    }
+
     await supabase.auth.signOut();
     await AsyncStorage.removeItem(ACCESS_CODE_KEY);
     await AsyncStorage.removeItem(PARENT_DATA_KEY);

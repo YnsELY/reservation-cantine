@@ -6,6 +6,7 @@ import { supabase, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { Calendar, Users, ClipboardList, UtensilsCrossed, History, Share2, ShoppingBag, BarChart3, Building2 } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
+import { useNotifications } from '@/hooks/useNotifications';
 
 export default function SchoolHomeScreen() {
   const router = useRouter();
@@ -15,6 +16,9 @@ export default function SchoolHomeScreen() {
   const [monthlyOrders, setMonthlyOrders] = useState<number[]>([0, 0, 0, 0, 0]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Register push notifications
+  useNotifications(school?.id, 'school');
 
   useEffect(() => {
     loadData();

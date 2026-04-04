@@ -226,7 +226,29 @@ export default function ProviderMenus() {
           style: 'destructive',
           onPress: async () => {
             try {
+              // Get menu info before deleting for notifications
+              const groupedMenu = groupedMenus.find(g => g.menu_ids.some(id => menuIds.includes(id)));
+
               await supabase.from('menus').delete().in('id', menuIds);
+
+              // S9: Notify schools about deleted menu
+              if (groupedMenu) {
+                try {
+                  await supabase.functions.invoke('send-notification', {
+                    body: {
+                      userIds: groupedMenu.school_ids,
+                      userType: 'school',
+                      title: 'Menu supprimé',
+                      body: `Le menu "${groupedMenu.meal_name}" du ${groupedMenu.date} a été supprimé.`,
+                      notificationType: 'menu_deleted_school',
+                      data: { menuName: groupedMenu.meal_name, date: groupedMenu.date },
+                    },
+                  });
+                } catch (notifError) {
+                  console.error('Error sending menu deletion notification:', notifError);
+                }
+              }
+
               await loadData();
             } catch (err) {
               console.error('Error deleting menu:', err);

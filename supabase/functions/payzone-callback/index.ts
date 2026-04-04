@@ -166,6 +166,79 @@ serve(async (req) => {
 
       console.log(`Payment ${orderId} completed successfully`)
 
+      // === PUSH NOTIFICATIONS ===
+      try {
+        const totalAmount = cartItems.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0)
+        const childNames = [...new Set(cartItems.map((item: any) => item.child_first_name || ''))].filter(Boolean).join(', ')
+
+        // P4: Notify parent - payment confirmed
+        await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            userId: pendingPayment.parent_id,
+            userType: 'parent',
+            title: 'Paiement confirmé ✓',
+            body: `Votre paiement de ${totalAmount.toFixed(2)} MAD a été confirmé. Les réservations sont enregistrées.`,
+            notificationType: 'payment_confirmed',
+            data: { orderId, amount: totalAmount },
+          }),
+        })
+
+        // S6: Notify schools about new reservations
+        const schoolIds = [...new Set(cartItems.map((item: any) => item.school_id).filter(Boolean))]
+        if (schoolIds.length > 0) {
+          await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({
+              userIds: schoolIds,
+              userType: 'school',
+              title: 'Nouvelles réservations',
+              body: `${cartItems.length} nouvelle(s) réservation(s) enregistrée(s).`,
+              notificationType: 'new_reservation_school',
+              data: { orderId, count: cartItems.length },
+            }),
+          })
+        }
+
+        // Pr7: Notify providers about new orders
+        const menuIds = [...new Set(cartItems.map((item: any) => item.menu_id).filter(Boolean))]
+        if (menuIds.length > 0) {
+          const { data: menus } = await supabase
+            .from('menus')
+            .select('provider_id')
+            .in('id', menuIds)
+          const providerIds = [...new Set((menus || []).map(m => m.provider_id).filter(Boolean))]
+          if (providerIds.length > 0) {
+            await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify({
+                userIds: providerIds,
+                userType: 'provider',
+                title: 'Nouvelles commandes',
+                body: `${cartItems.length} nouvelle(s) commande(s) reçue(s).`,
+                notificationType: 'new_order_provider',
+                data: { orderId, count: cartItems.length },
+              }),
+            })
+          }
+        }
+      } catch (notifError) {
+        console.error('Error sending payment notifications:', notifError)
+        // Don't fail the callback for notification errors
+      }
+
     } else if (status === 'DECLINED' || status === 'CANCELLED' || status === 'ERROR') {
       // Paiement échoué
       await supabase
@@ -180,6 +253,27 @@ serve(async (req) => {
         .eq('order_id', orderId)
 
       console.log(`Payment ${orderId} failed with status: ${status}`)
+
+      // P5: Notify parent - payment failed
+      try {
+        await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            userId: pendingPayment.parent_id,
+            userType: 'parent',
+            title: 'Échec du paiement',
+            body: 'Votre paiement n\'a pas abouti. Veuillez réessayer.',
+            notificationType: 'payment_failed',
+            data: { orderId, reason: status },
+          }),
+        })
+      } catch (notifError) {
+        console.error('Error sending payment failed notification:', notifError)
+      }
 
     } else if (status === 'REFUNDED') {
       // Remboursement

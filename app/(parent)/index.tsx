@@ -7,6 +7,7 @@ import { authService } from '@/lib/auth';
 import { Calendar, UserPlus, History, UtensilsCrossed, User, ShoppingCart } from 'lucide-react-native';
 import Svg, { Path } from 'react-native-svg';
 import { LineChart } from 'react-native-chart-kit';
+import { useNotifications } from '@/hooks/useNotifications';
 
 interface WeekReservation {
   id: string;
@@ -47,6 +48,9 @@ export default function ParentHomeScreen() {
   const [cartCount, setCartCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Register push notifications
+  useNotifications(parent?.id, 'parent');
 
   useEffect(() => {
     loadData();

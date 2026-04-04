@@ -547,6 +547,43 @@ export default function AddMenuScreen() {
           }
         }
 
+        // P9/S8: Notify parents and schools about new menu
+        try {
+          // Get parent IDs with children in selected schools
+          const { data: children } = await supabase
+            .from('children')
+            .select('parent_id, school_id')
+            .in('school_id', selectedSchools);
+          const parentIds = [...new Set((children || []).map(c => c.parent_id).filter(Boolean))];
+
+          if (parentIds.length > 0) {
+            await supabase.functions.invoke('send-notification', {
+              body: {
+                userIds: parentIds,
+                userType: 'parent',
+                title: 'Nouveau menu disponible',
+                body: `${mealName.trim()} est disponible pour le ${formatDateForDB(selectedDate)}.`,
+                notificationType: 'new_menu_available',
+                data: { menuName: mealName.trim(), date: formatDateForDB(selectedDate) },
+              },
+            });
+          }
+
+          // Notify schools
+          await supabase.functions.invoke('send-notification', {
+            body: {
+              userIds: selectedSchools,
+              userType: 'school',
+              title: 'Nouveau menu ajouté',
+              body: `${mealName.trim()} a été ajouté pour le ${formatDateForDB(selectedDate)}.`,
+              notificationType: 'new_menu_school',
+              data: { menuName: mealName.trim(), date: formatDateForDB(selectedDate) },
+            },
+          });
+        } catch (notifError) {
+          console.error('Error sending menu notifications:', notifError);
+        }
+
         Alert.alert('Succès', `Menu créé avec succès pour ${selectedSchools.length} école(s)`, [
           { text: 'OK', onPress: () => router.back() },
         ]);
