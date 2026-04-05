@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import { supabase } from './supabase';
 
@@ -51,8 +52,9 @@ export const notificationService = {
       }
 
       // Get Expo push token
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
       const tokenData = await Notifications.getExpoPushTokenAsync({
-        projectId: undefined, // Uses the projectId from app.json
+        projectId,
       });
       const pushToken = tokenData.data;
 

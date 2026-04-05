@@ -1,7 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import AppLaunchScreen from '@/components/AppLaunchScreen';
+import {
+  consumeSkippedAuthStartupCheck,
+  MIN_LAUNCH_SCREEN_DURATION_MS,
+  resolveRouteForUser,
+  resolveStartupRoute,
+  waitForDuration,
+} from '@/lib/startup';
 import { supabase } from '@/lib/supabase';
 import { LogIn, UserPlus, School, User, Building2, ArrowLeft, UtensilsCrossed } from 'lucide-react-native';
 
@@ -23,69 +31,30 @@ export default function AuthScreen() {
   const [providerCode, setProviderCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [checkingSession, setCheckingSession] = useState(true);
+  const [checkingSession, setCheckingSession] = useState(() => !consumeSkippedAuthStartupCheck());
   const router = useRouter();
 
   useEffect(() => {
-    checkExistingSession();
+    if (checkingSession) {
+      void checkExistingSession();
+    }
   }, []);
 
   const checkExistingSession = async () => {
-    try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    const startedAt = Date.now();
 
-      if (sessionError) {
-        console.error('Session error:', sessionError);
-        setCheckingSession(false);
-        return;
+    try {
+      const targetRoute = await resolveStartupRoute();
+      const elapsed = Date.now() - startedAt;
+      const remaining = Math.max(MIN_LAUNCH_SCREEN_DURATION_MS - elapsed, 0);
+
+      if (remaining > 0) {
+        await waitForDuration(remaining);
       }
 
-      if (session?.user) {
-        const [parentResult, schoolResult, providerResult] = await Promise.all([
-          supabase.from('parents').select('*').eq('user_id', session.user.id).maybeSingle(),
-          supabase.from('schools').select('*').eq('user_id', session.user.id).maybeSingle(),
-          supabase.from('providers').select('*').eq('user_id', session.user.id).maybeSingle(),
-        ]);
-
-        if (parentResult.error) {
-          console.error('Parent check error:', parentResult.error);
-        }
-
-        if (schoolResult.error) {
-          console.error('School check error:', schoolResult.error);
-        }
-
-        const parentData = parentResult.data;
-        const schoolData = schoolResult.data;
-        const providerData = providerResult.data;
-
-        if (providerData) {
-          setCheckingSession(false);
-          setTimeout(() => {
-            router.replace('/(provider)');
-          }, 50);
-          return;
-        }
-
-        if (schoolData) {
-          setCheckingSession(false);
-          setTimeout(() => {
-            router.replace('/(school)');
-          }, 50);
-          return;
-        }
-
-        if (parentData) {
-          setCheckingSession(false);
-          setTimeout(() => {
-            if (parentData.is_admin) {
-              router.replace('/(admin)');
-            } else {
-              router.replace('/(parent)');
-            }
-          }, 50);
-          return;
-        }
+      if (targetRoute !== '/auth') {
+        router.replace(targetRoute);
+        return;
       }
     } catch (error) {
       console.error('Session check error:', error);
@@ -128,40 +97,12 @@ export default function AuthScreen() {
         if (signInError) throw signInError;
 
         if (authData.user) {
-          const [parentResult, schoolResult, providerResult] = await Promise.all([
-            supabase.from('parents').select('*').eq('user_id', authData.user.id).maybeSingle(),
-            supabase.from('schools').select('*').eq('user_id', authData.user.id).maybeSingle(),
-            supabase.from('providers').select('*').eq('user_id', authData.user.id).maybeSingle(),
-          ]);
+          const targetRoute = await resolveRouteForUser(authData.user.id);
 
-          const parentData = parentResult.data;
-          const schoolData = schoolResult.data;
-          const providerData = providerResult.data;
-
-          if (providerData) {
+          if (targetRoute) {
             setLoading(false);
             setTimeout(() => {
-              router.replace('/(provider)');
-            }, 100);
-            return;
-          }
-
-          if (schoolData) {
-            setLoading(false);
-            setTimeout(() => {
-              router.replace('/(school)');
-            }, 100);
-            return;
-          }
-
-          if (parentData) {
-            setLoading(false);
-            setTimeout(() => {
-              if (parentData.is_admin) {
-                router.replace('/(admin)');
-              } else {
-                router.replace('/(parent)');
-              }
+              router.replace(targetRoute);
             }, 100);
             return;
           }
@@ -324,12 +265,7 @@ export default function AuthScreen() {
   );
 
   if (checkingSession) {
-    return (
-      <View style={styles.container}>
-        <StatusBar style="light" />
-        <ActivityIndicator size="large" color="#000000" />
-      </View>
-    );
+    return <AppLaunchScreen />;
   }
 
   if (screen === 'role-selection') {
@@ -344,7 +280,7 @@ export default function AuthScreen() {
             <View style={styles.iconContainer}>
               <UtensilsCrossed size={48} color="#000000" />
             </View>
-            <Text style={styles.title}>Children's Kitchen</Text>
+            <Text style={styles.title}>{"Child's Kitchen"}</Text>
             <Text style={styles.subtitle}>Sélectionnez votre profil</Text>
           </View>
 
@@ -428,7 +364,7 @@ export default function AuthScreen() {
             {userType === 'school' && <School size={48} color="#10B981" />}
             {userType === 'provider' && <Building2 size={48} color="#F59E0B" />}
           </View>
-          <Text style={styles.title}>Children's Kitchen</Text>
+          <Text style={styles.title}>{"Child's Kitchen"}</Text>
           <Text style={styles.subtitle}>
             {userType === 'parent' && 'Espace Parent'}
             {userType === 'school' && 'Espace École'}

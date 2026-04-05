@@ -64,40 +64,11 @@ ALTER TABLE user_push_tokens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_logs ENABLE ROW LEVEL SECURITY;
 
--- user_push_tokens: users can manage their own tokens
-CREATE POLICY "Users can view own tokens"
-  ON user_push_tokens FOR SELECT
-  USING (auth.uid()::text IN (
-    SELECT p.user_id::text FROM parents p WHERE p.id = user_push_tokens.user_id
-    UNION ALL
-    SELECT s.user_id::text FROM schools s WHERE s.id = user_push_tokens.user_id
-    UNION ALL
-    SELECT pr.user_id::text FROM providers pr WHERE pr.id = user_push_tokens.user_id
-  ));
-
-CREATE POLICY "Users can insert own tokens"
-  ON user_push_tokens FOR INSERT
+-- user_push_tokens: allow all (auth is handled via access codes, not auth.uid)
+CREATE POLICY "Allow all on user_push_tokens"
+  ON user_push_tokens FOR ALL
+  USING (true)
   WITH CHECK (true);
-
-CREATE POLICY "Users can update own tokens"
-  ON user_push_tokens FOR UPDATE
-  USING (auth.uid()::text IN (
-    SELECT p.user_id::text FROM parents p WHERE p.id = user_push_tokens.user_id
-    UNION ALL
-    SELECT s.user_id::text FROM schools s WHERE s.id = user_push_tokens.user_id
-    UNION ALL
-    SELECT pr.user_id::text FROM providers pr WHERE pr.id = user_push_tokens.user_id
-  ));
-
-CREATE POLICY "Users can delete own tokens"
-  ON user_push_tokens FOR DELETE
-  USING (auth.uid()::text IN (
-    SELECT p.user_id::text FROM parents p WHERE p.id = user_push_tokens.user_id
-    UNION ALL
-    SELECT s.user_id::text FROM schools s WHERE s.id = user_push_tokens.user_id
-    UNION ALL
-    SELECT pr.user_id::text FROM providers pr WHERE pr.id = user_push_tokens.user_id
-  ));
 
 -- notification_preferences: users manage own preferences
 CREATE POLICY "Users can manage own notification preferences"

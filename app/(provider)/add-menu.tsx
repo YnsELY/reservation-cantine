@@ -52,6 +52,9 @@ export default function AddMenuScreen() {
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
 
+  const router = useRouter();
+  const params = useLocalSearchParams();
+
   const isEditMode = !!params.editMenuId;
   const editMenuIds: string[] = params.editMenuIds ? JSON.parse(params.editMenuIds as string) : [];
   const editSchoolIds: string[] = params.editSchoolIds ? JSON.parse(params.editSchoolIds as string) : [];
@@ -62,8 +65,6 @@ export default function AddMenuScreen() {
     { id: 3, color: '#E8F5E9', name: 'Vert' },
     { id: 4, color: '#FFF9E6', name: 'Jaune' },
   ];
-  const router = useRouter();
-  const params = useLocalSearchParams();
 
   useEffect(() => {
     loadData();

@@ -5,7 +5,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, CartItem, Child, Menu, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { payzoneService, CartItemForPayment } from '@/lib/payzone';
-import { ArrowLeft, Trash2, ShoppingCart, CreditCard, Lock, User } from 'lucide-react-native';
+import { ArrowLeft, Trash2, ShoppingCart, CreditCard, Lock, User, FlaskConical } from 'lucide-react-native';
 
 interface CartItemWithDetails extends CartItem {
   child: Child;
@@ -153,6 +153,110 @@ export default function CartScreen() {
     }
   };
 
+  const handleTestOrder = async () => {
+    if (cartItems.length === 0 || !parent) return;
+
+    Alert.alert(
+      'Commande test',
+      'Créer les réservations sans passer par le paiement ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Confirmer',
+          onPress: async () => {
+            setProcessingPayment(true);
+            try {
+              const reservations = cartItems.map(item => ({
+                parent_id: parent.id,
+                child_id: item.child_id,
+                menu_id: item.menu_id,
+                date: item.date,
+                supplements: item.supplements || [],
+                annotations: item.annotations,
+                total_price: item.total_price,
+                payment_status: 'paid',
+                payment_intent_id: `TEST_${Date.now()}`,
+              }));
+
+              const { error: insertError } = await supabase
+                .from('reservations')
+                .insert(reservations);
+
+              if (insertError) throw insertError;
+
+              // Delete cart items
+              const cartItemIds = cartItems.map(item => item.id);
+              await supabase.from('cart_items').delete().in('id', cartItemIds);
+
+              // Send test notifications
+              try {
+                const totalAmount = calculateTotal();
+
+                // P4: parent notification
+                await supabase.functions.invoke('send-notification', {
+                  body: {
+                    userId: parent.id,
+                    userType: 'parent',
+                    title: 'Paiement confirmé ✓',
+                    body: `Votre paiement de ${totalAmount.toFixed(2)} MAD a été confirmé. Les réservations sont enregistrées.`,
+                    notificationType: 'payment_confirmed',
+                    data: { orderId: `TEST_${Date.now()}`, amount: totalAmount },
+                  },
+                });
+
+                // S6: school notifications
+                const schoolIds = [...new Set(cartItems.map(item => item.menu.school_id).filter(Boolean))];
+                if (schoolIds.length > 0) {
+                  await supabase.functions.invoke('send-notification', {
+                    body: {
+                      userIds: schoolIds,
+                      userType: 'school',
+                      title: 'Nouvelles réservations',
+                      body: `${cartItems.length} nouvelle(s) réservation(s) enregistrée(s).`,
+                      notificationType: 'new_reservation_school',
+                      data: { count: cartItems.length },
+                    },
+                  });
+                }
+
+                // Pr7: provider notifications
+                const menuIds = [...new Set(cartItems.map(item => item.menu_id))];
+                const { data: menus } = await supabase
+                  .from('menus')
+                  .select('provider_id')
+                  .in('id', menuIds);
+                const providerIds = [...new Set((menus || []).map(m => m.provider_id).filter(Boolean))];
+                if (providerIds.length > 0) {
+                  await supabase.functions.invoke('send-notification', {
+                    body: {
+                      userIds: providerIds,
+                      userType: 'provider',
+                      title: 'Nouvelles commandes',
+                      body: `${cartItems.length} nouvelle(s) commande(s) reçue(s).`,
+                      notificationType: 'new_order_provider',
+                      data: { count: cartItems.length },
+                    },
+                  });
+                }
+              } catch (notifError) {
+                console.error('Error sending test notifications:', notifError);
+              }
+
+              Alert.alert('Succès', 'Commande test créée avec succès !', [
+                { text: 'OK', onPress: () => router.back() },
+              ]);
+            } catch (err) {
+              console.error('Error creating test order:', err);
+              Alert.alert('Erreur', 'Erreur lors de la création de la commande test');
+            } finally {
+              setProcessingPayment(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -271,6 +375,14 @@ export default function CartScreen() {
               <Text style={styles.totalLabel}>Total (TTC)</Text>
               <Text style={styles.totalAmount}>{calculateTotal().toFixed(2)} DH</Text>
             </View>
+            <TouchableOpacity
+              style={[styles.testButton, processingPayment && styles.payButtonDisabled]}
+              onPress={handleTestOrder}
+              disabled={processingPayment}
+            >
+              <FlaskConical size={18} color="#FFFFFF" />
+              <Text style={styles.payButtonText}>Commande test (sans paiement)</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.payButton, processingPayment && styles.payButtonDisabled]}
               onPress={handlePayment}
@@ -514,6 +626,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
     paddingHorizontal: 8,
+  },
+  testButton: {
+    backgroundColor: '#F59E0B',
+    borderRadius: 0,
+    paddingVertical: 14,
+    alignItems: 'center',
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
   },
   payButton: {
     backgroundColor: '#4F46E5',
