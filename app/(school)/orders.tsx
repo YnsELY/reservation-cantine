@@ -71,6 +71,7 @@ export default function OrdersPage() {
         `)
         .eq('menu_id', menuId)
         .eq('date', date)
+        .neq('payment_status', 'cancelled')
         .order('created_at', { ascending: true });
 
       if (error) throw error;

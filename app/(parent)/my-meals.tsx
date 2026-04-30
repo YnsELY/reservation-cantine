@@ -70,6 +70,7 @@ export default function MyMealsScreen() {
           menus (meal_name, card_color)
         `)
         .eq('parent_id', currentParent.id)
+        .neq('payment_status', 'cancelled')
         .gte('date', startOfWeek.toISOString().split('T')[0])
         .lte('date', endOfWeek.toISOString().split('T')[0])
         .order('date', { ascending: true });

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase, Child, Menu, Parent, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { AlertCircle, ChevronLeft, ChevronRight, ShoppingCart, UserPlus, School as SchoolIcon, ArrowLeft, UtensilsCrossed } from 'lucide-react-native';
@@ -13,7 +13,20 @@ const formatDateToLocal = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
+const getFirstBookableDate = (): Date => {
+  const now = new Date();
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const deadline = new Date();
+  deadline.setHours(7, 0, 0, 0);
+  if (now >= deadline) {
+    start.setDate(start.getDate() + 1);
+  }
+  return start;
+};
+
 export default function ParentDashboard() {
+  const { childId: preselectedChildId } = useLocalSearchParams<{ childId?: string }>();
   const [parent, setParent] = useState<Parent | null>(null);
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
@@ -87,6 +100,16 @@ export default function ParentDashboard() {
 
       setChildren(childrenData || []);
 
+      // Auto-select child when arriving from child-details
+      if (preselectedChildId && childrenData) {
+        const match = childrenData.find(c => c.id === preselectedChildId);
+        if (match) {
+          setSelectedChild(match);
+          // loadMenusForChild is defined below — call it after state settles
+          setTimeout(() => loadMenusForChild(match), 0);
+        }
+      }
+
       const schoolIds = new Set<string>();
       if (currentParent.school_id) {
         schoolIds.add(currentParent.school_id);
@@ -108,12 +131,11 @@ export default function ParentDashboard() {
       }
 
       const dates: Date[] = [];
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const start = getFirstBookableDate();
 
       for (let i = 0; i < 7; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() + i);
+        const date = new Date(start);
+        date.setDate(start.getDate() + i);
         dates.push(date);
       }
 
@@ -135,12 +157,11 @@ export default function ParentDashboard() {
 
     try {
       const dates: Date[] = [];
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const start = getFirstBookableDate();
 
       for (let i = 0; i < 7; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() + i);
+        const date = new Date(start);
+        date.setDate(start.getDate() + i);
         dates.push(date);
       }
 

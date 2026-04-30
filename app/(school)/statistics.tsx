@@ -99,7 +99,8 @@ export default function SchoolStatistics() {
         .select('date, total_price')
         .in('menu_id', menuIds)
         .gte('date', start)
-        .lte('date', end);
+        .lte('date', end)
+        .neq('payment_status', 'cancelled');
 
       const orders = reservations?.length || 0;
       const revenue = reservations?.reduce((sum, r) => sum + Number(r.total_price), 0) || 0;

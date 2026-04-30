@@ -1,8 +1,10 @@
+/* eslint-disable react/no-unescaped-entities */
 import { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import AppLaunchScreen from '@/components/AppLaunchScreen';
+import { sendSignupConfirmationEmail } from '@/lib/emails';
 import {
   consumeSkippedAuthStartupCheck,
   MIN_LAUNCH_SCREEN_DURATION_MS,
@@ -11,7 +13,7 @@ import {
   waitForDuration,
 } from '@/lib/startup';
 import { supabase } from '@/lib/supabase';
-import { LogIn, UserPlus, School, User, Building2, ArrowLeft, UtensilsCrossed } from 'lucide-react-native';
+import { School, User, Building2, ArrowLeft, UtensilsCrossed } from 'lucide-react-native';
 
 type AuthMode = 'login' | 'signup';
 type UserType = 'parent' | 'school' | 'provider';
@@ -175,6 +177,15 @@ export default function AuthScreen() {
                 });
 
               if (insertError) throw insertError;
+
+              try {
+                const { error: emailError } = await sendSignupConfirmationEmail();
+                if (emailError) {
+                  console.error('Signup confirmation email error:', emailError);
+                }
+              } catch (emailError) {
+                console.error('Unexpected signup confirmation email error:', emailError);
+              }
 
               setLoading(false);
               setTimeout(() => {

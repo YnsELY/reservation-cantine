@@ -73,7 +73,8 @@ export default function ProviderHomeScreen() {
             .from('reservations')
             .select('id')
             .eq('date', todayStr)
-            .in('menu_id', menuIds);
+            .in('menu_id', menuIds)
+            .neq('payment_status', 'cancelled');
 
           todayCount = todayOrdersData?.length || 0;
         }
@@ -103,7 +104,8 @@ export default function ProviderHomeScreen() {
       const { data: currentMonthData } = await supabase
         .from('reservations')
         .select('date')
-        .in('menu_id', allMenuIds.length > 0 ? allMenuIds : ['']);
+        .in('menu_id', allMenuIds.length > 0 ? allMenuIds : [''])
+        .neq('payment_status', 'cancelled');
 
       const getWeekOfMonth = (date: Date) => {
         const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);

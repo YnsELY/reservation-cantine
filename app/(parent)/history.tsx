@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Modal, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { Receipt, AlertCircle, History, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { Receipt, AlertCircle, History, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, XCircle } from 'lucide-react-native';
 
 interface Child {
   id: string;
@@ -42,6 +42,7 @@ export default function HistoryScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showChildModal, setShowChildModal] = useState(false);
   const [showPeriodModal, setShowPeriodModal] = useState(false);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -123,6 +124,49 @@ export default function HistoryScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     loadData();
+  };
+
+  const canCancel = (reservation: ReservationWithDetails) => {
+    if (reservation.payment_status !== 'paid') return false;
+    const deadline = new Date(`${reservation.date}T09:00:00`);
+    return new Date() < deadline;
+  };
+
+  const handleCancelReservation = (reservation: ReservationWithDetails) => {
+    Alert.alert(
+      'Annuler la commande',
+      `Voulez-vous vraiment annuler la commande "${reservation.menu.meal_name}" du ${new Date(reservation.date).toLocaleDateString('fr-FR')} ? Le remboursement sera traité par l'administrateur.`,
+      [
+        { text: 'Non', style: 'cancel' },
+        {
+          text: 'Oui, annuler',
+          style: 'destructive',
+          onPress: async () => {
+            setCancellingId(reservation.id);
+            try {
+              const { error } = await supabase
+                .from('reservations')
+                .update({
+                  payment_status: 'cancelled',
+                  cancelled_at: new Date().toISOString(),
+                  refund_status: 'pending',
+                })
+                .eq('id', reservation.id);
+
+              if (error) throw error;
+
+              await loadData();
+              Alert.alert('Commande annulée', 'Votre commande a été annulée. Le remboursement sera traité prochainement.');
+            } catch (err: any) {
+              console.error('Error cancelling reservation:', err);
+              Alert.alert('Erreur', err.message || "Impossible d'annuler la commande");
+            } finally {
+              setCancellingId(null);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const getStatusColor = (status: string) => {
@@ -469,6 +513,23 @@ export default function HistoryScreen() {
                       {reservation.total_price.toFixed(2)} DH
                     </Text>
                   </View>
+
+                  {canCancel(reservation) && (
+                    <TouchableOpacity
+                      style={[styles.cancelButton, cancellingId === reservation.id && styles.cancelButtonDisabled]}
+                      onPress={() => handleCancelReservation(reservation)}
+                      disabled={cancellingId === reservation.id}
+                    >
+                      {cancellingId === reservation.id ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <>
+                          <XCircle size={18} color="#FFFFFF" />
+                          <Text style={styles.cancelButtonText}>Annuler la commande</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             ))}
@@ -702,6 +763,24 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#111827',
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EF4444',
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 12,
+    gap: 8,
+  },
+  cancelButtonDisabled: {
+    opacity: 0.6,
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   modalOverlay: {
     flex: 1,

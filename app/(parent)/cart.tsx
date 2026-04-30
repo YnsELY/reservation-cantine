@@ -4,8 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, CartItem, Child, Menu, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
+import { sendOrderConfirmationEmail } from '@/lib/emails';
 import { payzoneService, CartItemForPayment } from '@/lib/payzone';
-import { ArrowLeft, Trash2, ShoppingCart, CreditCard, Lock, User, FlaskConical } from 'lucide-react-native';
+import { ArrowLeft, Trash2, ShoppingCart, Lock, User, FlaskConical } from 'lucide-react-native';
 
 interface CartItemWithDetails extends CartItem {
   child: Child;
@@ -166,6 +167,8 @@ export default function CartScreen() {
           onPress: async () => {
             setProcessingPayment(true);
             try {
+              const testReference = `TEST_${Date.now()}`;
+
               const reservations = cartItems.map(item => ({
                 parent_id: parent.id,
                 child_id: item.child_id,
@@ -175,7 +178,7 @@ export default function CartScreen() {
                 annotations: item.annotations,
                 total_price: item.total_price,
                 payment_status: 'paid',
-                payment_intent_id: `TEST_${Date.now()}`,
+                payment_intent_id: testReference,
               }));
 
               const { error: insertError } = await supabase
@@ -192,6 +195,26 @@ export default function CartScreen() {
               try {
                 const totalAmount = calculateTotal();
 
+                const { error: emailError } = await sendOrderConfirmationEmail({
+                  orderId: testReference,
+                  totalAmount,
+                  paymentReference: testReference,
+                  paidAt: new Date().toISOString(),
+                  items: cartItems.map(item => ({
+                    childFirstName: item.child.first_name,
+                    childLastName: item.child.last_name,
+                    mealName: item.menu.meal_name,
+                    date: item.date,
+                    totalPrice: Number(item.total_price),
+                    supplements: item.supplements || [],
+                    annotations: item.annotations,
+                  })),
+                });
+
+                if (emailError) {
+                  console.error('Test order confirmation email error:', emailError);
+                }
+
                 // P4: parent notification
                 await supabase.functions.invoke('send-notification', {
                   body: {
@@ -200,7 +223,7 @@ export default function CartScreen() {
                     title: 'Paiement confirmé ✓',
                     body: `Votre paiement de ${totalAmount.toFixed(2)} MAD a été confirmé. Les réservations sont enregistrées.`,
                     notificationType: 'payment_confirmed',
-                    data: { orderId: `TEST_${Date.now()}`, amount: totalAmount },
+                    data: { orderId: testReference, amount: totalAmount },
                   },
                 });
 

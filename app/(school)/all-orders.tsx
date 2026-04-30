@@ -68,7 +68,8 @@ export default function AllOrders() {
           parents!inner(first_name, last_name)
         `)
         .eq('date', dateString)
-        .eq('children.school_id', currentSchool.id);
+        .eq('children.school_id', currentSchool.id)
+        .neq('payment_status', 'cancelled');
 
       if (error) throw error;
 

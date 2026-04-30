@@ -88,7 +88,8 @@ export default function SchoolDashboard() {
               .from('reservations')
               .select('id')
               .eq('menu_id', menu.id)
-              .eq('date', dateString);
+              .eq('date', dateString)
+              .neq('payment_status', 'cancelled');
 
             return {
               ...menu,
@@ -110,7 +111,8 @@ export default function SchoolDashboard() {
           child:children!inner(school_id)
         `)
         .eq('date', firstDate)
-        .eq('child.school_id', currentSchool.id);
+        .eq('child.school_id', currentSchool.id)
+        .neq('payment_status', 'cancelled');
 
       if (!ordersError) {
         setTotalOrdersCount(firstDayReservations?.length || 0);
@@ -162,7 +164,8 @@ export default function SchoolDashboard() {
           child:children!inner(school_id)
         `)
         .eq('date', dateString)
-        .eq('child.school_id', school.id);
+        .eq('child.school_id', school.id)
+        .neq('payment_status', 'cancelled');
 
       if (error) throw error;
 

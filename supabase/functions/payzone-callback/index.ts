@@ -166,11 +166,43 @@ serve(async (req) => {
 
       console.log(`Payment ${orderId} completed successfully`)
 
+      const totalAmount = cartItems.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0)
+
+      try {
+        const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-transactional-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabaseServiceKey}`,
+          },
+          body: JSON.stringify({
+            type: 'order_confirmation',
+            parentId: pendingPayment.parent_id,
+            orderId,
+            totalAmount,
+            paidAt: new Date().toISOString(),
+            paymentReference: id,
+            items: cartItems.map((item: any) => ({
+              childFirstName: item.child?.first_name || item.child_first_name || '',
+              childLastName: item.child?.last_name || item.child_last_name || '',
+              mealName: item.menu?.meal_name || item.menu_name || '',
+              date: item.date,
+              totalPrice: Number(item.total_price || 0),
+              supplements: item.supplements || [],
+              annotations: item.annotations || null,
+            })),
+          }),
+        })
+
+        if (!emailResponse.ok) {
+          console.error('Order confirmation email failed:', await emailResponse.text())
+        }
+      } catch (emailError) {
+        console.error('Error sending order confirmation email:', emailError)
+      }
+
       // === PUSH NOTIFICATIONS ===
       try {
-        const totalAmount = cartItems.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0)
-        const childNames = [...new Set(cartItems.map((item: any) => item.child_first_name || ''))].filter(Boolean).join(', ')
-
         // P4: Notify parent - payment confirmed
         await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
           method: 'POST',

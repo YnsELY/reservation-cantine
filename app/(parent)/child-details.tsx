@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Edit, Calendar, Clock, AlertCircle, User } from 'lucide-react-native';
+import { ArrowLeft, Edit, Calendar, Clock, AlertCircle, User, ShoppingBag } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 
 interface Child {
@@ -154,6 +154,13 @@ export default function ChildDetailsScreen() {
     });
   };
 
+  const handleOrder = () => {
+    router.push({
+      pathname: '/(parent)/reservation',
+      params: { childId: childId as string }
+    });
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -200,6 +207,10 @@ export default function ChildDetailsScreen() {
             <User size={60} color="#6B7280" />
           </View>
           <Text style={styles.childNameLarge}>{child.first_name} {child.last_name}</Text>
+          <TouchableOpacity style={styles.orderButton} onPress={handleOrder}>
+            <ShoppingBag size={18} color="#FFFFFF" />
+            <Text style={styles.orderButtonText}>Commander</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
@@ -390,6 +401,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111827',
     textAlign: 'center',
+    marginBottom: 16,
+  },
+  orderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111827',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 50,
+    gap: 8,
+  },
+  orderButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   section: {
     marginHorizontal: 20,

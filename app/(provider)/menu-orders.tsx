@@ -46,7 +46,8 @@ export default function MenuOrdersScreen() {
           )
         `)
         .eq('menu_id', menuId)
-        .eq('date', date);
+        .eq('date', date)
+        .neq('payment_status', 'cancelled');
 
       if (error) throw error;
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, Modal, Image, useColorScheme } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase, Provider } from '@/lib/supabase';
@@ -29,6 +29,8 @@ interface MenuSpecificSupplement {
 }
 
 export default function AddMenuScreen() {
+  const colorScheme = useColorScheme();
+  const isLightMode = colorScheme !== 'dark';
   const [provider, setProvider] = useState<Provider | null>(null);
   const [schools, setSchools] = useState<SchoolAccess[]>([]);
   const [selectedSchools, setSelectedSchools] = useState<string[]>([]);
@@ -706,11 +708,17 @@ export default function AddMenuScreen() {
               </View>
             ) : (
               <View style={styles.imagePickerButtons}>
-                <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
+                <TouchableOpacity
+                  style={[styles.imagePickerButton, isLightMode && styles.imagePickerButtonLight]}
+                  onPress={pickImage}
+                >
                   <ImageIcon size={24} color="#111827" />
                   <Text style={styles.imagePickerButtonText}>Galerie</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.imagePickerButton} onPress={takePhoto}>
+                <TouchableOpacity
+                  style={[styles.imagePickerButton, isLightMode && styles.imagePickerButtonLight]}
+                  onPress={takePhoto}
+                >
                   <Camera size={24} color="#111827" />
                   <Text style={styles.imagePickerButtonText}>Photo</Text>
                 </TouchableOpacity>
@@ -1176,6 +1184,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+  },
+  imagePickerButtonLight: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#D1D5DB',
   },
   imagePickerButtonText: {
     fontSize: 14,

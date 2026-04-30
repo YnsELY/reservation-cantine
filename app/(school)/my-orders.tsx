@@ -60,6 +60,7 @@ export default function SchoolMyOrdersScreen() {
           menu:menus(*)
         `)
         .eq('child.school_id', currentSchool.id)
+        .neq('payment_status', 'cancelled')
         .order('created_at', { ascending: false });
 
       const ordersWithDetails = (reservationsData || []).map((res: any) => ({

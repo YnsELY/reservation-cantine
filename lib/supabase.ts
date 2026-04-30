@@ -116,6 +116,10 @@ export interface Reservation {
   payment_intent_id: string | null;
   created_by_school: boolean;
   school_payment_pending: boolean;
+  cancelled_at: string | null;
+  refund_status: 'none' | 'pending' | 'refunded';
+  refunded_at: string | null;
+  refunded_by: string | null;
   created_at: string;
   updated_at: string;
 }

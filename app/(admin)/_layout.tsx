@@ -11,6 +11,7 @@ export default function AdminLayout() {
       <Stack.Screen name="menus" />
       <Stack.Screen name="parents" />
       <Stack.Screen name="profile" />
+      <Stack.Screen name="refunds" />
     </Stack>
   );
 }
