@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EDE9FE',
   },
   weekButtonText: {
-    fontSize: 22,
+    fontSize: 15,
     fontWeight: '800',
   },
   createWeekButtonText: {

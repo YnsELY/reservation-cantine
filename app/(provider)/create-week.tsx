@@ -722,7 +722,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     color: '#111827',
-    fontSize: 23,
+    fontSize: 18,
     fontWeight: '800',
   },
   saveButton: {
@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '800',
   },
   content: {
@@ -751,7 +751,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     color: '#111827',
-    fontSize: 22,
+    fontSize: 16,
     fontWeight: '800',
     marginBottom: 18,
   },
@@ -788,7 +788,7 @@ const styles = StyleSheet.create({
   },
   schoolChipText: {
     color: '#111827',
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '800',
   },
   schoolChipTextSelected: {
@@ -819,7 +819,7 @@ const styles = StyleSheet.create({
   },
   calendarMonth: {
     color: '#111827',
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '800',
     textTransform: 'capitalize',
   },
@@ -851,7 +851,7 @@ const styles = StyleSheet.create({
   },
   dayCellText: {
     color: '#374151',
-    fontSize: 20,
+    fontSize: 15,
     fontWeight: '700',
   },
   dayCellTextSelected: {
@@ -859,7 +859,7 @@ const styles = StyleSheet.create({
   },
   configTitle: {
     color: '#111827',
-    fontSize: 22,
+    fontSize: 16,
     fontWeight: '800',
     marginBottom: 18,
   },
@@ -882,12 +882,12 @@ const styles = StyleSheet.create({
   },
   dayTitle: {
     color: '#111827',
-    fontSize: 22,
+    fontSize: 16,
     fontWeight: '800',
   },
   cardLabel: {
     color: '#6B7280',
-    fontSize: 18,
+    fontSize: 13,
     fontWeight: '800',
     marginBottom: 12,
   },
@@ -920,7 +920,7 @@ const styles = StyleSheet.create({
   },
   addChipText: {
     color: '#4F46E5',
-    fontSize: 17,
+    fontSize: 13,
     fontWeight: '800',
   },
   supplementChip: {
@@ -968,7 +968,7 @@ const styles = StyleSheet.create({
   },
   sheetTitle: {
     color: '#111827',
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '800',
   },
   menuChoiceRow: {
@@ -990,13 +990,13 @@ const styles = StyleSheet.create({
   },
   menuChoiceName: {
     color: '#111827',
-    fontSize: 20,
+    fontSize: 15,
     fontWeight: '800',
     marginBottom: 6,
   },
   menuChoicePrice: {
     color: '#6B7280',
-    fontSize: 18,
+    fontSize: 13,
   },
   radioCircle: {
     width: 34,
@@ -1022,7 +1022,7 @@ const styles = StyleSheet.create({
   },
   confirmButtonText: {
     color: '#FFFFFF',
-    fontSize: 21,
+    fontSize: 15,
     fontWeight: '800',
   },
 });

@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
     color: '#111827',
-    fontSize: 23,
+    fontSize: 18,
     fontWeight: '800',
   },
   headerSpacer: {
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   statusHeroTitle: {
-    fontSize: 24,
+    fontSize: 17,
     fontWeight: '800',
     marginBottom: 6,
   },
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     color: '#92400E',
   },
   statusHeroSubtitle: {
-    fontSize: 17,
+    fontSize: 13,
     fontWeight: '600',
   },
   statusHeroSubtitleComplete: {
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF3C7',
   },
   schoolStatusText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
   },
   schoolStatusTextComplete: {
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
   },
   dayTitle: {
     color: '#111827',
-    fontSize: 21,
+    fontSize: 15,
     fontWeight: '800',
   },
   editButton: {
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   },
   editButtonText: {
     color: '#4F46E5',
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '800',
   },
   schoolBlock: {
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
   },
   schoolTitle: {
     color: '#9CA3AF',
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '800',
     marginBottom: 10,
   },
@@ -395,12 +395,12 @@ const styles = StyleSheet.create({
   menuName: {
     flex: 1,
     color: '#111827',
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '800',
   },
   menuPrice: {
     color: '#6B7280',
-    fontSize: 17,
+    fontSize: 13,
     fontWeight: '800',
   },
   emptyMenuRow: {
@@ -412,7 +412,7 @@ const styles = StyleSheet.create({
   },
   emptyMenuText: {
     color: '#9CA3AF',
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '700',
   },
 });
