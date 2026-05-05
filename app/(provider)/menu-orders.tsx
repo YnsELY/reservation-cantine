@@ -143,46 +143,79 @@ export default function MenuOrdersScreen() {
     try {
       setLoading(true);
 
-      let query = supabase
+      if (!date || menuIds.length === 0) {
+        setOrders([]);
+        return;
+      }
+
+      let reservationsQuery = supabase
         .from('reservations')
-        .select(`
-          id,
-          supplements,
-          children!inner(
-            id,
-            first_name,
-            last_name,
-            grade,
-            allergies,
-            dietary_restrictions,
-            parent_id,
-            school_id,
-            school:schools(id, name)
-          ),
-          parent:parents(
-            id,
-            first_name,
-            last_name
-          )
-        `)
+        .select('id, child_id, parent_id, supplements')
         .eq('date', date)
         .neq('payment_status', 'cancelled')
         .order('created_at', { ascending: true });
 
-      query = menuIds.length === 1
-        ? query.eq('menu_id', menuIds[0])
-        : query.in('menu_id', menuIds);
+      reservationsQuery = menuIds.length === 1
+        ? reservationsQuery.eq('menu_id', menuIds[0])
+        : reservationsQuery.in('menu_id', menuIds);
 
-      const { data: reservationsData, error } = await query;
+      const { data: reservationsData, error: reservationsError } = await reservationsQuery;
 
-      if (error) {
-        throw error;
+      if (reservationsError) {
+        throw reservationsError;
       }
 
-      const formattedOrders: OrderDetail[] = (reservationsData || []).map((reservation: any) => {
-        const child = Array.isArray(reservation.children) ? reservation.children[0] : reservation.children;
-        const parent = Array.isArray(reservation.parent) ? reservation.parent[0] : reservation.parent;
-        const school = Array.isArray(child?.school) ? child.school[0] : child?.school;
+      const reservations = reservationsData || [];
+
+      if (reservations.length === 0) {
+        setOrders([]);
+        return;
+      }
+
+      const childIds = Array.from(new Set(reservations.map((r: any) => r.child_id).filter(Boolean)));
+      const parentIds = Array.from(new Set(reservations.map((r: any) => r.parent_id).filter(Boolean)));
+
+      const [childrenResult, parentsResult] = await Promise.all([
+        childIds.length > 0
+          ? supabase
+              .from('children')
+              .select('id, first_name, last_name, grade, allergies, dietary_restrictions, school_id')
+              .in('id', childIds)
+          : Promise.resolve({ data: [], error: null }),
+        parentIds.length > 0
+          ? supabase
+              .from('parents')
+              .select('id, first_name, last_name')
+              .in('id', parentIds)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+      if (childrenResult.error) throw childrenResult.error;
+      if (parentsResult.error) throw parentsResult.error;
+
+      const childrenList = (childrenResult.data || []) as any[];
+      const parentsList = (parentsResult.data || []) as any[];
+
+      const schoolIds = Array.from(new Set(childrenList.map((c: any) => c.school_id).filter(Boolean)));
+      let schoolsList: any[] = [];
+      if (schoolIds.length > 0) {
+        const { data: schoolsData, error: schoolsError } = await supabase
+          .from('schools')
+          .select('id, name')
+          .in('id', schoolIds);
+        if (schoolsError) throw schoolsError;
+        schoolsList = schoolsData || [];
+      }
+
+      const childrenById = new Map(childrenList.map((c: any) => [c.id, c]));
+      const parentsById = new Map(parentsList.map((p: any) => [p.id, p]));
+      const schoolsById = new Map(schoolsList.map((s: any) => [s.id, s]));
+
+      const formattedOrders: OrderDetail[] = reservations.map((reservation: any) => {
+        const child = childrenById.get(reservation.child_id);
+        const parent = parentsById.get(reservation.parent_id);
+        const school = child ? schoolsById.get(child.school_id) : null;
+
         const childName = `${child?.first_name || ''} ${child?.last_name || ''}`.trim() || 'Élève';
         const parentName = `${parent?.first_name || ''} ${parent?.last_name || ''}`.trim() || 'Parent non renseigné';
         const schoolId = child?.school_id || 'unknown';
