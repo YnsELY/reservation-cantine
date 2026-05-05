@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as XLSX from 'xlsx';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -12,6 +13,8 @@ import {
   parseOrderSupplements,
 } from '@/lib/order-supplements';
 import { AlertTriangle, ArrowLeft, Check, FileDown, Users as UsersIcon } from 'lucide-react-native';
+
+type ExportFormat = 'csv' | 'xlsx';
 
 interface OrderDetail {
   id: string;
@@ -96,6 +99,7 @@ export default function MenuOrdersScreen() {
   const [selectedSchoolId, setSelectedSchoolId] = useState<SchoolScope>('all');
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportSchoolId, setExportSchoolId] = useState<SchoolScope>('all');
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('xlsx');
   const [exporting, setExporting] = useState(false);
 
   const menuName = getParamValue(params.menuName as string | string[] | undefined);
@@ -271,7 +275,43 @@ export default function MenuOrdersScreen() {
     setShowExportModal(true);
   };
 
-  const exportToCSV = async () => {
+  const buildExportRows = (ordersToExport: OrderDetail[]) => {
+    const groupedBySchool = new Map<string, { schoolName: string; orders: OrderDetail[] }>();
+
+    ordersToExport.forEach((order) => {
+      const existing = groupedBySchool.get(order.school_id);
+      if (existing) {
+        existing.orders.push(order);
+        return;
+      }
+
+      groupedBySchool.set(order.school_id, {
+        schoolName: order.school_name,
+        orders: [order],
+      });
+    });
+
+    return Array.from(groupedBySchool.values())
+      .sort((a, b) => a.schoolName.localeCompare(b.schoolName, 'fr-FR'))
+      .map((schoolGroup) => {
+        const supplements = aggregateOrderSupplements(
+          schoolGroup.orders.map(order => order.supplements)
+        );
+        const supplementSummary = supplements.length > 0
+          ? supplements.map(formatSupplementAggregate).join(' | ')
+          : 'Aucun';
+
+        return [
+          schoolGroup.schoolName,
+          formatDate(date),
+          menuName,
+          schoolGroup.orders.length,
+          supplementSummary,
+        ] as (string | number)[];
+      });
+  };
+
+  const handleExport = async () => {
     const ordersToExport = getOrdersForExport();
     if (ordersToExport.length === 0) {
       Alert.alert('Export impossible', 'Aucune commande à exporter pour cette sélection.');
@@ -280,70 +320,71 @@ export default function MenuOrdersScreen() {
 
     setExporting(true);
     try {
-      const groupedBySchool = new Map<string, { schoolName: string; orders: OrderDetail[] }>();
-
-      ordersToExport.forEach((order) => {
-        const existing = groupedBySchool.get(order.school_id);
-        if (existing) {
-          existing.orders.push(order);
-          return;
-        }
-
-        groupedBySchool.set(order.school_id, {
-          schoolName: order.school_name,
-          orders: [order],
-        });
-      });
-
       const header = ['École', 'Jour', 'Menu', 'Quantité', 'Suppléments + quantités'];
-      const rows = Array.from(groupedBySchool.values())
-        .sort((a, b) => a.schoolName.localeCompare(b.schoolName, 'fr-FR'))
-        .map((schoolGroup) => {
-          const supplements = aggregateOrderSupplements(
-            schoolGroup.orders.map(order => order.supplements)
-          );
-          const supplementSummary = supplements.length > 0
-            ? supplements.map(formatSupplementAggregate).join(' | ')
-            : 'Aucun';
-
-          return [
-            schoolGroup.schoolName,
-            formatDate(date),
-            menuName,
-            schoolGroup.orders.length,
-            supplementSummary,
-          ];
-        });
-
-      const csvContent = [
-        header.map(csvEscape).join(';'),
-        ...rows.map(row => row.map(csvEscape).join(';')),
-      ].join('\n');
+      const rows = buildExportRows(ordersToExport);
 
       const scopeLabel = exportSchoolId === 'all'
         ? 'toutes-ecoles'
         : sanitizeFileName(schoolFilters.find(school => school.id === exportSchoolId)?.name || 'ecole');
-      const fileName = `commandes-${sanitizeFileName(menuName)}-${date}-${scopeLabel}.csv`;
-      const fileUri = `${(FileSystem as any).documentDirectory}${fileName}`;
+      const baseFileName = `commandes-${sanitizeFileName(menuName)}-${date}-${scopeLabel}`;
 
-      await FileSystem.writeAsStringAsync(fileUri, `\uFEFF${csvContent}`, {
-        encoding: (FileSystem as any).EncodingType.UTF8,
-      });
+      if (exportFormat === 'xlsx') {
+        const worksheet = XLSX.utils.aoa_to_sheet([header, ...rows]);
+        worksheet['!cols'] = [
+          { wch: 30 },
+          { wch: 24 },
+          { wch: 28 },
+          { wch: 10 },
+          { wch: 50 },
+        ];
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Commandes');
+        const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
 
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri, {
-          mimeType: 'text/csv',
-          dialogTitle: 'Exporter les commandes',
-          UTI: 'public.comma-separated-values-text',
+        const fileName = `${baseFileName}.xlsx`;
+        const fileUri = `${(FileSystem as any).documentDirectory}${fileName}`;
+
+        await FileSystem.writeAsStringAsync(fileUri, base64, {
+          encoding: (FileSystem as any).EncodingType.Base64,
         });
+
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            dialogTitle: 'Exporter les commandes',
+            UTI: 'org.openxmlformats.spreadsheetml.sheet',
+          });
+        } else {
+          Alert.alert('Export prêt', `Le fichier Excel a été généré : ${fileName}`);
+        }
       } else {
-        Alert.alert('Export prêt', `Le fichier CSV a été généré : ${fileName}`);
+        const csvContent = [
+          header.map(csvEscape).join(';'),
+          ...rows.map(row => row.map(csvEscape).join(';')),
+        ].join('\n');
+
+        const fileName = `${baseFileName}.csv`;
+        const fileUri = `${(FileSystem as any).documentDirectory}${fileName}`;
+
+        await FileSystem.writeAsStringAsync(fileUri, `\uFEFF${csvContent}`, {
+          encoding: (FileSystem as any).EncodingType.UTF8,
+        });
+
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'text/csv',
+            dialogTitle: 'Exporter les commandes',
+            UTI: 'public.comma-separated-values-text',
+          });
+        } else {
+          Alert.alert('Export prêt', `Le fichier CSV a été généré : ${fileName}`);
+        }
       }
 
       setShowExportModal(false);
     } catch (error) {
       console.error('Error exporting orders:', error);
-      Alert.alert('Erreur', 'Impossible de générer le fichier CSV.');
+      Alert.alert('Erreur', 'Impossible de générer le fichier.');
     } finally {
       setExporting(false);
     }
@@ -501,7 +542,28 @@ export default function MenuOrdersScreen() {
           <View style={styles.exportSheet}>
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Exporter les commandes</Text>
-            <Text style={styles.sheetSubtitle}>Sélectionner les écoles à inclure</Text>
+
+            <Text style={styles.sheetSectionTitle}>Format du fichier</Text>
+            <View style={styles.formatToggle}>
+              <TouchableOpacity
+                style={[styles.formatOption, exportFormat === 'xlsx' && styles.formatOptionActive]}
+                onPress={() => setExportFormat('xlsx')}
+              >
+                <Text style={[styles.formatOptionText, exportFormat === 'xlsx' && styles.formatOptionTextActive]}>
+                  Excel (.xlsx)
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.formatOption, exportFormat === 'csv' && styles.formatOptionActive]}
+                onPress={() => setExportFormat('csv')}
+              >
+                <Text style={[styles.formatOptionText, exportFormat === 'csv' && styles.formatOptionTextActive]}>
+                  CSV (.csv)
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.sheetSectionTitle}>Écoles à inclure</Text>
 
             <View style={styles.exportOptions}>
               <TouchableOpacity
@@ -540,13 +602,15 @@ export default function MenuOrdersScreen() {
 
             <TouchableOpacity
               style={[styles.sheetExportButton, exporting && styles.sheetExportButtonDisabled]}
-              onPress={exportToCSV}
+              onPress={handleExport}
               disabled={exporting}
             >
               {exporting ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Text style={styles.sheetExportButtonText}>Exporter en CSV</Text>
+                <Text style={styles.sheetExportButtonText}>
+                  {exportFormat === 'xlsx' ? 'Exporter en Excel' : 'Exporter en CSV'}
+                </Text>
               )}
             </TouchableOpacity>
           </View>
@@ -835,7 +899,45 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     color: '#111827',
-    marginBottom: 6,
+    marginBottom: 18,
+  },
+  sheetSectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
+  formatToggle: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: 22,
+  },
+  formatOption: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  formatOptionActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  formatOptionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  formatOptionTextActive: {
+    color: '#111827',
   },
   sheetSubtitle: {
     fontSize: 14,
