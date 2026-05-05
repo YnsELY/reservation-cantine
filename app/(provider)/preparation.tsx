@@ -2,16 +2,20 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { supabase, Menu, Provider } from '@/lib/supabase';
+import { supabase, Menu } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
+import { aggregateOrderSupplements, getSupplementAggregateTotal, SupplementAggregate } from '@/lib/order-supplements';
 import { UtensilsCrossed, ChevronLeft, ChevronRight, ChefHat, ArrowLeft, ChevronRight as ChevronRightIcon } from 'lucide-react-native';
 
 interface MenuWithOrderCount extends Menu {
   order_count: number;
+  supplement_total: number;
+  supplement_summary: SupplementAggregate[];
   school_name?: string;
 }
 
 interface GroupedMenuWithOrderCount extends MenuWithOrderCount {
+  menu_ids: string[];
   school_ids: string[];
   school_names: string[];
 }
@@ -24,8 +28,6 @@ const formatDateToLocal = (date: Date): string => {
 };
 
 export default function ProviderDashboard() {
-  const [provider, setProvider] = useState<Provider | null>(null);
-  const [menus, setMenus] = useState<MenuWithOrderCount[]>([]);
   const [groupedMenus, setGroupedMenus] = useState<GroupedMenuWithOrderCount[]>([]);
   const [totalSchools, setTotalSchools] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -37,26 +39,7 @@ export default function ProviderDashboard() {
   const dayScaleAnim = useRef(new Animated.Value(1)).current;
   const router = useRouter();
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadData();
-    }, [])
-  );
-
-  useEffect(() => {
-    if (selectedDate && weekMenus[selectedDate]) {
-      const dayMenus = weekMenus[selectedDate];
-      setMenus(dayMenus);
-      const grouped = groupMenusByContent(dayMenus);
-      setGroupedMenus(grouped);
-    }
-  }, [weekMenus, selectedDate]);
-
-  const groupMenusByContent = (menusList: MenuWithOrderCount[]): GroupedMenuWithOrderCount[] => {
+  const groupMenusByContent = useCallback((menusList: MenuWithOrderCount[]): GroupedMenuWithOrderCount[] => {
     const groups: { [key: string]: GroupedMenuWithOrderCount } = {};
 
     menusList.forEach((menu) => {
@@ -65,28 +48,41 @@ export default function ProviderDashboard() {
       if (!groups[key]) {
         groups[key] = {
           ...menu,
+          menu_ids: [menu.id],
           school_ids: [menu.school_id],
           school_names: [menu.school_name || 'École'],
         };
       } else {
         groups[key].order_count += menu.order_count;
+        groups[key].menu_ids.push(menu.id);
         groups[key].school_ids.push(menu.school_id);
         groups[key].school_names.push(menu.school_name || 'École');
+        groups[key].supplement_summary = aggregateOrderSupplements([
+          ...groups[key].supplement_summary,
+          ...menu.supplement_summary,
+        ]);
+        groups[key].supplement_total = getSupplementAggregateTotal(groups[key].supplement_summary);
       }
     });
 
     return Object.values(groups);
-  };
+  }, []);
 
-  const loadData = async () => {
+  useEffect(() => {
+    if (selectedDate && weekMenus[selectedDate]) {
+      const dayMenus = weekMenus[selectedDate];
+      const grouped = groupMenusByContent(dayMenus);
+      setGroupedMenus(grouped);
+    }
+  }, [groupMenusByContent, weekMenus, selectedDate]);
+
+  const loadData = useCallback(async () => {
     try {
       const currentProvider = await authService.getCurrentProviderFromAuth();
       if (!currentProvider) {
         router.replace('/auth');
         return;
       }
-
-      setProvider(currentProvider);
 
       const dates: Date[] = [];
       const today = new Date();
@@ -135,14 +131,21 @@ export default function ProviderDashboard() {
           dayMenus.map(async (menu) => {
             const { data: reservations } = await supabase
               .from('reservations')
-              .select('id')
+              .select('id, supplements')
               .eq('menu_id', menu.id)
-              .eq('date', dateString);
+              .eq('date', dateString)
+              .neq('payment_status', 'cancelled');
+
+            const supplementSummary = aggregateOrderSupplements(
+              (reservations || []).map((reservation: any) => reservation.supplements)
+            );
 
             return {
               ...menu,
               school_name: (menu.schools as any)?.name,
               order_count: reservations?.length || 0,
+              supplement_total: getSupplementAggregateTotal(supplementSummary),
+              supplement_summary: supplementSummary,
             };
           })
         );
@@ -157,7 +160,13 @@ export default function ProviderDashboard() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [router]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -168,8 +177,6 @@ export default function ProviderDashboard() {
     const dateString = formatDateToLocal(date);
     setSelectedDate(dateString);
     setSelectedDayIndex(index);
-    const dayMenus = weekMenus[dateString] || [];
-    setMenus(dayMenus);
 
     Animated.sequence([
       Animated.timing(dayScaleAnim, {
@@ -352,9 +359,11 @@ export default function ProviderDashboard() {
             const textColor = isLightColor(cardColor) ? '#1F2937' : '#FFFFFF';
 
             return (
-              <View
-                key={`${menu.id}-${index}`}
+              <TouchableOpacity
+                key={`${menu.menu_ids.join('-')}-${index}`}
                 style={[styles.menuCard, { backgroundColor: cardColor }]}
+                activeOpacity={0.9}
+                onPress={() => router.push(`/(provider)/menu-orders?menuId=${menu.id}&menuIds=${encodeURIComponent(JSON.stringify(menu.menu_ids))}&menuName=${encodeURIComponent(menu.meal_name)}&date=${selectedDate}`)}
               >
                 <View style={styles.menuCardHeader}>
                   <View style={styles.menuCardTitleContainer}>
@@ -382,17 +391,38 @@ export default function ProviderDashboard() {
                   </View>
                 </View>
 
-                {menu.description && (
-                  <>
-                    <View style={[styles.menuCardDivider, { backgroundColor: textColor, opacity: 0.2 }]} />
-                    <View style={styles.menuCardSection}>
-                      <Text style={[styles.menuCardSectionLabel, { color: textColor }]}>Description</Text>
-                      <Text style={[styles.menuCardDescription, { color: textColor }]} numberOfLines={3}>
-                        {menu.description}
+                <View style={[styles.menuCardDivider, { backgroundColor: textColor, opacity: 0.2 }]} />
+                <View style={styles.supplementSummarySection}>
+                  <View style={styles.supplementSummaryHeader}>
+                    <Text style={[styles.supplementSummaryTitle, { color: textColor }]}>
+                      Suppléments commandés
+                    </Text>
+                    <View style={[styles.supplementTotalBadge, {
+                      backgroundColor: textColor === '#FFFFFF' ? 'rgba(255, 255, 255, 0.18)' : 'rgba(0, 0, 0, 0.08)'
+                    }]}>
+                      <Text style={[styles.supplementTotalText, { color: textColor }]}>
+                        {menu.supplement_total} total
                       </Text>
                     </View>
-                  </>
-                )}
+                  </View>
+
+                  {menu.supplement_summary.length > 0 ? (
+                    <View style={styles.supplementList}>
+                      {menu.supplement_summary.map((supplement) => (
+                        <Text
+                          key={`${supplement.name}-${supplement.quantity}`}
+                          style={[styles.supplementLine, { color: textColor }]}
+                        >
+                          {supplement.quantity} × {supplement.name}
+                        </Text>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text style={[styles.noSupplementText, { color: textColor }]}>
+                      Aucun supplément commandé
+                    </Text>
+                  )}
+                </View>
 
                 <View style={[styles.menuCardDivider, { backgroundColor: textColor, opacity: 0.2 }]} />
 
@@ -408,14 +438,13 @@ export default function ProviderDashboard() {
                       </Text>
                     </View>
                   </View>
-                  <TouchableOpacity
+                  <View
                     style={[styles.viewOrdersButton, { backgroundColor: textColor === '#FFFFFF' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)' }]}
-                    onPress={() => router.push(`/(provider)/menu-orders?menuId=${menu.id}&menuName=${encodeURIComponent(menu.meal_name)}&date=${selectedDate}`)}
                   >
                     <ChevronRightIcon size={24} color={textColor} />
-                  </TouchableOpacity>
+                  </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })
         )}
@@ -608,22 +637,47 @@ const styles = StyleSheet.create({
     height: 1,
     marginHorizontal: 24,
   },
-  menuCardSection: {
+  supplementSummarySection: {
     paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
-  menuCardSectionLabel: {
+  supplementSummaryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 10,
+  },
+  supplementSummaryTitle: {
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 8,
-    opacity: 0.7,
+    opacity: 0.72,
   },
-  menuCardDescription: {
+  supplementTotalBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  supplementTotalText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  supplementList: {
+    gap: 6,
+  },
+  supplementLine: {
     fontSize: 15,
-    lineHeight: 22,
-    opacity: 0.85,
+    lineHeight: 20,
+    fontWeight: '600',
+    opacity: 0.9,
+  },
+  noSupplementText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+    opacity: 0.7,
   },
   menuCardFooter: {
     flexDirection: 'row',

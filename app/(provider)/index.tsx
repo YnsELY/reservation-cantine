@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { Calendar, Building2, UtensilsCrossed, BarChart3, Share2, ChefHat, Package } from 'lucide-react-native';
+import { Calendar, Building2, UtensilsCrossed, BarChart3, Share2, ChefHat, Eye } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useNotifications } from '@/hooks/useNotifications';
 
@@ -171,7 +171,7 @@ export default function ProviderHomeScreen() {
         <View style={styles.todayCard}>
           <View style={styles.todayHeader}>
             <ChefHat size={24} color="#92400E" />
-            <Text style={styles.todayTitle}>Aujourd'hui</Text>
+            <Text style={styles.todayTitle}>{"Aujourd'hui"}</Text>
           </View>
           <View style={styles.todayStatsCenter}>
             <Text style={styles.todayStatValue}>{todayOrdersCount}</Text>
@@ -182,22 +182,12 @@ export default function ProviderHomeScreen() {
         <View style={styles.actionsRow}>
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => router.push('/(provider)/menus')}
+            onPress={() => router.push('/(provider)/library' as any)}
           >
             <View style={styles.actionIconContainer}>
               <UtensilsCrossed size={26} color="#FFFFFF" />
             </View>
-            <Text style={styles.actionTitle}>Gérer les{'\n'}menus</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push('/(provider)/supplements')}
-          >
-            <View style={styles.actionIconContainer}>
-              <Package size={26} color="#FFFFFF" />
-            </View>
-            <Text style={styles.actionTitle}>Gérer les{'\n'}suppléments</Text>
+            <Text style={styles.actionTitle}>Menus &{'\n'}suppléments</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -210,6 +200,22 @@ export default function ProviderHomeScreen() {
             <Text style={styles.actionTitle}>Voir les{'\n'}commandes</Text>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity
+          style={[styles.weekButton, styles.createWeekButton]}
+          onPress={() => router.push('/(provider)/create-week' as any)}
+        >
+          <Calendar size={28} color="#1D4ED8" />
+          <Text style={[styles.weekButtonText, styles.createWeekButtonText]}>Créer ma semaine</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.weekButton, styles.viewWeekButton]}
+          onPress={() => router.push('/(provider)/week' as any)}
+        >
+          <Eye size={28} color="#7C3AED" />
+          <Text style={[styles.weekButtonText, styles.viewWeekButtonText]}>Voir ma semaine</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.schoolsButton}
@@ -242,7 +248,7 @@ export default function ProviderHomeScreen() {
             <View style={[styles.actionIconContainer, { backgroundColor: '#7C3AED' }]}>
               <Share2 size={28} color="#FFFFFF" />
             </View>
-            <Text style={[styles.actionTitle, { color: '#7C3AED' }]}>Partager{"\n"}l'accès</Text>
+            <Text style={[styles.actionTitle, { color: '#7C3AED' }]}>Partager{"\n"}{"l'accès"}</Text>
           </TouchableOpacity>
         </View>
 
@@ -413,6 +419,37 @@ const styles = StyleSheet.create({
     color: '#111827',
     textAlign: 'center',
     lineHeight: 18,
+  },
+  weekButton: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  createWeekButton: {
+    backgroundColor: '#BFDBFE',
+  },
+  viewWeekButton: {
+    backgroundColor: '#EDE9FE',
+  },
+  weekButtonText: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  createWeekButtonText: {
+    color: '#1D4ED8',
+  },
+  viewWeekButtonText: {
+    color: '#7C3AED',
   },
   secondaryActionCard: {
     flex: 1,

@@ -82,6 +82,9 @@ export interface Child {
 export interface Menu {
   id: string;
   school_id: string;
+  provider_id: string | null;
+  library_menu_id: string | null;
+  week_start_date: string | null;
   date: string;
   meal_name: string;
   description: string | null;
@@ -90,17 +93,55 @@ export interface Menu {
   image_url: string | null;
   available: boolean;
   card_color: string;
+  supplements: string[];
   created_at: string;
 }
 
 export interface Supplement {
   id: string;
+  provider_id?: string;
   school_id: string;
+  menu_id?: string | null;
+  library_menu_id?: string | null;
+  source_library_supplement_id?: string | null;
   name: string;
   description: string | null;
   price: number;
   available: boolean;
   created_at: string;
+}
+
+export interface ProviderMenuLibrary {
+  id: string;
+  provider_id: string;
+  meal_name: string;
+  description: string | null;
+  price: number;
+  image_url: string | null;
+  card_color: string;
+  available: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProviderWeekPlan {
+  id: string;
+  provider_id: string;
+  week_start_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProviderWeekPlanDay {
+  id: string;
+  week_plan_id: string;
+  provider_id: string;
+  school_id: string;
+  date: string;
+  library_menu_ids: string[];
+  enabled_supplement_ids: string[];
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Reservation {
