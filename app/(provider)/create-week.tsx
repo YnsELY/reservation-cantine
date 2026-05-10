@@ -136,7 +136,7 @@ export default function CreateWeekScreen() {
 
       const [{ data: menusData }, { data: supplementsData }] = await Promise.all([
         supabase
-          .from('provider_menu_templates')
+          .from('provider_menu_library')
           .select('*')
           .eq('provider_id', currentProvider.id)
           .eq('available', true)

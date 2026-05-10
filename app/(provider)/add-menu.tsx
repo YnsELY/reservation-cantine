@@ -290,20 +290,20 @@ export default function AddMenuScreen() {
 
       if (isEditMode && libraryMenuId) {
         const { error } = await supabase
-          .from('provider_menu_templates')
+          .from('provider_menu_library')
           .update(payload)
           .eq('id', libraryMenuId);
 
         if (error) throw error;
       } else {
         const { data, error } = await supabase
-          .from('provider_menu_templates')
+          .from('provider_menu_library')
           .insert(payload)
           .select('id')
           .single();
 
         if (error) {
-          console.error('Insert provider_menu_templates failed:', error);
+          console.error('Insert provider_menu_library failed:', error);
           throw error;
         }
         if (!data?.id) throw new Error('Aucun identifiant retourné après création du menu');
