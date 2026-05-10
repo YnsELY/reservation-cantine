@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, Touc
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { ArrowLeft, Camera, Check, ImageIcon, Plus, Trash2, X } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { authService } from '@/lib/auth';
@@ -325,7 +326,7 @@ export default function AddMenuScreen() {
         : (isEditMode ? 'Menu modifié avec succès' : 'Menu ajouté à la bibliothèque');
 
       showAlert('Succès', successMessage, [
-        { text: 'OK', onPress: () => router.back() },
+        { text: 'OK', onPress: () => safeBack('/(provider)/library') },
       ]);
     } catch (err: any) {
       console.error('Error saving library menu:', err);
@@ -349,7 +350,7 @@ export default function AddMenuScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => safeBack('/(provider)/library')} style={styles.backButton}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{isEditMode ? 'Modifier le menu' : 'Nouveau menu'}</Text>

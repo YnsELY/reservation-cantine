@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { supabase, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { ArrowLeft } from 'lucide-react-native';
@@ -187,7 +188,7 @@ export default function MyMealsScreen() {
     >
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => safeBack('/(parent)')} style={styles.backButton}>
             <ArrowLeft size={24} color="#111827" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Mes repas</Text>

@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
+﻿import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { ArrowLeft, Check, ChefHat, Edit, XCircle } from 'lucide-react-native';
 import { authService } from '@/lib/auth';
 import { Menu, supabase } from '@/lib/supabase';
@@ -136,7 +137,7 @@ export default function ProviderWeekScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => safeBack('/(provider)')} style={styles.backButton}>
           <ArrowLeft size={28} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Voir ma semaine</Text>

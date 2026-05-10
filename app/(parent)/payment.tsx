@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Platform }
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { WebView, WebViewNavigation } from 'react-native-webview';
 import { ArrowLeft, X, RefreshCw, CheckCircle, XCircle, AlertCircle } from 'lucide-react-native';
 import { payzoneService } from '@/lib/payzone';
@@ -107,7 +108,7 @@ export default function PaymentScreen() {
         {
           text: 'Oui, annuler',
           style: 'destructive',
-          onPress: () => router.back(),
+          onPress: () => safeBack('/(parent)'),
         },
       ]
     );
@@ -124,7 +125,7 @@ export default function PaymentScreen() {
   };
 
   const handleGoBack = () => {
-    router.back();
+    safeBack('/(parent)');
   };
 
   // Écran de chargement

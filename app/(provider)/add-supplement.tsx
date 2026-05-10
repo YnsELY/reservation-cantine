@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Activi
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { supabase, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { ArrowLeft, Check, Package } from 'lucide-react-native';
@@ -128,7 +129,7 @@ export default function AddSupplementScreen() {
         [
           {
             text: 'OK',
-            onPress: () => router.back(),
+            onPress: () => safeBack('/(provider)/library'),
           },
         ]
       );
@@ -153,7 +154,7 @@ export default function AddSupplementScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => safeBack('/(provider)/library')} style={styles.backButton}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Ajouter un supplément</Text>

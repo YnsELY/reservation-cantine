@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { supabase, Provider, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { ArrowLeft, Building2, MapPin, Mail, Phone, Search } from 'lucide-react-native';
@@ -78,7 +79,7 @@ export default function ProviderSchools() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => safeBack('/(provider)')} style={styles.backButton}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
       </View>

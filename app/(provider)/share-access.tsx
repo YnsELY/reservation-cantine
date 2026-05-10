@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { copyToClipboard } from '@/lib/clipboard';
@@ -151,7 +152,7 @@ export default function ShareAccessScreen() {
       <View style={styles.topSection}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => safeBack('/(provider)')}
         >
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>

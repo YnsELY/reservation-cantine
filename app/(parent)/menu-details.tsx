@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { supabase, Child, Menu, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { ChevronLeft, ShoppingCart, AlertCircle, CheckSquare, Square } from 'lucide-react-native';
@@ -152,7 +153,7 @@ export default function MenuDetailsScreen() {
 
       if (error) throw error;
 
-      router.back();
+      safeBack('/(parent)');
     } catch (err) {
       console.error('Error adding to cart:', err);
       setError('Erreur lors de l\'ajout au panier');
@@ -199,7 +200,7 @@ export default function MenuDetailsScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => safeBack('/(parent)')}
         >
           <ChevronLeft size={24} color="#111827" />
         </TouchableOpacity>

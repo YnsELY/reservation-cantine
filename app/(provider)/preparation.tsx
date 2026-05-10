@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+﻿import { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { supabase, Menu } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { aggregateOrderSupplements, getSupplementAggregateTotal, SupplementAggregate } from '@/lib/order-supplements';
@@ -261,7 +262,7 @@ export default function ProviderDashboard() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.topHeader}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => safeBack('/(provider)')}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Menus à préparer</Text>

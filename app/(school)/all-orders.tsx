@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { supabase, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { ArrowLeft, ShoppingBag, User, Users, UtensilsCrossed, Search, X, ChevronDown, FileSpreadsheet } from 'lucide-react-native';
@@ -213,7 +214,7 @@ export default function AllOrders() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => safeBack('/(school)')}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
         <TouchableOpacity

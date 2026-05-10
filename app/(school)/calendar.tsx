@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { supabase, Menu, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { ChevronLeft, ChevronRight, ArrowLeft, Users, UtensilsCrossed, ShoppingBag } from 'lucide-react-native';
@@ -240,7 +241,7 @@ export default function SchoolDashboard() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.topHeader}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => safeBack('/(school)')}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
       </View>

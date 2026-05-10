@@ -12,6 +12,7 @@ import {
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { ArrowLeft, Save, X, CircleCheck as CheckCircle, ChevronDown, Plus } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 
@@ -140,7 +141,7 @@ export default function EditChildScreen() {
       if (error) throw error;
       if (!data) {
         showAlert('Erreur', 'Enfant non trouvé');
-        router.back();
+        safeBack('/(parent)/profile');
         return;
       }
 
@@ -296,7 +297,7 @@ export default function EditChildScreen() {
       setShowSuccessMessage(true);
       setTimeout(() => {
         setShowSuccessMessage(false);
-        router.back();
+        safeBack('/(parent)/profile');
       }, 2000);
     } catch (err) {
       console.error('Error updating child:', err);
@@ -317,7 +318,7 @@ export default function EditChildScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => safeBack('/(parent)/profile')} style={styles.backButton}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Modifier le profil</Text>

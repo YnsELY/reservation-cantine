@@ -3,6 +3,7 @@ import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacit
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Package, Plus, X } from 'lucide-react-native';
 import { authService } from '@/lib/auth';
 import { Provider, ProviderMenuLibrary, supabase } from '@/lib/supabase';
@@ -526,7 +527,7 @@ export default function CreateWeekScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => safeBack('/(provider)')} style={styles.backButton}>
           <ArrowLeft size={28} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{params.editDate ? formatDayTitle(params.editDate) : 'Créer ma semaine'}</Text>

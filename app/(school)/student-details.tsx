@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { ArrowLeft, User, Calendar, Phone, Mail, School as SchoolIcon } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
@@ -152,7 +153,7 @@ export default function StudentDetailsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => safeBack('/(school)/students')}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Détails de l'élève</Text>

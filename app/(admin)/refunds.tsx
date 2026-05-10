@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { ArrowLeft, Calendar, User, ShoppingBag, Phone, Mail, Undo2, CheckCircle2 } from 'lucide-react-native';
@@ -167,7 +168,7 @@ export default function AdminRefundsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.topSection}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => safeBack('/(admin)')}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.badge}>

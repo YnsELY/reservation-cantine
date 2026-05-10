@@ -1,13 +1,14 @@
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+﻿import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { ArrowLeft } from 'lucide-react-native';
 
 export default function CgvScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => safeBack('/auth')} style={styles.backButton}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>CGV</Text>

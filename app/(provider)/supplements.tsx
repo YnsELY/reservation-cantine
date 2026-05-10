@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { supabase, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { ArrowLeft, Plus, Trash2, Package, CheckCircle, XCircle } from 'lucide-react-native';
@@ -180,7 +181,7 @@ export default function ProviderSupplements() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => safeBack('/(provider)')} style={styles.backButton}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
       </View>

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { supabase, CartItem, Child, Menu, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { sendOrderConfirmationEmail } from '@/lib/emails';
@@ -267,7 +268,7 @@ export default function CartScreen() {
               }
 
               showAlert('Succès', 'Commande test créée avec succès !', [
-                { text: 'OK', onPress: () => router.back() },
+                { text: 'OK', onPress: () => safeBack('/(parent)') },
               ]);
             } catch (err) {
               console.error('Error creating test order:', err);
@@ -292,7 +293,7 @@ export default function CartScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.topSection}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => safeBack('/(parent)')} style={styles.backButton}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.badge}>
@@ -308,7 +309,7 @@ export default function CartScreen() {
           <Text style={styles.emptyText}>Ajoutez des repas pour commencer</Text>
           <TouchableOpacity
             style={styles.browseButton}
-            onPress={() => router.back()}
+            onPress={() => safeBack('/(parent)')}
           >
             <Text style={styles.browseButtonText}>Parcourir les menus</Text>
           </TouchableOpacity>

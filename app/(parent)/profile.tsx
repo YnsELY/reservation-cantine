@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { supabase, Parent, Child, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { User, LogOut, Users, Plus, ArrowLeft, X, School as SchoolIcon, Trash2 } from 'lucide-react-native';
@@ -198,7 +199,7 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => safeBack('/(parent)')} style={styles.backButton}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.avatarContainer}>

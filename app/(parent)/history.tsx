@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, 
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { supabase, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { Receipt, AlertCircle, History, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, XCircle } from 'lucide-react-native';
@@ -284,7 +285,7 @@ export default function HistoryScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.topSection}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => safeBack('/(parent)')} style={styles.backButton}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.badge}>

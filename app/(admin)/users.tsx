@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { Search, ArrowLeft, Users as UsersIcon, Building2, Store, ChevronDown } from 'lucide-react-native';
@@ -190,7 +191,7 @@ export default function AdminUsersScreen() {
       <View style={styles.topSection}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => safeBack('/(admin)')}
         >
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>

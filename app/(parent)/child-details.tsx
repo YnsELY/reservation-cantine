@@ -10,6 +10,7 @@ import {
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { ArrowLeft, Edit, Calendar, Clock, AlertCircle, User, ShoppingBag } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 
@@ -184,7 +185,7 @@ export default function ChildDetailsScreen() {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          onPress={() => safeBack('/(parent)/profile')}
         >
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>

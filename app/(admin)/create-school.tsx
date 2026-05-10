@@ -6,6 +6,7 @@ import {
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
@@ -157,7 +158,7 @@ export default function CreateSchoolScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.topSection}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => safeBack('/(admin)')}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.badge}>

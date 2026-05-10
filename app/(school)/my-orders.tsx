@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
+import { safeBack } from '@/lib/navigation';
 import { supabase, Reservation, Child, Menu, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { ArrowLeft, Calendar, Filter, X, Search, ChevronDown } from 'lucide-react-native';
@@ -255,7 +256,7 @@ export default function SchoolMyOrdersScreen() {
         <View style={styles.topSection}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => safeBack('/(school)')}
           >
             <ArrowLeft size={24} color="#111827" />
           </TouchableOpacity>
