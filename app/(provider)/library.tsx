@@ -70,7 +70,7 @@ const groupSupplementsByContent = (supplementsList: SupplementRow[]): LibrarySup
 
 const fetchMenus = async (currentProvider: Provider): Promise<LibraryMenu[]> => {
   const { data, error } = await supabase
-    .from('provider_menu_library')
+    .from('provider_menu_templates')
     .select('*')
     .eq('provider_id', currentProvider.id)
     .eq('available', true)
@@ -96,7 +96,7 @@ const fetchSupplements = async (schoolsList: SchoolAccess[], currentProvider: Pr
 
   const { data, error } = await supabase
     .from('provider_supplements')
-    .select('*, schools(name), provider_menu_library:library_menu_id(meal_name)')
+    .select('*, schools(name), provider_menu_library:provider_menu_templates!library_menu_id(meal_name)')
     .eq('provider_id', currentProvider.id)
     .in('school_id', schoolIds)
     .is('menu_id', null)
@@ -201,7 +201,7 @@ export default function ProviderLibraryScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await supabase.from('provider_menu_library').delete().eq('id', menu.id);
+            await supabase.from('provider_menu_templates').delete().eq('id', menu.id);
             await loadData();
           } catch (err) {
             console.error('Error deleting library menu:', err);
