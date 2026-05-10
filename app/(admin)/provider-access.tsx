@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput } from 'react-native';
+﻿import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -44,7 +45,7 @@ export default function ProviderAccessScreen() {
       setCodes(data || []);
     } catch (err) {
       console.error('Error loading codes:', err);
-      Alert.alert('Erreur', 'Impossible de charger les codes');
+      showAlert('Erreur', 'Impossible de charger les codes');
     } finally {
       setLoading(false);
     }
@@ -65,7 +66,7 @@ export default function ProviderAccessScreen() {
 
   const handleCreateCode = async () => {
     if (!newCode.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer un code');
+      showAlert('Erreur', 'Veuillez entrer un code');
       return;
     }
 
@@ -89,20 +90,20 @@ export default function ProviderAccessScreen() {
 
       if (error) {
         if (error.code === '23505') {
-          Alert.alert('Erreur', 'Ce code existe déjà');
+          showAlert('Erreur', 'Ce code existe déjà');
         } else {
           throw error;
         }
         return;
       }
 
-      Alert.alert('Succès', 'Code créé avec succès');
+      showAlert('Succès', 'Code créé avec succès');
       setNewCode('');
       setNewDescription('');
       loadCodes();
     } catch (err) {
       console.error('Error creating code:', err);
-      Alert.alert('Erreur', 'Impossible de créer le code');
+      showAlert('Erreur', 'Impossible de créer le code');
     } finally {
       setIsCreating(false);
     }
@@ -117,21 +118,21 @@ export default function ProviderAccessScreen() {
 
       if (error) throw error;
 
-      Alert.alert('Succès', code.is_active ? 'Code désactivé' : 'Code activé');
+      showAlert('Succès', code.is_active ? 'Code désactivé' : 'Code activé');
       loadCodes();
     } catch (err) {
       console.error('Error toggling code status:', err);
-      Alert.alert('Erreur', 'Impossible de modifier le statut');
+      showAlert('Erreur', 'Impossible de modifier le statut');
     }
   };
 
   const handleCopyCode = async (code: string) => {
     try {
       await copyToClipboard(code);
-      Alert.alert('Succès', 'Code copié dans le presse-papier');
+      showAlert('Succès', 'Code copié dans le presse-papier');
     } catch (err) {
       console.error('Error copying code:', err);
-      Alert.alert('Erreur', 'Impossible de copier le code');
+      showAlert('Erreur', 'Impossible de copier le code');
     }
   };
 

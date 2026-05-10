@@ -2,13 +2,14 @@ import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
+import { AlertProvider } from '@/lib/alert';
 import 'react-native-url-polyfill/auto';
 
 export default function RootLayout() {
   useFrameworkReady();
 
   return (
-    <>
+    <AlertProvider>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="auth" options={{ headerShown: false }} />
@@ -20,6 +21,6 @@ export default function RootLayout() {
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
-    </>
+    </AlertProvider>
   );
 }

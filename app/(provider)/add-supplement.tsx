@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
+﻿import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Provider } from '@/lib/supabase';
@@ -89,17 +90,17 @@ export default function AddSupplementScreen() {
 
   const handleSave = async () => {
     if (!name.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer un nom pour le supplément');
+      showAlert('Erreur', 'Veuillez entrer un nom pour le supplément');
       return;
     }
 
     if (!price.trim() || isNaN(Number(price)) || Number(price) < 0) {
-      Alert.alert('Erreur', 'Veuillez entrer un prix valide');
+      showAlert('Erreur', 'Veuillez entrer un prix valide');
       return;
     }
 
     if (selectedSchools.length === 0) {
-      Alert.alert('Erreur', 'Veuillez sélectionner au moins une école');
+      showAlert('Erreur', 'Veuillez sélectionner au moins une école');
       return;
     }
 
@@ -121,7 +122,7 @@ export default function AddSupplementScreen() {
 
       if (error) throw error;
 
-      Alert.alert(
+      showAlert(
         'Succès',
         'Supplément ajouté avec succès',
         [
@@ -133,7 +134,7 @@ export default function AddSupplementScreen() {
       );
     } catch (err: any) {
       console.error('Error saving supplement:', err);
-      Alert.alert('Erreur', err.message || 'Erreur lors de l\'enregistrement');
+      showAlert('Erreur', err.message || 'Erreur lors de l\'enregistrement');
     } finally {
       setSaving(false);
     }

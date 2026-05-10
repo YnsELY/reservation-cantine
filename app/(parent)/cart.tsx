@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+﻿import { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, CartItem, Child, Menu, Parent } from '@/lib/supabase';
@@ -83,10 +84,10 @@ export default function CartScreen() {
       if (error) throw error;
 
       setCartItems(cartItems.filter(item => item.id !== itemId));
-      Alert.alert('Succès', 'Article retiré du panier');
+      showAlert('Succès', 'Article retiré du panier');
     } catch (err) {
       console.error('Error removing item:', err);
-      Alert.alert('Erreur', 'Erreur lors de la suppression');
+      showAlert('Erreur', 'Erreur lors de la suppression');
     }
   };
 
@@ -145,7 +146,7 @@ export default function CartScreen() {
 
     } catch (err) {
       console.error('Error processing payment:', err);
-      Alert.alert(
+      showAlert(
         'Erreur',
         err instanceof Error ? err.message : 'Erreur lors de l\'initialisation du paiement'
       );
@@ -157,7 +158,7 @@ export default function CartScreen() {
   const handleTestOrder = async () => {
     if (cartItems.length === 0 || !parent) return;
 
-    Alert.alert(
+    showAlert(
       'Commande test',
       'Créer les réservations sans passer par le paiement ?',
       [
@@ -265,12 +266,12 @@ export default function CartScreen() {
                 console.error('Error sending test notifications:', notifError);
               }
 
-              Alert.alert('Succès', 'Commande test créée avec succès !', [
+              showAlert('Succès', 'Commande test créée avec succès !', [
                 { text: 'OK', onPress: () => router.back() },
               ]);
             } catch (err) {
               console.error('Error creating test order:', err);
-              Alert.alert('Erreur', 'Erreur lors de la création de la commande test');
+              showAlert('Erreur', 'Erreur lors de la création de la commande test');
             } finally {
               setProcessingPayment(false);
             }

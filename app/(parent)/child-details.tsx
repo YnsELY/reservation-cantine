@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Edit, Calendar, Clock, AlertCircle, User, ShoppingBag } from 'lucide-react-native';
@@ -120,7 +120,7 @@ export default function ChildDetailsScreen() {
 
     } catch (error: any) {
       console.error('Error loading child data:', error);
-      Alert.alert('Erreur', 'Impossible de charger les données de l\'enfant');
+      showAlert('Erreur', 'Impossible de charger les données de l\'enfant');
     } finally {
       setLoading(false);
     }

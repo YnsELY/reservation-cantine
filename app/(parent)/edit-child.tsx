@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,9 +7,9 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Alert,
   Modal,
 } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Save, X, CircleCheck as CheckCircle, ChevronDown, Plus } from 'lucide-react-native';
@@ -139,7 +139,7 @@ export default function EditChildScreen() {
 
       if (error) throw error;
       if (!data) {
-        Alert.alert('Erreur', 'Enfant non trouvé');
+        showAlert('Erreur', 'Enfant non trouvé');
         router.back();
         return;
       }
@@ -158,7 +158,7 @@ export default function EditChildScreen() {
       setAllergies(Array.isArray(data.allergies) ? data.allergies : []);
     } catch (error: any) {
       console.error('Error loading child:', error);
-      Alert.alert('Erreur', 'Impossible de charger les données de l\'enfant');
+      showAlert('Erreur', 'Impossible de charger les données de l\'enfant');
     } finally {
       setLoading(false);
     }
@@ -267,12 +267,12 @@ export default function EditChildScreen() {
 
   const handleSave = async () => {
     if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert('Erreur', 'Veuillez renseigner le prénom et le nom');
+      showAlert('Erreur', 'Veuillez renseigner le prénom et le nom');
       return;
     }
 
     if (!isAgeCompatibleWithGrade()) {
-      Alert.alert('Erreur', 'La date de naissance ne correspond pas à la classe sélectionnée');
+      showAlert('Erreur', 'La date de naissance ne correspond pas à la classe sélectionnée');
       return;
     }
 
@@ -300,7 +300,7 @@ export default function EditChildScreen() {
       }, 2000);
     } catch (err) {
       console.error('Error updating child:', err);
-      Alert.alert('Erreur', 'Erreur lors de la mise à jour');
+      showAlert('Erreur', 'Erreur lors de la mise à jour');
     } finally {
       setSaving(false);
     }

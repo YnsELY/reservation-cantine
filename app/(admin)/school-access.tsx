@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput, Modal } from 'react-native';
+﻿import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Modal } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -46,7 +47,7 @@ export default function SchoolAccessScreen() {
       setSchools(schoolsData || []);
     } catch (err) {
       console.error('Error loading schools:', err);
-      Alert.alert('Erreur', 'Impossible de charger les écoles');
+      showAlert('Erreur', 'Impossible de charger les écoles');
     } finally {
       setLoading(false);
     }
@@ -72,7 +73,7 @@ export default function SchoolAccessScreen() {
 
   const handleUpdateCode = async () => {
     if (!editingSchool || !newCode.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer un code valide');
+      showAlert('Erreur', 'Veuillez entrer un code valide');
       return;
     }
 
@@ -90,7 +91,7 @@ export default function SchoolAccessScreen() {
       if (checkError) throw checkError;
 
       if (existingSchool) {
-        Alert.alert('Erreur', 'Ce code est déjà utilisé par une autre école');
+        showAlert('Erreur', 'Ce code est déjà utilisé par une autre école');
         setIsUpdating(false);
         return;
       }
@@ -102,13 +103,13 @@ export default function SchoolAccessScreen() {
 
       if (updateError) throw updateError;
 
-      Alert.alert('Succès', 'Code mis à jour avec succès');
+      showAlert('Succès', 'Code mis à jour avec succès');
       setEditingSchool(null);
       setNewCode('CreateSchool2025');
       loadSchools();
     } catch (err) {
       console.error('Error updating code:', err);
-      Alert.alert('Erreur', 'Impossible de mettre à jour le code');
+      showAlert('Erreur', 'Impossible de mettre à jour le code');
     } finally {
       setIsUpdating(false);
     }
@@ -116,7 +117,7 @@ export default function SchoolAccessScreen() {
 
   const handleCreateCode = async () => {
     if (!createCode.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer un code');
+      showAlert('Erreur', 'Veuillez entrer un code');
       return;
     }
 
@@ -140,19 +141,19 @@ export default function SchoolAccessScreen() {
 
       if (error) {
         if (error.code === '23505') {
-          Alert.alert('Erreur', 'Ce code existe déjà');
+          showAlert('Erreur', 'Ce code existe déjà');
         } else {
           throw error;
         }
         return;
       }
 
-      Alert.alert('Succès', 'Code créé avec succès');
+      showAlert('Succès', 'Code créé avec succès');
       setCreateCode('');
       setCreateDescription('');
     } catch (err) {
       console.error('Error creating code:', err);
-      Alert.alert('Erreur', 'Impossible de créer le code');
+      showAlert('Erreur', 'Impossible de créer le code');
     } finally {
       setIsCreating(false);
     }
@@ -161,10 +162,10 @@ export default function SchoolAccessScreen() {
   const handleCopyCode = async (code: string) => {
     try {
       await copyToClipboard(code);
-      Alert.alert('Succès', 'Code copié dans le presse-papier');
+      showAlert('Succès', 'Code copié dans le presse-papier');
     } catch (err) {
       console.error('Error copying code:', err);
-      Alert.alert('Erreur', 'Impossible de copier le code');
+      showAlert('Erreur', 'Impossible de copier le code');
     }
   };
 

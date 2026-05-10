@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+﻿import { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Provider } from '@/lib/supabase';
@@ -133,7 +134,7 @@ export default function ProviderSupplements() {
       ? `Ce supplément sera supprimé pour ${schoolNames.length} école(s) : ${schoolNames.join(', ')}`
       : 'Êtes-vous sûr de vouloir supprimer ce supplément ?';
 
-    Alert.alert(
+    showAlert(
       'Supprimer le supplément',
       message,
       [

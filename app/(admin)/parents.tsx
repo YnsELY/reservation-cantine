@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, RefreshControl, Modal } from 'react-native';
+﻿import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Modal } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Parent } from '@/lib/supabase';
@@ -65,12 +66,12 @@ export default function ParentsManagement() {
 
   const handleCreateParent = async () => {
     if (!newParent.first_name || !newParent.last_name) {
-      Alert.alert('Erreur', 'Le prénom et le nom sont requis');
+      showAlert('Erreur', 'Le prénom et le nom sont requis');
       return;
     }
 
     if (!currentAdmin?.school_id) {
-      Alert.alert('Erreur', 'École non définie');
+      showAlert('Erreur', 'École non définie');
       return;
     }
 
@@ -98,7 +99,7 @@ export default function ParentsManagement() {
 
       if (insertError) throw insertError;
 
-      Alert.alert(
+      showAlert(
         'Succès',
         `Parent créé avec succès!\n\nCode d'accès: ${accessCode}\n\nPartagez ce code avec le parent.`,
         [{ text: 'OK', onPress: () => {
@@ -109,7 +110,7 @@ export default function ParentsManagement() {
       );
     } catch (err) {
       console.error('Error creating parent:', err);
-      Alert.alert('Erreur', 'Erreur lors de la création du parent');
+      showAlert('Erreur', 'Erreur lors de la création du parent');
     } finally {
       setCreating(false);
     }
@@ -118,10 +119,10 @@ export default function ParentsManagement() {
   const handleCopyCode = async (code: string) => {
     try {
       await copyToClipboardUtil(code);
-      Alert.alert('Succès', 'Code copié dans le presse-papier');
+      showAlert('Succès', 'Code copié dans le presse-papier');
     } catch (err) {
       console.error('Error copying code:', err);
-      Alert.alert('Erreur', 'Impossible de copier le code');
+      showAlert('Erreur', 'Impossible de copier le code');
     }
   };
 

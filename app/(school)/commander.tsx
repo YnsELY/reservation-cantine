@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, FlatList, Image } from 'react-native';
+﻿import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, FlatList, Image } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase, Child, Menu, School } from '@/lib/supabase';
@@ -105,7 +106,7 @@ export default function SchoolCommanderScreen() {
 
   const handleSubmit = async () => {
     if (!selectedMenu || selectedChildren.size === 0) {
-      Alert.alert('Erreur', 'Veuillez sélectionner un menu et au moins un élève');
+      showAlert('Erreur', 'Veuillez sélectionner un menu et au moins un élève');
       return;
     }
 
@@ -133,7 +134,7 @@ export default function SchoolCommanderScreen() {
 
       if (error) throw error;
 
-      Alert.alert(
+      showAlert(
         'Succès',
         `${selectedChildren.size} commande(s) créée(s) avec succès`,
         [
@@ -149,7 +150,7 @@ export default function SchoolCommanderScreen() {
       );
     } catch (err) {
       console.error('Error creating orders:', err);
-      Alert.alert('Erreur', 'Impossible de créer les commandes');
+      showAlert('Erreur', 'Impossible de créer les commandes');
     } finally {
       setSubmitting(false);
     }

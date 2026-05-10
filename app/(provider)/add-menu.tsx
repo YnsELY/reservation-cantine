@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+﻿import { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Camera, Check, ImageIcon, Plus, Trash2, X } from 'lucide-react-native';
@@ -114,7 +115,7 @@ export default function AddMenuScreen() {
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission refusée', 'Nous avons besoin de votre permission pour accéder à la galerie');
+      showAlert('Permission refusée', 'Nous avons besoin de votre permission pour accéder à la galerie');
       return;
     }
 
@@ -133,7 +134,7 @@ export default function AddMenuScreen() {
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission refusée', 'Nous avons besoin de votre permission pour accéder à la caméra');
+      showAlert('Permission refusée', 'Nous avons besoin de votre permission pour accéder à la caméra');
       return;
     }
 
@@ -182,12 +183,12 @@ export default function AddMenuScreen() {
 
   const addMenuSpecificSupplement = () => {
     if (!newSupplementName.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer un nom pour le supplément');
+      showAlert('Erreur', 'Veuillez entrer un nom pour le supplément');
       return;
     }
 
     if (!newSupplementPrice || isNaN(parseFloat(newSupplementPrice))) {
-      Alert.alert('Erreur', 'Veuillez entrer un prix valide pour le supplément');
+      showAlert('Erreur', 'Veuillez entrer un prix valide pour le supplément');
       return;
     }
 
@@ -242,22 +243,22 @@ export default function AddMenuScreen() {
     if (saving) return;
 
     if (!provider) {
-      Alert.alert('Erreur', 'Prestataire introuvable');
+      showAlert('Erreur', 'Prestataire introuvable');
       return;
     }
 
     if (!mealName.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer un nom de repas');
+      showAlert('Erreur', 'Veuillez entrer un nom de repas');
       return;
     }
 
     if (!price || isNaN(parseFloat(price))) {
-      Alert.alert('Erreur', 'Veuillez entrer un prix valide');
+      showAlert('Erreur', 'Veuillez entrer un prix valide');
       return;
     }
 
     if (schools.length === 0) {
-      Alert.alert('Erreur', 'Aucune école associée à ce prestataire');
+      showAlert('Erreur', 'Aucune école associée à ce prestataire');
       return;
     }
 
@@ -316,20 +317,20 @@ export default function AddMenuScreen() {
         await saveSpecificSupplements(targetLibraryMenuId);
       } catch (suppErr: any) {
         console.error('Error saving menu specific supplements:', suppErr);
-        Alert.alert('Avertissement', 'Le menu a été enregistré, mais les suppléments spécifiques n\'ont pas pu être sauvegardés.');
+        showAlert('Avertissement', 'Le menu a été enregistré, mais les suppléments spécifiques n\'ont pas pu être sauvegardés.');
       }
 
       const successMessage = imageWarning
         ? (isEditMode ? 'Menu modifié (image non téléchargée)' : 'Menu ajouté à la bibliothèque (image non téléchargée)')
         : (isEditMode ? 'Menu modifié avec succès' : 'Menu ajouté à la bibliothèque');
 
-      Alert.alert('Succès', successMessage, [
+      showAlert('Succès', successMessage, [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (err: any) {
       console.error('Error saving library menu:', err);
       const message = err?.message || err?.details || err?.hint || 'Erreur lors de l\'enregistrement';
-      Alert.alert('Erreur', message);
+      showAlert('Erreur', message);
     } finally {
       setSaving(false);
     }

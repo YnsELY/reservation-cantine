@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Alert, Image } from 'react-native';
+﻿import { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Image } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Menu, Provider } from '@/lib/supabase';
@@ -216,7 +217,7 @@ export default function ProviderMenus() {
       ? `Ce menu sera supprimé pour ${schoolNames.length} école(s) : ${schoolNames.join(', ')}`
       : 'Êtes-vous sûr de vouloir supprimer ce menu ?';
 
-    Alert.alert(
+    showAlert(
       'Supprimer le menu',
       message,
       [

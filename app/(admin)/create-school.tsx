@@ -1,8 +1,9 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert, TextInput,
+  ActivityIndicator, TextInput,
 } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { createClient } from '@supabase/supabase-js';
@@ -60,23 +61,23 @@ export default function CreateSchoolScreen() {
     if (!password) return;
     try {
       await copyToClipboard(password);
-      Alert.alert('Copié', 'Mot de passe copié dans le presse-papier');
+      showAlert('Copié', 'Mot de passe copié dans le presse-papier');
     } catch {
-      Alert.alert('Erreur', 'Impossible de copier');
+      showAlert('Erreur', 'Impossible de copier');
     }
   };
 
   const handleCreateSchool = async () => {
     if (!schoolName.trim()) {
-      Alert.alert('Erreur', "Le nom de l'école est requis");
+      showAlert('Erreur', "Le nom de l'école est requis");
       return;
     }
     if (!email.trim() || !email.includes('@')) {
-      Alert.alert('Erreur', 'Adresse email invalide');
+      showAlert('Erreur', 'Adresse email invalide');
       return;
     }
     if (!password || password.length < 8) {
-      Alert.alert('Erreur', 'Le mot de passe doit contenir au moins 8 caractères');
+      showAlert('Erreur', 'Le mot de passe doit contenir au moins 8 caractères');
       return;
     }
 
@@ -98,12 +99,12 @@ export default function CreateSchoolScreen() {
         const message = signUpError.message.includes('already registered')
           ? 'Cette adresse email est déjà utilisée'
           : signUpError.message;
-        Alert.alert('Erreur', message);
+        showAlert('Erreur', message);
         return;
       }
 
       if (!authData.user) {
-        Alert.alert('Erreur', "Impossible de créer le compte. Vérifiez que l'email est valide.");
+        showAlert('Erreur', "Impossible de créer le compte. Vérifiez que l'email est valide.");
         return;
       }
 
@@ -132,7 +133,7 @@ export default function CreateSchoolScreen() {
       setEmail('');
       setPassword('');
 
-      Alert.alert(
+      showAlert(
         'École créée !',
         `Le compte de "${capturedName}" a été créé.\n\nEmail : ${capturedEmail}\nMot de passe temporaire : ${capturedPassword}\n\nCommuniquez ces identifiants à l'école.`,
         [
@@ -147,7 +148,7 @@ export default function CreateSchoolScreen() {
       );
     } catch (err: any) {
       console.error('Error creating school:', err);
-      Alert.alert('Erreur', err.message || "Impossible de créer l'école");
+      showAlert('Erreur', err.message || "Impossible de créer l'école");
     } finally {
       setIsCreating(false);
     }

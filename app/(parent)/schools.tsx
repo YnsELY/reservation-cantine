@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert } from 'react-native';
+﻿import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Parent, School } from '@/lib/supabase';
@@ -51,7 +52,7 @@ export default function SchoolsListScreen() {
       setFilteredSchools(affiliatedSchools);
     } catch (err) {
       console.error('Error loading data:', err);
-      Alert.alert('Erreur', 'Erreur lors du chargement des écoles');
+      showAlert('Erreur', 'Erreur lors du chargement des écoles');
     } finally {
       setLoading(false);
     }

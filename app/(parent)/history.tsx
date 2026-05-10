@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Modal, Pressable, Alert } from 'react-native';
+﻿import { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Parent } from '@/lib/supabase';
@@ -133,7 +134,7 @@ export default function HistoryScreen() {
   };
 
   const handleCancelReservation = (reservation: ReservationWithDetails) => {
-    Alert.alert(
+    showAlert(
       'Annuler la commande',
       `Voulez-vous vraiment annuler la commande "${reservation.menu.meal_name}" du ${new Date(reservation.date).toLocaleDateString('fr-FR')} ? Le remboursement sera traité par l'administrateur.`,
       [
@@ -156,10 +157,10 @@ export default function HistoryScreen() {
               if (error) throw error;
 
               await loadData();
-              Alert.alert('Commande annulée', 'Votre commande a été annulée. Le remboursement sera traité prochainement.');
+              showAlert('Commande annulée', 'Votre commande a été annulée. Le remboursement sera traité prochainement.');
             } catch (err: any) {
               console.error('Error cancelling reservation:', err);
-              Alert.alert('Erreur', err.message || "Impossible d'annuler la commande");
+              showAlert('Erreur', err.message || "Impossible d'annuler la commande");
             } finally {
               setCancellingId(null);
             }

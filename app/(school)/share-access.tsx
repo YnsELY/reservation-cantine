@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Share } from 'react-native';
+﻿import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Share } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { School } from '@/lib/supabase';
@@ -36,10 +37,10 @@ export default function ShareAccessScreen() {
 
     try {
       await copyToClipboard(school.access_code);
-      Alert.alert('Succès', 'Code copié dans le presse-papier');
+      showAlert('Succès', 'Code copié dans le presse-papier');
     } catch (err) {
       console.error('Error copying code:', err);
-      Alert.alert('Erreur', 'Impossible de copier le code');
+      showAlert('Erreur', 'Impossible de copier le code');
     }
   };
 

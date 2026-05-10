@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+﻿import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Package, Plus, X } from 'lucide-react-native';
@@ -424,18 +425,18 @@ export default function CreateWeekScreen() {
     if (!provider || saving) return;
 
     if (selectedSchools.length === 0) {
-      Alert.alert('Erreur', 'Veuillez sélectionner au moins une école');
+      showAlert('Erreur', 'Veuillez sélectionner au moins une école');
       return;
     }
 
     if (selectedDates.length === 0) {
-      Alert.alert('Erreur', 'Veuillez sélectionner au moins un jour');
+      showAlert('Erreur', 'Veuillez sélectionner au moins un jour');
       return;
     }
 
     const emptyDay = selectedDates.find(date => (dayConfigs[date]?.menuIds || []).length === 0);
     if (emptyDay) {
-      Alert.alert('Erreur', `Ajoutez au moins un menu pour ${formatDayTitle(emptyDay)}`);
+      showAlert('Erreur', `Ajoutez au moins un menu pour ${formatDayTitle(emptyDay)}`);
       return;
     }
 
@@ -499,12 +500,12 @@ export default function CreateWeekScreen() {
         }
       }
 
-      Alert.alert('Succès', 'Semaine enregistrée et publiée côté parents', [
+      showAlert('Succès', 'Semaine enregistrée et publiée côté parents', [
         { text: 'OK', onPress: () => router.replace('/(provider)/week' as any) },
       ]);
     } catch (err: any) {
       console.error('Error saving week:', err);
-      Alert.alert('Erreur', err.message || 'Erreur lors de l\'enregistrement de la semaine');
+      showAlert('Erreur', err.message || 'Erreur lors de l\'enregistrement de la semaine');
     } finally {
       setSaving(false);
     }

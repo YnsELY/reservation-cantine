@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as XLSX from 'xlsx';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Modal } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -314,7 +315,7 @@ export default function MenuOrdersScreen() {
   const handleExport = async () => {
     const ordersToExport = getOrdersForExport();
     if (ordersToExport.length === 0) {
-      Alert.alert('Export impossible', 'Aucune commande à exporter pour cette sélection.');
+      showAlert('Export impossible', 'Aucune commande à exporter pour cette sélection.');
       return;
     }
 
@@ -355,7 +356,7 @@ export default function MenuOrdersScreen() {
             UTI: 'org.openxmlformats.spreadsheetml.sheet',
           });
         } else {
-          Alert.alert('Export prêt', `Le fichier Excel a été généré : ${fileName}`);
+          showAlert('Export prêt', `Le fichier Excel a été généré : ${fileName}`);
         }
       } else {
         const csvContent = [
@@ -377,14 +378,14 @@ export default function MenuOrdersScreen() {
             UTI: 'public.comma-separated-values-text',
           });
         } else {
-          Alert.alert('Export prêt', `Le fichier CSV a été généré : ${fileName}`);
+          showAlert('Export prêt', `Le fichier CSV a été généré : ${fileName}`);
         }
       }
 
       setShowExportModal(false);
     } catch (error) {
       console.error('Error exporting orders:', error);
-      Alert.alert('Erreur', 'Impossible de générer le fichier.');
+      showAlert('Erreur', 'Impossible de générer le fichier.');
     } finally {
       setExporting(false);
     }

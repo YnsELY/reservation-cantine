@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput, Alert } from 'react-native';
+﻿import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase, Parent, Child, School } from '@/lib/supabase';
@@ -83,7 +84,7 @@ export default function ProfileScreen() {
 
   const handleAddSchool = async () => {
     if (!schoolIdentifier.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer un identifiant d\'école');
+      showAlert('Erreur', 'Veuillez entrer un identifiant d\'école');
       return;
     }
 
@@ -96,12 +97,12 @@ export default function ProfileScreen() {
         .maybeSingle();
 
       if (!schoolData) {
-        Alert.alert('Erreur', 'École non trouvée avec cet identifiant');
+        showAlert('Erreur', 'École non trouvée avec cet identifiant');
         return;
       }
 
       if (!parent) {
-        Alert.alert('Erreur', 'Compte parent non trouvé');
+        showAlert('Erreur', 'Compte parent non trouvé');
         return;
       }
 
@@ -113,7 +114,7 @@ export default function ProfileScreen() {
         .maybeSingle();
 
       if (existingAffiliation) {
-        Alert.alert('Information', 'Vous êtes déjà affilié à cette école');
+        showAlert('Information', 'Vous êtes déjà affilié à cette école');
         setSchoolIdentifier('');
         setShowAddSchoolModal(false);
         return;
@@ -132,17 +133,17 @@ export default function ProfileScreen() {
       await loadData();
       setSchoolIdentifier('');
       setShowAddSchoolModal(false);
-      Alert.alert('Succès', `École "${schoolData.name}" ajoutée avec succès`);
+      showAlert('Succès', `École "${schoolData.name}" ajoutée avec succès`);
     } catch (err) {
       console.error('Error adding school:', err);
-      Alert.alert('Erreur', 'Erreur lors de l\'ajout de l\'école');
+      showAlert('Erreur', 'Erreur lors de l\'ajout de l\'école');
     } finally {
       setAddingSchool(false);
     }
   };
 
   const handleDeleteChild = async (childId: string) => {
-    Alert.alert(
+    showAlert(
       'Confirmer la suppression',
       'Êtes-vous sûr de vouloir supprimer cet enfant ?',
       [
@@ -163,10 +164,10 @@ export default function ProfileScreen() {
               if (error) throw error;
 
               await loadData();
-              Alert.alert('Succès', 'Enfant supprimé avec succès');
+              showAlert('Succès', 'Enfant supprimé avec succès');
             } catch (err) {
               console.error('Error deleting child:', err);
-              Alert.alert('Erreur', 'Erreur lors de la suppression de l\'enfant');
+              showAlert('Erreur', 'Erreur lors de la suppression de l\'enfant');
             }
           },
         },

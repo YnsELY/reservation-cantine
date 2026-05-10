@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+﻿import { useCallback, useState } from 'react';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { ArrowLeft, Plus } from 'lucide-react-native';
@@ -194,7 +195,7 @@ export default function ProviderLibraryScreen() {
   };
 
   const handleDeleteMenu = (menu: LibraryMenu) => {
-    Alert.alert('Supprimer le menu', 'Ce menu sera supprimé de la bibliothèque. Les semaines déjà publiées ne seront pas modifiées.', [
+    showAlert('Supprimer le menu', 'Ce menu sera supprimé de la bibliothèque. Les semaines déjà publiées ne seront pas modifiées.', [
       { text: 'Annuler', style: 'cancel' },
       {
         text: 'Supprimer',
@@ -217,7 +218,7 @@ export default function ProviderLibraryScreen() {
       ? `Ce supplément sera supprimé pour ${supplement.school_names.length} école(s) : ${supplement.school_names.join(', ')}`
       : 'Êtes-vous sûr de vouloir supprimer ce supplément ?';
 
-    Alert.alert('Supprimer le supplément', message, [
+    showAlert('Supprimer le supplément', message, [
       { text: 'Annuler', style: 'cancel' },
       {
         text: 'Supprimer',

@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+﻿import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -102,7 +103,7 @@ export default function AdminRefundsScreen() {
   };
 
   const handleMarkRefunded = (refund: RefundData) => {
-    Alert.alert(
+    showAlert(
       'Marquer comme remboursée',
       `Confirmez-vous avoir effectué le remboursement de ${Number(refund.total_price).toFixed(2)} DH à ${refund.parent.first_name} ${refund.parent.last_name} via le dashboard PayZone ?`,
       [
@@ -127,7 +128,7 @@ export default function AdminRefundsScreen() {
               setRefunds((prev) => prev.filter((r) => r.id !== refund.id));
             } catch (err) {
               console.error('Error marking refunded:', err);
-              Alert.alert('Erreur', "Le remboursement n'a pas pu être marqué comme effectué.");
+              showAlert('Erreur', "Le remboursement n'a pas pu être marqué comme effectué.");
             } finally {
               setProcessingId(null);
             }

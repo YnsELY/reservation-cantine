@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, Platform } from 'react-native';
+﻿import { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { WebView, WebViewNavigation } from 'react-native-webview';
@@ -98,7 +99,7 @@ export default function PaymentScreen() {
   };
 
   const handleCancel = () => {
-    Alert.alert(
+    showAlert(
       'Annuler le paiement',
       'Êtes-vous sûr de vouloir annuler le paiement ?',
       [

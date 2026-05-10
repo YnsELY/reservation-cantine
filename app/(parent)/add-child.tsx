@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator, Modal } from 'react-native';
+﻿import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
+import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase, Parent, School } from '@/lib/supabase';
@@ -240,7 +241,7 @@ export default function AddChildScreen() {
 
   const handleAddSchool = async () => {
     if (!schoolIdentifier.trim() || !parent) {
-      Alert.alert('Erreur', 'Veuillez entrer un code d\'accès');
+      showAlert('Erreur', 'Veuillez entrer un code d\'accès');
       return;
     }
 
@@ -255,7 +256,7 @@ export default function AddChildScreen() {
         .maybeSingle();
 
       if (!schoolData) {
-        Alert.alert('Erreur', 'École non trouvée avec ce code d\'accès');
+        showAlert('Erreur', 'École non trouvée avec ce code d\'accès');
         return;
       }
 
@@ -267,7 +268,7 @@ export default function AddChildScreen() {
         .maybeSingle();
 
       if (existingAffiliation) {
-        Alert.alert('Information', 'Vous êtes déjà affilié à cette école');
+        showAlert('Information', 'Vous êtes déjà affilié à cette école');
         setShowAddSchoolModal(false);
         return;
       }
@@ -286,10 +287,10 @@ export default function AddChildScreen() {
       setSelectedSchool(schoolData);
       setSchoolIdentifier('');
       setShowAddSchoolModal(false);
-      Alert.alert('Succès', `École "${schoolData.name}" ajoutée avec succès`);
+      showAlert('Succès', `École "${schoolData.name}" ajoutée avec succès`);
     } catch (err) {
       console.error('Error adding school:', err);
-      Alert.alert('Erreur', 'Erreur lors de l\'ajout de l\'école');
+      showAlert('Erreur', 'Erreur lors de l\'ajout de l\'école');
     } finally {
       setAddingSchool(false);
     }
@@ -297,22 +298,22 @@ export default function AddChildScreen() {
 
   const handleSubmit = async () => {
     if (!firstName.trim() || !lastName.trim()) {
-      Alert.alert('Erreur', 'Veuillez renseigner le prénom et le nom');
+      showAlert('Erreur', 'Veuillez renseigner le prénom et le nom');
       return;
     }
 
     if (!selectedSchool) {
-      Alert.alert('Erreur', 'Veuillez sélectionner une école');
+      showAlert('Erreur', 'Veuillez sélectionner une école');
       return;
     }
 
     if (!parent) {
-      Alert.alert('Erreur', 'Parent non trouvé');
+      showAlert('Erreur', 'Parent non trouvé');
       return;
     }
 
     if (!isAgeCompatibleWithGrade()) {
-      Alert.alert('Erreur', 'La date de naissance ne correspond pas à la classe sélectionnée');
+      showAlert('Erreur', 'La date de naissance ne correspond pas à la classe sélectionnée');
       return;
     }
 
@@ -340,7 +341,7 @@ export default function AddChildScreen() {
       }, 2000);
     } catch (err) {
       console.error('Error adding child:', err);
-      Alert.alert('Erreur', 'Erreur lors de l\'ajout de l\'enfant');
+      showAlert('Erreur', 'Erreur lors de l\'ajout de l\'enfant');
     } finally {
       setSubmitting(false);
     }
