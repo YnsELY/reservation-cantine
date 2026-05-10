@@ -66,11 +66,11 @@ export function ProviderMenuCard({ menu, onEdit, onDelete }: MenuCardProps) {
 
       <View style={styles.menuActions}>
         <TouchableOpacity style={[styles.menuActionButton, styles.editAction]} onPress={onEdit}>
-          <Edit size={18} color="#FFFFFF" />
+          <Edit size={14} color="#FFFFFF" />
           <Text style={styles.primaryActionText}>Modifier</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.menuActionButton, styles.deleteAction]} onPress={onDelete}>
-          <Trash2 size={18} color="#FFFFFF" />
+          <Trash2 size={14} color="#FFFFFF" />
           <Text style={styles.primaryActionText}>Supprimer</Text>
         </TouchableOpacity>
       </View>
@@ -89,9 +89,9 @@ export function ProviderSupplementCard({ supplement, allSchoolsCount, onToggle, 
           <Text style={styles.supplementName} numberOfLines={1}>{supplement.name}</Text>
           <View style={[styles.statusBadge, supplement.available ? styles.statusActive : styles.statusInactive]}>
             {supplement.available ? (
-              <CheckCircle size={16} color="#00C781" />
+              <CheckCircle size={14} color="#10B981" />
             ) : (
-              <XCircle size={16} color="#EF4444" />
+              <XCircle size={14} color="#EF4444" />
             )}
             <Text style={[styles.statusText, supplement.available ? styles.statusTextActive : styles.statusTextInactive]}>
               {supplement.available ? 'Actif' : 'Inactif'}
@@ -124,9 +124,9 @@ export function ProviderSupplementCard({ supplement, allSchoolsCount, onToggle, 
           onPress={onToggle}
         >
           {supplement.available ? (
-            <XCircle size={18} color="#FF2D3F" />
+            <XCircle size={14} color="#EF4444" />
           ) : (
-            <CheckCircle size={18} color="#00A86B" />
+            <CheckCircle size={14} color="#10B981" />
           )}
           <Text style={[styles.toggleActionText, supplement.available ? styles.deactivateActionText : styles.activateActionText]}>
             {supplement.available ? 'Désactiver' : 'Activer'}
@@ -134,7 +134,7 @@ export function ProviderSupplementCard({ supplement, allSchoolsCount, onToggle, 
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.supplementActionButton, styles.deleteAction]} onPress={onDelete}>
-          <Trash2 size={18} color="#FFFFFF" />
+          <Trash2 size={14} color="#FFFFFF" />
           <Text style={styles.primaryActionText}>Supprimer</Text>
         </TouchableOpacity>
       </View>
@@ -145,26 +145,24 @@ export function ProviderSupplementCard({ supplement, allSchoolsCount, onToggle, 
 const styles = StyleSheet.create({
   menuCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    marginBottom: 18,
+    borderRadius: 12,
+    marginBottom: 12,
     overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.14,
-    shadowRadius: 7,
-    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   menuCardBody: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 22,
-    gap: 18,
+    padding: 16,
+    gap: 12,
   },
   menuImage: {
-    width: 106,
-    height: 106,
-    borderRadius: 11,
+    width: 70,
+    height: 70,
+    borderRadius: 12,
   },
   menuImagePlaceholder: {
     backgroundColor: '#FDE2DE',
@@ -175,121 +173,119 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   menuName: {
-    color: '#111827',
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 6,
+    color: '#1F2937',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   menuDescription: {
     color: '#6B7280',
-    fontSize: 18,
-    lineHeight: 24,
-    marginBottom: 10,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 6,
   },
   menuPrice: {
     color: '#111827',
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
   },
   menuActions: {
     flexDirection: 'row',
-    height: 56,
+    height: 40,
   },
   menuActionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
   },
   editAction: {
-    backgroundColor: '#5747F2',
+    backgroundColor: '#4F46E5',
   },
   deleteAction: {
-    backgroundColor: '#FF2D3F',
+    backgroundColor: '#EF4444',
   },
   primaryActionText: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '600',
   },
   supplementCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    marginBottom: 18,
+    borderRadius: 12,
+    marginBottom: 12,
     overflow: 'hidden',
-    borderLeftWidth: 5,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.14,
-    shadowRadius: 7,
-    elevation: 4,
+    borderLeftWidth: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   supplementCardGeneric: {
-    borderLeftColor: '#00C781',
+    borderLeftColor: '#10B981',
   },
   supplementCardSpecific: {
-    borderLeftColor: '#5747F2',
+    borderLeftColor: '#4F46E5',
   },
   supplementCardBody: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 20,
+    padding: 16,
   },
   supplementHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
-    marginBottom: 10,
+    gap: 8,
+    marginBottom: 8,
   },
   supplementName: {
     flex: 1,
-    color: '#111827',
-    fontSize: 22,
-    fontWeight: '800',
+    color: '#1F2937',
+    fontSize: 16,
+    fontWeight: '600',
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 13,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     gap: 4,
   },
   statusActive: {
-    backgroundColor: '#CFF8E3',
+    backgroundColor: '#D1FAE5',
   },
   statusInactive: {
     backgroundColor: '#FEE2E2',
   },
   statusText: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '600',
   },
   statusTextActive: {
-    color: '#00A86B',
+    color: '#10B981',
   },
   statusTextInactive: {
     color: '#EF4444',
   },
   supplementDescription: {
     color: '#6B7280',
-    fontSize: 18,
-    lineHeight: 24,
-    marginBottom: 10,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 6,
   },
   supplementPrice: {
-    color: '#111827',
-    fontSize: 20,
-    fontWeight: '800',
-    marginBottom: 12,
+    color: '#F59E0B',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 8,
   },
   schoolBadge: {
     alignSelf: 'flex-start',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     maxWidth: '100%',
   },
   schoolBadgeGeneric: {
@@ -299,8 +295,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF2FF',
   },
   schoolBadgeText: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '600',
   },
   schoolBadgeTextGeneric: {
     color: '#4F46E5',
@@ -310,43 +306,43 @@ const styles = StyleSheet.create({
   },
   menuBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#D8EBFF',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    marginBottom: 14,
+    backgroundColor: '#DBEAFE',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 8,
     maxWidth: '100%',
   },
   menuBadgeText: {
     color: '#1D4ED8',
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '600',
   },
   supplementActions: {
     flexDirection: 'row',
-    height: 56,
+    height: 40,
   },
   supplementActionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
   },
   deactivateAction: {
-    backgroundColor: '#FFE0E0',
+    backgroundColor: '#FEE2E2',
   },
   activateAction: {
     backgroundColor: '#D1FAE5',
   },
   toggleActionText: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '600',
   },
   deactivateActionText: {
-    color: '#FF2D3F',
+    color: '#EF4444',
   },
   activateActionText: {
-    color: '#00A86B',
+    color: '#10B981',
   },
 });

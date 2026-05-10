@@ -262,14 +262,16 @@ export default function AddMenuScreen() {
     }
 
     setSaving(true);
+    let imageWarning = false;
     try {
       let imageUrl = existingImageUrl;
 
       if (imageUri) {
-        imageUrl = await uploadImage(imageUri);
-        if (!imageUrl) {
-          Alert.alert('Avertissement', 'L\'image n\'a pas pu être téléchargée. Le menu sera enregistré sans nouvelle image.');
-          imageUrl = existingImageUrl;
+        const uploaded = await uploadImage(imageUri);
+        if (uploaded) {
+          imageUrl = uploaded;
+        } else {
+          imageWarning = true;
         }
       }
 
@@ -300,19 +302,34 @@ export default function AddMenuScreen() {
           .select('id')
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Insert provider_menu_library failed:', error);
+          throw error;
+        }
+        if (!data?.id) throw new Error('Aucun identifiant retourné après création du menu');
         targetLibraryMenuId = data.id;
       }
 
       if (!targetLibraryMenuId) throw new Error('Menu bibliothèque introuvable');
-      await saveSpecificSupplements(targetLibraryMenuId);
 
-      Alert.alert('Succès', isEditMode ? 'Menu modifié avec succès' : 'Menu ajouté à la bibliothèque', [
+      try {
+        await saveSpecificSupplements(targetLibraryMenuId);
+      } catch (suppErr: any) {
+        console.error('Error saving menu specific supplements:', suppErr);
+        Alert.alert('Avertissement', 'Le menu a été enregistré, mais les suppléments spécifiques n\'ont pas pu être sauvegardés.');
+      }
+
+      const successMessage = imageWarning
+        ? (isEditMode ? 'Menu modifié (image non téléchargée)' : 'Menu ajouté à la bibliothèque (image non téléchargée)')
+        : (isEditMode ? 'Menu modifié avec succès' : 'Menu ajouté à la bibliothèque');
+
+      Alert.alert('Succès', successMessage, [
         { text: 'OK', onPress: () => router.back() },
       ]);
     } catch (err: any) {
       console.error('Error saving library menu:', err);
-      Alert.alert('Erreur', err.message || 'Erreur lors de l\'enregistrement');
+      const message = err?.message || err?.details || err?.hint || 'Erreur lors de l\'enregistrement';
+      Alert.alert('Erreur', message);
     } finally {
       setSaving(false);
     }

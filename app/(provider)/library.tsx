@@ -69,12 +69,17 @@ const groupSupplementsByContent = (supplementsList: SupplementRow[]): LibrarySup
 };
 
 const fetchMenus = async (currentProvider: Provider): Promise<LibraryMenu[]> => {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('provider_menu_library')
     .select('*')
     .eq('provider_id', currentProvider.id)
     .eq('available', true)
     .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('fetchMenus error:', error);
+    throw error;
+  }
 
   return ((data || []) as ProviderMenuLibrary[]).map(menu => ({
     id: menu.id,
@@ -89,13 +94,18 @@ const fetchMenus = async (currentProvider: Provider): Promise<LibraryMenu[]> => 
 const fetchSupplements = async (schoolsList: SchoolAccess[], currentProvider: Provider) => {
   const schoolIds = schoolsList.map(s => s.school_id);
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('provider_supplements')
     .select('*, schools(name), provider_menu_library:library_menu_id(meal_name)')
     .eq('provider_id', currentProvider.id)
     .in('school_id', schoolIds)
     .is('menu_id', null)
     .order('name');
+
+  if (error) {
+    console.error('fetchSupplements error:', error);
+    throw error;
+  }
 
   return groupSupplementsByContent((data || []) as SupplementRow[]);
 };
@@ -129,13 +139,23 @@ export default function ProviderLibraryScreen() {
 
       setSchools(schoolsList);
 
-      const [menusList, supplementsList] = await Promise.all([
-        fetchMenus(currentProvider),
-        schoolsList.length > 0 ? fetchSupplements(schoolsList, currentProvider) : Promise.resolve([]),
-      ]);
+      try {
+        const menusList = await fetchMenus(currentProvider);
+        setMenus(menusList);
+      } catch (err) {
+        console.error('Error loading library menus:', err);
+        setMenus([]);
+      }
 
-      setMenus(menusList);
-      setSupplements(supplementsList);
+      try {
+        const supplementsList = schoolsList.length > 0
+          ? await fetchSupplements(schoolsList, currentProvider)
+          : [];
+        setSupplements(supplementsList);
+      } catch (err) {
+        console.error('Error loading library supplements:', err);
+        setSupplements([]);
+      }
     } catch (err) {
       console.error('Error loading provider library:', err);
     } finally {
@@ -244,11 +264,11 @@ export default function ProviderLibraryScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.headerIconButton}>
-          <ArrowLeft size={28} color="#111827" />
+          <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Ma bibliothèque</Text>
         <TouchableOpacity onPress={handleAdd} style={styles.addButton}>
-          <Plus size={30} color="#FFFFFF" />
+          <Plus size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
@@ -350,38 +370,38 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F5F7',
   },
   header: {
-    height: 72,
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 22,
+    backgroundColor: '#F9FAFB',
+    paddingHorizontal: 16,
   },
   headerIconButton: {
-    width: 48,
-    height: 48,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'flex-start',
   },
   headerTitle: {
     position: 'absolute',
-    left: 86,
-    right: 86,
+    left: 56,
+    right: 56,
     textAlign: 'center',
-    color: '#111827',
-    fontSize: 23,
-    fontWeight: '800',
+    color: '#1F2937',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   addButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#111827',
     alignItems: 'center',
     justifyContent: 'center',
   },
   tabs: {
-    height: 70,
+    height: 44,
     flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
@@ -392,15 +412,15 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderBottomWidth: 3,
+    borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
   tabButtonActive: {
     borderBottomColor: '#111827',
   },
   tabText: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '600',
   },
   tabTextActive: {
     color: '#111827',
@@ -412,35 +432,35 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 22,
-    paddingTop: 22,
-    paddingBottom: 40,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
   },
   categoryTitle: {
     color: '#9CA3AF',
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '700',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
-    marginBottom: 30,
+    marginBottom: 12,
   },
   categoryTitleSpaced: {
-    marginTop: 40,
+    marginTop: 20,
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 56,
+    paddingVertical: 40,
   },
   emptyTitle: {
     color: '#6B7280',
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '600',
   },
   emptyText: {
     color: '#9CA3AF',
-    fontSize: 15,
-    marginTop: 6,
+    fontSize: 13,
+    marginTop: 4,
     textAlign: 'center',
   },
 });
