@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
+import { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, SectionList, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase, Child, School } from '@/lib/supabase';
@@ -13,12 +13,56 @@ const formatDateToLocal = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
+const GRADE_ORDER: string[] = [
+  'Petite Section',
+  'Moyenne Section',
+  'Grande Section',
+  'CP',
+  'CE1',
+  'CE2',
+  'CM1',
+  'CM2',
+  '6ème',
+  '5ème',
+  '4ème',
+  '3ème',
+  '2nde',
+  '1ère',
+  'Terminale',
+];
+
+const NO_GRADE_LABEL = 'Sans classe';
+
+const groupChildrenByGrade = (list: any[]): { title: string; data: any[] }[] => {
+  const groups = new Map<string, any[]>();
+  for (const child of list) {
+    const key = child.grade && child.grade.trim() ? child.grade : NO_GRADE_LABEL;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(child);
+  }
+
+  const sortedKeys = Array.from(groups.keys()).sort((a, b) => {
+    if (a === NO_GRADE_LABEL) return 1;
+    if (b === NO_GRADE_LABEL) return -1;
+    const ia = GRADE_ORDER.indexOf(a);
+    const ib = GRADE_ORDER.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b, 'fr');
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
+  });
+
+  return sortedKeys.map(title => ({ title, data: groups.get(title)! }));
+};
+
 export default function SchoolChildrenScreen() {
   const [school, setSchool] = useState<School | null>(null);
   const [children, setChildren] = useState<Child[]>([]);
   const [filteredChildren, setFilteredChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const sections = useMemo(() => groupChildrenByGrade(filteredChildren), [filteredChildren]);
 
   useEffect(() => {
     loadData();
@@ -102,7 +146,7 @@ export default function SchoolChildrenScreen() {
     <TouchableOpacity
       style={styles.childCard}
       activeOpacity={0.8}
-      onPress={() => router.push({ pathname: '/(school)/student-details', params: { childId: item.id } })}
+      onPress={() => router.push(`/(school)/student-details?childId=${item.id}`)}
     >
       <View style={styles.childInfo}>
         <Text style={styles.childName}>
@@ -178,10 +222,19 @@ export default function SchoolChildrenScreen() {
           </Text>
         </View>
       ) : (
-        <FlatList
-          data={filteredChildren}
+        <SectionList
+          sections={sections}
           renderItem={renderChild}
           keyExtractor={(item) => item.id}
+          renderSectionHeader={({ section: { title, data } }) => (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderTitle}>{title}</Text>
+              <View style={styles.sectionHeaderBadge}>
+                <Text style={styles.sectionHeaderBadgeText}>{data.length}</Text>
+              </View>
+            </View>
+          )}
+          stickySectionHeadersEnabled={false}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
@@ -280,6 +333,33 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F9FAFB',
+    paddingTop: 8,
+    paddingBottom: 8,
+    marginTop: 4,
+  },
+  sectionHeaderTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  sectionHeaderBadge: {
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 28,
+    alignItems: 'center',
+  },
+  sectionHeaderBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4F46E5',
   },
   childCard: {
     flexDirection: 'row',

@@ -47,6 +47,8 @@ export default function StudentDetailsScreen() {
   useEffect(() => {
     if (childIdValue) {
       loadData();
+    } else {
+      setLoading(false);
     }
   }, [childIdValue]);
 
@@ -70,14 +72,18 @@ export default function StudentDetailsScreen() {
           date_of_birth,
           allergies,
           dietary_restrictions,
-          schools(name),
+          schools:school_id(name),
           parents:parent_id(first_name, last_name, phone, email)
         `)
         .eq('id', childIdValue)
         .eq('school_id', currentSchool.id)
-        .single();
+        .maybeSingle();
 
       if (studentError) throw studentError;
+      if (!studentData) {
+        setStudent(null);
+        return;
+      }
       setStudent(studentData as StudentDetails);
 
       const { data: reservationsData, error: reservationsError } = await supabase
