@@ -89,14 +89,18 @@ export default function ProviderDashboard() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      for (let i = 0; i < 7; i++) {
+      const DAYS_BACK = 7;
+      const DAYS_FORWARD = 6;
+      for (let i = -DAYS_BACK; i <= DAYS_FORWARD; i++) {
         const date = new Date(today);
         date.setDate(today.getDate() + i);
         dates.push(date);
       }
 
+      const todayIndex = DAYS_BACK;
       setWeekDates(dates);
-      setSelectedDate(formatDateToLocal(dates[0]));
+      setSelectedDate(formatDateToLocal(dates[todayIndex]));
+      setSelectedDayIndex(todayIndex);
 
       const menusMap: {[key: string]: MenuWithOrderCount[]} = {};
       const startDate = formatDateToLocal(dates[0]);

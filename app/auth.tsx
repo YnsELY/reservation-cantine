@@ -1,6 +1,6 @@
 /* eslint-disable react/no-unescaped-entities */
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, Image, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import AppLaunchScreen from '@/components/AppLaunchScreen';
@@ -13,24 +13,15 @@ import {
   waitForDuration,
 } from '@/lib/startup';
 import { supabase } from '@/lib/supabase';
-import { School, User, Building2, ArrowLeft, UtensilsCrossed } from 'lucide-react-native';
 
 type AuthMode = 'login' | 'signup';
-type UserType = 'parent' | 'school' | 'provider';
-type Screen = 'role-selection' | 'auth-form';
 
 export default function AuthScreen() {
-  const [screen, setScreen] = useState<Screen>('role-selection');
   const [mode, setMode] = useState<AuthMode>('login');
-  const [userType, setUserType] = useState<UserType>('parent');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [schoolName, setSchoolName] = useState('');
-  const [schoolAccessCode, setSchoolAccessCode] = useState('');
-  const [companyName, setCompanyName] = useState('');
-  const [providerCode, setProviderCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [checkingSession, setCheckingSession] = useState(() => !consumeSkippedAuthStartupCheck());
@@ -71,19 +62,9 @@ export default function AuthScreen() {
       return;
     }
 
-    if (mode === 'signup') {
-      if (userType === 'parent' && (!firstName.trim() || !lastName.trim())) {
-        setError('Veuillez entrer votre prénom et nom');
-        return;
-      }
-      if (userType === 'school' && (!schoolName.trim() || !schoolAccessCode.trim())) {
-        setError('Veuillez entrer le nom de l\'école et le code d\'accès');
-        return;
-      }
-      if (userType === 'provider' && (!companyName.trim() || !providerCode.trim())) {
-        setError('Veuillez entrer le nom de l\'entreprise et le code d\'accès');
-        return;
-      }
+    if (mode === 'signup' && (!firstName.trim() || !lastName.trim())) {
+      setError('Veuillez entrer votre prénom et nom');
+      return;
     }
 
     setLoading(true);
@@ -113,49 +94,6 @@ export default function AuthScreen() {
           setLoading(false);
         }
       } else {
-        let validatedCode: string | null = null;
-
-        if (userType === 'school') {
-          const validationCodeUpper = schoolAccessCode.trim().toUpperCase();
-
-          const { data: validCode } = await supabase
-            .from('school_registration_codes')
-            .select('code')
-            .eq('code', validationCodeUpper)
-            .eq('is_active', true)
-            .maybeSingle();
-
-          if (!validCode) {
-            setError('Code d\'accès école invalide. Contactez l\'administrateur.');
-            setLoading(false);
-            return;
-          }
-          validatedCode = validationCodeUpper;
-        } else if (userType === 'provider') {
-          const validationCodeUpper = providerCode.trim().toUpperCase();
-
-          const { data: validCode, error: codeError } = await supabase
-            .from('provider_registration_codes')
-            .select('code')
-            .eq('code', validationCodeUpper)
-            .eq('is_active', true)
-            .maybeSingle();
-
-          if (codeError) {
-            console.error('Error checking provider code:', codeError);
-            setError('Erreur lors de la vérification du code: ' + codeError.message);
-            setLoading(false);
-            return;
-          }
-
-          if (!validCode) {
-            setError('Code d\'accès prestataire invalide. Contactez l\'administrateur.');
-            setLoading(false);
-            return;
-          }
-          validatedCode = validationCodeUpper;
-        }
-
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email: email.trim(),
           password: password.trim(),
@@ -165,102 +103,44 @@ export default function AuthScreen() {
 
         if (authData.user) {
           try {
-            if (userType === 'parent') {
-              const { error: insertError } = await supabase
-                .from('parents')
-                .insert({
-                  user_id: authData.user.id,
-                  email: email.trim(),
-                  first_name: firstName.trim(),
-                  last_name: lastName.trim(),
-                  access_code: `PAR-${Date.now().toString(36).toUpperCase()}`,
-                });
+            const { error: insertError } = await supabase
+              .from('parents')
+              .insert({
+                user_id: authData.user.id,
+                email: email.trim(),
+                first_name: firstName.trim(),
+                last_name: lastName.trim(),
+                access_code: `PAR-${Date.now().toString(36).toUpperCase()}`,
+              });
 
-              if (insertError) throw insertError;
+            if (insertError) throw insertError;
 
-              try {
-                const { error: emailError } = await sendSignupConfirmationEmail();
-                if (emailError) {
-                  console.error('Signup confirmation email error:', emailError);
-                }
-              } catch (emailError) {
-                console.error('Unexpected signup confirmation email error:', emailError);
+            try {
+              const { error: emailError } = await sendSignupConfirmationEmail();
+              if (emailError) {
+                console.error('Signup confirmation email error:', emailError);
               }
-
-              setLoading(false);
-              setTimeout(() => {
-                router.replace('/(parent)');
-              }, 100);
-            } else if (userType === 'school') {
-              const generatedAccessCode = `SCH-${Date.now().toString(36).toUpperCase()}`;
-
-              const { error: insertError } = await supabase
-                .from('schools')
-                .insert({
-                  user_id: authData.user.id,
-                  name: schoolName.trim(),
-                  access_code: generatedAccessCode,
-                  is_school_user: true,
-                });
-
-              if (insertError) throw insertError;
-
-              setLoading(false);
-              setTimeout(() => {
-                router.replace('/(school)');
-              }, 100);
-            } else if (userType === 'provider') {
-              const { error: insertError } = await supabase
-                .from('providers')
-                .insert({
-                  user_id: authData.user.id,
-                  email: email.trim(),
-                  company_name: companyName.trim(),
-                  registration_code: validatedCode!,
-                });
-
-              if (insertError) throw insertError;
-
-              setLoading(false);
-              setTimeout(() => {
-                router.replace('/(provider)');
-              }, 100);
+            } catch (emailError) {
+              console.error('Unexpected signup confirmation email error:', emailError);
             }
+
+            setLoading(false);
+            setTimeout(() => {
+              router.replace('/(parent)');
+            }, 100);
           } catch (insertErr: any) {
-            console.error('Error inserting user data, cleaning up auth user:', insertErr);
-
+            console.error('Error inserting parent data, cleaning up auth user:', insertErr);
             await supabase.auth.admin.deleteUser(authData.user.id).catch(console.error);
-
             throw new Error('Échec de la création du profil. Veuillez réessayer.');
           }
         }
       }
     } catch (err: any) {
       console.error('Auth error:', err);
-      setError(err.message || 'Erreur lors de l\'authentification');
+      setError(err.message || "Erreur lors de l'authentification");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleRoleSelection = (role: UserType) => {
-    setUserType(role);
-    setScreen('auth-form');
-    setError('');
-  };
-
-  const handleBackToRoleSelection = () => {
-    setScreen('role-selection');
-    setMode('login');
-    setEmail('');
-    setPassword('');
-    setFirstName('');
-    setLastName('');
-    setSchoolName('');
-    setSchoolAccessCode('');
-    setCompanyName('');
-    setProviderCode('');
-    setError('');
   };
 
   const renderLegalLinks = () => (
@@ -279,78 +159,6 @@ export default function AuthScreen() {
     return <AppLaunchScreen />;
   }
 
-  if (screen === 'role-selection') {
-    return (
-      <View style={styles.container}>
-        <StatusBar style="dark" />
-        <ScrollView
-          contentContainerStyle={styles.roleSelectionScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.header}>
-            <View style={styles.iconContainer}>
-              <UtensilsCrossed size={48} color="#000000" />
-            </View>
-            <Text style={styles.title}>{"Child's Kitchen"}</Text>
-            <Text style={styles.subtitle}>Sélectionnez votre profil</Text>
-          </View>
-
-          <View style={styles.roleCardsContainer}>
-            <TouchableOpacity
-              style={[styles.roleCard, styles.roleCardParent]}
-              onPress={() => handleRoleSelection('parent')}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.roleIconContainer, styles.roleIconParent]}>
-                <User size={32} color="#FFFFFF" strokeWidth={2.5} />
-              </View>
-              <View style={styles.roleCardContent}>
-                <Text style={styles.roleCardTitle}>Parent</Text>
-                <Text style={styles.roleCardDescription}>
-                  Réservez des repas pour vos enfants
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.roleCard, styles.roleCardSchool]}
-              onPress={() => handleRoleSelection('school')}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.roleIconContainer, styles.roleIconSchool]}>
-                <School size={32} color="#FFFFFF" strokeWidth={2.5} />
-              </View>
-              <View style={styles.roleCardContent}>
-                <Text style={styles.roleCardTitle}>École</Text>
-                <Text style={styles.roleCardDescription}>
-                  Gérez les commandes de votre établissement
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.roleCard, styles.roleCardProvider]}
-              onPress={() => handleRoleSelection('provider')}
-              activeOpacity={0.7}
-            >
-              <View style={[styles.roleIconContainer, styles.roleIconProvider]}>
-                <Building2 size={32} color="#FFFFFF" strokeWidth={2.5} />
-              </View>
-              <View style={styles.roleCardContent}>
-                <Text style={styles.roleCardTitle}>Prestataire</Text>
-                <Text style={styles.roleCardDescription}>
-                  Proposez vos menus aux écoles
-                </Text>
-              </View>
-            </TouchableOpacity>
-          </View>
-
-          {renderLegalLinks()}
-        </ScrollView>
-      </View>
-    );
-  }
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -362,24 +170,15 @@ export default function AuthScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleBackToRoleSelection}
-        >
-          <ArrowLeft size={24} color="#000000" />
-        </TouchableOpacity>
-
         <View style={styles.header}>
-          <View style={styles.iconContainer}>
-            {userType === 'parent' && <User size={48} color="#4F46E5" />}
-            {userType === 'school' && <School size={48} color="#10B981" />}
-            {userType === 'provider' && <Building2 size={48} color="#F59E0B" />}
-          </View>
+          <Image
+            source={require('@/assets/images/logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.title}>{"Child's Kitchen"}</Text>
           <Text style={styles.subtitle}>
-            {userType === 'parent' && 'Espace Parent'}
-            {userType === 'school' && 'Espace École'}
-            {userType === 'provider' && 'Espace Prestataire'}
+            {mode === 'login' ? 'Connectez-vous à votre compte' : 'Créez votre compte parent'}
           </Text>
         </View>
 
@@ -437,7 +236,7 @@ export default function AuthScreen() {
             editable={!loading}
           />
 
-          {mode === 'signup' && userType === 'parent' && (
+          {mode === 'signup' && (
             <>
               <TextInput
                 style={styles.input}
@@ -465,70 +264,6 @@ export default function AuthScreen() {
             </>
           )}
 
-          {mode === 'signup' && userType === 'school' && (
-            <>
-              <TextInput
-                style={styles.input}
-                placeholder="Nom de l'école"
-                placeholderTextColor="#6B7280"
-                value={schoolName}
-                onChangeText={(text) => {
-                  setSchoolName(text);
-                  setError('');
-                }}
-                editable={!loading}
-              />
-
-              <TextInput
-                style={styles.input}
-                placeholder="Code d'accès de l'école"
-                placeholderTextColor="#6B7280"
-                value={schoolAccessCode}
-                onChangeText={(text) => {
-                  setSchoolAccessCode(text.toUpperCase());
-                  setError('');
-                }}
-                autoCapitalize="characters"
-                editable={!loading}
-              />
-              <Text style={styles.helperText}>
-                Ce code permettra aux parents de s'affilier à votre école
-              </Text>
-            </>
-          )}
-
-          {mode === 'signup' && userType === 'provider' && (
-            <>
-              <TextInput
-                style={styles.input}
-                placeholder="Nom de l'entreprise"
-                placeholderTextColor="#6B7280"
-                value={companyName}
-                onChangeText={(text) => {
-                  setCompanyName(text);
-                  setError('');
-                }}
-                editable={!loading}
-              />
-
-              <TextInput
-                style={styles.input}
-                placeholder="Code d'accès prestataire"
-                placeholderTextColor="#6B7280"
-                value={providerCode}
-                onChangeText={(text) => {
-                  setProviderCode(text.toUpperCase());
-                  setError('');
-                }}
-                autoCapitalize="characters"
-                editable={!loading}
-              />
-              <Text style={styles.helperText}>
-                Demandez ce code à l'administrateur
-              </Text>
-            </>
-          )}
-
           {error ? (
             <Text style={styles.errorText}>{error}</Text>
           ) : null}
@@ -546,6 +281,12 @@ export default function AuthScreen() {
               </Text>
             )}
           </TouchableOpacity>
+
+          {mode === 'login' && (
+            <Text style={styles.helperText}>
+              Vous êtes une école ou un prestataire ? Connectez-vous avec les identifiants fournis par l'administrateur.
+            </Text>
+          )}
         </View>
 
         {renderLegalLinks()}
@@ -559,36 +300,19 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  roleSelectionScrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 40,
-  },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
     paddingVertical: 40,
   },
-  backButton: {
-    position: 'absolute',
-    top: 60,
-    left: 24,
-    padding: 8,
-    zIndex: 10,
-  },
   header: {
     alignItems: 'center',
     marginBottom: 32,
   },
-  iconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
+  logo: {
+    width: 120,
+    height: 120,
     marginBottom: 24,
   },
   title: {
@@ -600,62 +324,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: '#6B7280',
-  },
-  roleCardsContainer: {
-    gap: 12,
-  },
-  roleCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-    borderWidth: 0,
-  },
-  roleCardParent: {
-    backgroundColor: '#EEF2FF',
-  },
-  roleCardSchool: {
-    backgroundColor: '#F0FDF4',
-  },
-  roleCardProvider: {
-    backgroundColor: '#FFFBEB',
-  },
-  roleIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  roleIconParent: {
-    backgroundColor: '#4F46E5',
-  },
-  roleIconSchool: {
-    backgroundColor: '#10B981',
-  },
-  roleIconProvider: {
-    backgroundColor: '#F59E0B',
-  },
-  roleCardContent: {
-    flex: 1,
-  },
-  roleCardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 4,
-  },
-  roleCardDescription: {
-    fontSize: 13,
-    color: '#6B7280',
-    lineHeight: 18,
+    textAlign: 'center',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -696,11 +365,12 @@ const styles = StyleSheet.create({
     color: '#000000',
   },
   helperText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#6B7280',
-    marginBottom: 12,
-    marginTop: -8,
-    paddingHorizontal: 4,
+    marginTop: 16,
+    textAlign: 'center',
+    paddingHorizontal: 8,
+    lineHeight: 18,
   },
   errorText: {
     color: '#EF4444',

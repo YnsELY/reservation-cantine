@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { Calendar, Building2, UtensilsCrossed, BarChart3, Share2, ChefHat, Eye } from 'lucide-react-native';
+import { Calendar, Building2, UtensilsCrossed, BarChart3, ChefHat, Eye } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useNotifications } from '@/hooks/useNotifications';
 
@@ -230,27 +230,15 @@ export default function ProviderHomeScreen() {
           </View>
         </TouchableOpacity>
 
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={[styles.secondaryActionCard, { backgroundColor: '#BFDBFE' }]}
-            onPress={() => router.push('/(provider)/statistics')}
-          >
-            <View style={[styles.actionIconContainer, { backgroundColor: '#1E40AF' }]}>
-              <BarChart3 size={28} color="#FFFFFF" />
-            </View>
-            <Text style={[styles.actionTitle, { color: '#1E40AF' }]}>Voir les{"\n"}statistiques</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.secondaryActionCard, { backgroundColor: '#DDD6FE' }]}
-            onPress={() => router.push('/(provider)/share-access')}
-          >
-            <View style={[styles.actionIconContainer, { backgroundColor: '#7C3AED' }]}>
-              <Share2 size={28} color="#FFFFFF" />
-            </View>
-            <Text style={[styles.actionTitle, { color: '#7C3AED' }]}>Partager{"\n"}{"l'accès"}</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={[styles.secondaryActionCard, { backgroundColor: '#BFDBFE' }]}
+          onPress={() => router.push('/(provider)/statistics')}
+        >
+          <View style={[styles.actionIconContainer, { backgroundColor: '#1E40AF' }]}>
+            <BarChart3 size={28} color="#FFFFFF" />
+          </View>
+          <Text style={[styles.actionTitle, { color: '#1E40AF' }]}>Voir les{"\n"}statistiques</Text>
+        </TouchableOpacity>
 
         <View style={styles.chartContainer}>
           <Text style={styles.chartTitle}>Commandes du mois</Text>

@@ -1,11 +1,11 @@
 ﻿import { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, SectionList, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, StyleSheet, SectionList, TouchableOpacity, ActivityIndicator, TextInput, Modal, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase, Child, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { Search, ArrowLeft } from 'lucide-react-native';
+import { Search, ArrowLeft, ChevronDown, Check } from 'lucide-react-native';
 
 const formatDateToLocal = (date: Date): string => {
   const year = date.getFullYear();
@@ -62,8 +62,30 @@ export default function SchoolChildrenScreen() {
   const [filteredChildren, setFilteredChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [gradeFilter, setGradeFilter] = useState<string>('all');
+  const [showGradeMenu, setShowGradeMenu] = useState(false);
 
-  const sections = useMemo(() => groupChildrenByGrade(filteredChildren), [filteredChildren]);
+  const availableGrades = useMemo(() => {
+    const set = new Set<string>();
+    children.forEach(child => {
+      if (child.grade && child.grade.trim()) set.add(child.grade);
+    });
+    return Array.from(set).sort((a, b) => {
+      const ia = GRADE_ORDER.indexOf(a);
+      const ib = GRADE_ORDER.indexOf(b);
+      if (ia === -1 && ib === -1) return a.localeCompare(b, 'fr');
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+  }, [children]);
+
+  const sections = useMemo(() => {
+    const list = gradeFilter === 'all'
+      ? filteredChildren
+      : filteredChildren.filter(c => (c.grade || '') === gradeFilter);
+    return groupChildrenByGrade(list);
+  }, [filteredChildren, gradeFilter]);
 
   useEffect(() => {
     loadData();
@@ -158,9 +180,6 @@ export default function SchoolChildrenScreen() {
             Parent: {item.parents.first_name} {item.parents.last_name}
           </Text>
         )}
-        {item.grade && (
-          <Text style={styles.childGrade}>Classe: {item.grade}</Text>
-        )}
       </View>
       {Array.isArray(item.allergies) && item.allergies.length > 0 && (
         <View style={styles.allergyBadge}>
@@ -187,10 +206,56 @@ export default function SchoolChildrenScreen() {
         >
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>Liste des élèves</Text>
+        <View style={styles.headerRow}>
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>Liste des élèves</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.gradeDropdown}
+            activeOpacity={0.8}
+            onPress={() => setShowGradeMenu(true)}
+          >
+            <Text style={styles.gradeDropdownText}>
+              {gradeFilter === 'all' ? 'Toutes classes' : gradeFilter}
+            </Text>
+            <ChevronDown size={16} color="#111827" />
+          </TouchableOpacity>
         </View>
       </View>
+
+      <Modal
+        visible={showGradeMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowGradeMenu(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowGradeMenu(false)}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Filtrer par classe</Text>
+            <TouchableOpacity
+              style={styles.modalOption}
+              onPress={() => { setGradeFilter('all'); setShowGradeMenu(false); }}
+            >
+              <Text style={[styles.modalOptionText, gradeFilter === 'all' && styles.modalOptionTextActive]}>
+                Toutes classes
+              </Text>
+              {gradeFilter === 'all' && <Check size={18} color="#4F46E5" />}
+            </TouchableOpacity>
+            {availableGrades.map(grade => (
+              <TouchableOpacity
+                key={grade}
+                style={styles.modalOption}
+                onPress={() => { setGradeFilter(grade); setShowGradeMenu(false); }}
+              >
+                <Text style={[styles.modalOptionText, gradeFilter === grade && styles.modalOptionTextActive]}>
+                  {grade}
+                </Text>
+                {gradeFilter === grade && <Check size={18} color="#4F46E5" />}
+              </TouchableOpacity>
+            ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <View style={styles.searchContainer}>
         <Search size={20} color="#6B7280" style={styles.searchIcon} />
@@ -228,11 +293,12 @@ export default function SchoolChildrenScreen() {
           renderItem={renderChild}
           keyExtractor={(item) => item.id}
           renderSectionHeader={({ section: { title, data } }) => (
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionHeaderTitle}>{title}</Text>
-              <View style={styles.sectionHeaderBadge}>
-                <Text style={styles.sectionHeaderBadgeText}>{data.length}</Text>
+            <View style={styles.sectionHeaderWrapper}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionHeaderTitle}>{title}</Text>
+                <Text style={styles.sectionHeaderCount}>{data.length}</Text>
               </View>
+              <View style={styles.sectionHeaderUnderline} />
             </View>
           )}
           stickySectionHeadersEnabled={false}
@@ -272,8 +338,13 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     marginBottom: 12,
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
   badge: {
-    alignSelf: 'flex-start',
     backgroundColor: '#4F46E5',
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -283,6 +354,60 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  gradeDropdown: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  gradeDropdownText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(17, 24, 39, 0.45)',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6B7280',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  modalOptionText: {
+    fontSize: 15,
+    color: '#111827',
+  },
+  modalOptionTextActive: {
+    color: '#4F46E5',
+    fontWeight: '700',
   },
   searchContainer: {
     flexDirection: 'row',
@@ -335,32 +460,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 16,
   },
+  sectionHeaderWrapper: {
+    backgroundColor: '#F9FAFB',
+    paddingTop: 12,
+    marginTop: 4,
+  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB',
-    paddingTop: 8,
     paddingBottom: 8,
-    marginTop: 4,
   },
   sectionHeaderTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: '#111827',
   },
-  sectionHeaderBadge: {
-    backgroundColor: '#EEF2FF',
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-    borderRadius: 10,
-    minWidth: 28,
-    alignItems: 'center',
-  },
-  sectionHeaderBadgeText: {
-    fontSize: 12,
+  sectionHeaderCount: {
+    fontSize: 14,
     fontWeight: '700',
     color: '#4F46E5',
+  },
+  sectionHeaderUnderline: {
+    height: 1.5,
+    backgroundColor: '#4F46E5',
+    marginBottom: 10,
   },
   childCard: {
     flexDirection: 'row',

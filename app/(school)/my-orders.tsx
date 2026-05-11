@@ -1,11 +1,11 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase, Reservation, Child, Menu, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, Calendar, Filter, X, Search, ChevronDown } from 'lucide-react-native';
+import { ArrowLeft, Filter, X, Search } from 'lucide-react-native';
 
 interface OrderWithDetails extends Reservation {
   child: Child;
@@ -164,13 +164,26 @@ export default function SchoolMyOrdersScreen() {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
+    const date = new Date(dateString + 'T12:00:00');
+    const formatted = date.toLocaleDateString('fr-FR', {
       day: '2-digit',
       month: 'long',
-      year: 'numeric'
+      year: 'numeric',
     });
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
   };
+
+  const groupedOrders = useMemo(() => {
+    const groups = new Map<string, OrderWithDetails[]>();
+    filteredOrders.forEach(order => {
+      const key = order.date;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(order);
+    });
+    return Array.from(groups.entries())
+      .sort((a, b) => sortBy === 'date_asc' ? a[0].localeCompare(b[0]) : b[0].localeCompare(a[0]))
+      .map(([date, items]) => ({ date, items }));
+  }, [filteredOrders, sortBy]);
 
   const getStatusLabel = (status: StatusFilter) => {
     switch (status) {
@@ -201,17 +214,21 @@ export default function SchoolMyOrdersScreen() {
     }
   };
 
-  const renderOrder = ({ item }: { item: OrderWithDetails }) => (
-    <View style={styles.orderCard}>
+  const renderOrder = (item: OrderWithDetails) => (
+    <TouchableOpacity
+      key={item.id}
+      style={styles.orderCard}
+      activeOpacity={0.7}
+      onPress={() => router.push(`/(school)/student-details?childId=${item.child.id}&reservationId=${item.id}`)}
+    >
       <View style={styles.orderHeader}>
-        <View style={styles.orderInfo}>
-          <Text style={styles.orderChildName}>
-            {item.child.first_name} {item.child.last_name}
-          </Text>
-          <Text style={styles.orderDate}>
-            <Calendar size={14} color="#6B7280" /> {formatDate(item.date)}
-          </Text>
-        </View>
+        <Text style={styles.orderChildName} numberOfLines={1}>
+          {item.child.first_name} {item.child.last_name}
+        </Text>
+        <Text style={styles.orderPrice}>{item.total_price.toFixed(2)} DH</Text>
+      </View>
+      <Text style={styles.orderMeal} numberOfLines={1}>{item.menu.meal_name}</Text>
+      <View style={styles.orderFooter}>
         <View style={[
           styles.statusBadge,
           item.payment_status === 'paid' && styles.statusBadgePaid,
@@ -227,15 +244,14 @@ export default function SchoolMyOrdersScreen() {
             {item.payment_status === 'paid' ? 'Payé' : item.payment_status === 'pending' ? 'En attente' : 'Annulé'}
           </Text>
         </View>
+        <Text style={styles.detailLink}>Voir le détail</Text>
       </View>
-      <Text style={styles.orderMeal}>{item.menu.meal_name}</Text>
-      <Text style={styles.orderPrice}>{item.total_price.toFixed(2)} DH</Text>
       {item.created_by_school && (
         <View style={styles.schoolBadge}>
           <Text style={styles.schoolBadgeText}>Commande école</Text>
         </View>
       )}
-    </View>
+    </TouchableOpacity>
   );
 
   if (loading) {
@@ -418,9 +434,12 @@ export default function SchoolMyOrdersScreen() {
           </View>
         ) : (
           <View style={styles.ordersList}>
-            {filteredOrders.map((order) => (
-              <View key={order.id}>
-                {renderOrder({ item: order })}
+            {groupedOrders.map(group => (
+              <View key={group.date} style={styles.dateGroup}>
+                <View style={styles.datePill}>
+                  <Text style={styles.datePillText}>{formatDate(group.date)}</Text>
+                </View>
+                {group.items.map(renderOrder)}
               </View>
             ))}
           </View>
@@ -677,6 +696,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     marginTop: 40,
   },
+  dateGroup: {
+    marginBottom: 16,
+  },
+  datePill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginBottom: 10,
+  },
+  datePillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4F46E5',
+  },
   orderCard: {
     backgroundColor: '#FFFFFF',
     padding: 16,
@@ -688,20 +723,25 @@ const styles = StyleSheet.create({
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  orderInfo: {
-    flex: 1,
-  },
-  orderChildName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+    alignItems: 'center',
+    gap: 12,
     marginBottom: 4,
   },
-  orderDate: {
+  orderChildName: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  orderFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  detailLink: {
     fontSize: 14,
+    fontWeight: '600',
     color: '#6B7280',
   },
   statusBadge: {
@@ -734,7 +774,6 @@ const styles = StyleSheet.create({
   orderMeal: {
     fontSize: 14,
     color: '#6B7280',
-    marginBottom: 8,
   },
   orderPrice: {
     fontSize: 18,

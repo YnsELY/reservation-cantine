@@ -1,54 +1,100 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as XLSX from 'xlsx';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, Modal, Pressable, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, ShoppingBag, User, Users, UtensilsCrossed, Search, X, ChevronDown, FileSpreadsheet } from 'lucide-react-native';
+import { showAlert } from '@/lib/alert';
+import { ArrowLeft, Search, X, FileDown, Check, UtensilsCrossed } from 'lucide-react-native';
 
 interface OrderDetail {
   id: string;
-  child_name: string;
+  child_id: string;
+  child_first_name: string;
+  child_last_name: string;
+  child_grade: string | null;
+  child_allergies: string[];
   parent_name: string;
+  menu_id: string;
   menu_name: string;
-  menu_description: string | null;
-  menu_allergens: string[];
-  supplements: Array<{name: string; price: number}> | null;
 }
 
-type SortOption = 'order' | 'child' | 'parent' | 'menu';
+interface MenuOption {
+  id: string;
+  name: string;
+}
+
+const GRADE_ORDER: string[] = [
+  'Petite Section', 'Moyenne Section', 'Grande Section',
+  'CP', 'CE1', 'CE2', 'CM1', 'CM2',
+  '6ème', '5ème', '4ème', '3ème',
+  '2nde', '1ère', 'Terminale',
+];
+
+const NO_GRADE_LABEL = 'Sans classe';
+
+const sortGrades = (a: string, b: string) => {
+  if (a === NO_GRADE_LABEL) return 1;
+  if (b === NO_GRADE_LABEL) return -1;
+  const ia = GRADE_ORDER.indexOf(a);
+  const ib = GRADE_ORDER.indexOf(b);
+  if (ia === -1 && ib === -1) return a.localeCompare(b, 'fr');
+  if (ia === -1) return 1;
+  if (ib === -1) return -1;
+  return ia - ib;
+};
+
+const formatLongDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr + 'T12:00:00');
+  const formatted = date.toLocaleDateString('fr-FR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+};
+
+const sanitizeFileName = (value: string) => (
+  value.normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9-_]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'export'
+);
+
+const csvEscape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 
 export default function AllOrders() {
-  const [school, setSchool] = useState<School | null>(null);
-  const [orders, setOrders] = useState<OrderDetail[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<OrderDetail[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [sortBy, setSortBy] = useState<SortOption>('order');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showSortDropdown, setShowSortDropdown] = useState(false);
-  const [exporting, setExporting] = useState(false);
   const router = useRouter();
   const params = useLocalSearchParams();
-  const selectedDate = params.date as string;
+  const date = (Array.isArray(params.date) ? params.date[0] : params.date) || '';
+
+  const [orders, setOrders] = useState<OrderDetail[]>([]);
+  const [menus, setMenus] = useState<MenuOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedMenuId, setSelectedMenuId] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportFormat, setExportFormat] = useState<'xlsx' | 'csv'>('xlsx');
+  const [exportClass, setExportClass] = useState<string>('all');
+  const [exportMenuId, setExportMenuId] = useState<string>('all');
 
   useEffect(() => {
-    loadData();
-  }, []);
+    void loadData();
+  }, [date]);
 
   const loadData = async () => {
+    setLoading(true);
     try {
       const currentSchool = await authService.getCurrentSchoolFromAuth();
       if (!currentSchool) {
         router.replace('/auth');
         return;
       }
-
-      setSchool(currentSchool);
-      await loadOrders(currentSchool, selectedDate);
+      await loadOrders(currentSchool, date);
     } catch (err) {
       console.error('Error loading data:', err);
     } finally {
@@ -57,151 +103,213 @@ export default function AllOrders() {
     }
   };
 
-  const loadOrders = async (currentSchool: School, dateString: string) => {
-    try {
-      const { data: reservations, error } = await supabase
-        .from('reservations')
-        .select(`
-          id,
-          supplements,
-          children!inner(first_name, last_name),
-          menus!inner(meal_name, description, allergens),
-          parents!inner(first_name, last_name)
-        `)
-        .eq('date', dateString)
-        .eq('children.school_id', currentSchool.id)
-        .neq('payment_status', 'cancelled');
-
-      if (error) throw error;
-
-      const ordersList: OrderDetail[] = (reservations || []).map((res: any) => ({
-        id: res.id,
-        child_name: `${res.children.first_name} ${res.children.last_name}`,
-        parent_name: `${res.parents.first_name} ${res.parents.last_name}`,
-        menu_name: res.menus.meal_name,
-        menu_description: res.menus.description,
-        menu_allergens: res.menus.allergens || [],
-        supplements: res.supplements || null,
-      }));
-
-      setOrders(ordersList);
-      setFilteredOrders(ordersList);
-    } catch (err) {
-      console.error('Error loading orders:', err);
+  const loadOrders = async (school: School, dateStr: string) => {
+    if (!dateStr) {
       setOrders([]);
-    }
-  };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadData();
-  };
-
-  const applyFilters = (sortOption: SortOption, query: string, ordersList: OrderDetail[]) => {
-    let filtered = [...ordersList];
-
-    if (query.trim()) {
-      const lowerQuery = query.toLowerCase();
-      filtered = filtered.filter(order =>
-        order.child_name.toLowerCase().includes(lowerQuery) ||
-        order.parent_name.toLowerCase().includes(lowerQuery) ||
-        order.menu_name.toLowerCase().includes(lowerQuery)
-      );
-    }
-
-    if (sortOption === 'order') {
-      filtered = filtered;
-    } else if (sortOption === 'child') {
-      filtered.sort((a, b) => a.child_name.localeCompare(b.child_name));
-    } else if (sortOption === 'parent') {
-      filtered.sort((a, b) => a.parent_name.localeCompare(b.parent_name));
-    } else if (sortOption === 'menu') {
-      filtered.sort((a, b) => a.menu_name.localeCompare(b.menu_name));
-    }
-
-    setFilteredOrders(filtered);
-  };
-
-  const handleSort = (option: SortOption) => {
-    setSortBy(option);
-    setShowSortDropdown(false);
-    applyFilters(option, searchQuery, orders);
-  };
-
-  const getSortLabel = (option: SortOption) => {
-    switch (option) {
-      case 'order': return 'N° Commande';
-      case 'child': return 'Nom Élève';
-      case 'parent': return 'Nom Parent';
-      case 'menu': return 'Menu';
-      default: return 'N° Commande';
-    }
-  };
-
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    applyFilters(sortBy, query, orders);
-  };
-
-  const clearSearch = () => {
-    setSearchQuery('');
-    applyFilters(sortBy, '', orders);
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString + 'T12:00:00');
-    return date.toLocaleDateString('fr-FR', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  const exportToCSV = async () => {
-    if (filteredOrders.length === 0) {
+      setMenus([]);
       return;
     }
 
+    const { data: reservationsRaw, error: resError } = await supabase
+      .from('reservations')
+      .select(`
+        id, parent_id,
+        child:children!child_id(id, first_name, last_name, grade, allergies, school_id),
+        menu:menus!menu_id(id, meal_name)
+      `)
+      .eq('date', dateStr)
+      .neq('payment_status', 'cancelled');
+
+    if (resError) throw resError;
+
+    const filtered = (reservationsRaw || []).filter(
+      (r: any) => r.child?.school_id === school.id
+    );
+
+    const parentIds = Array.from(new Set(filtered.map((r: any) => r.parent_id).filter(Boolean)));
+    let parentsById = new Map<string, any>();
+    if (parentIds.length > 0) {
+      const { data: parentsData } = await supabase
+        .from('parents')
+        .select('id, first_name, last_name')
+        .in('id', parentIds);
+      parentsById = new Map((parentsData || []).map((p: any) => [p.id, p]));
+    }
+
+    const ordersList: OrderDetail[] = filtered.map((r: any) => {
+      const parent = parentsById.get(r.parent_id);
+      return {
+        id: r.id,
+        child_id: r.child?.id || '',
+        child_first_name: r.child?.first_name || '',
+        child_last_name: r.child?.last_name || '',
+        child_grade: r.child?.grade || null,
+        child_allergies: Array.isArray(r.child?.allergies) ? r.child.allergies : [],
+        parent_name: parent ? `${parent.first_name || ''} ${parent.last_name || ''}`.trim() : 'Parent',
+        menu_id: r.menu?.id || '',
+        menu_name: r.menu?.meal_name || '',
+      };
+    });
+
+    setOrders(ordersList);
+
+    const menusMap = new Map<string, MenuOption>();
+    ordersList.forEach(o => {
+      if (o.menu_id && !menusMap.has(o.menu_id)) {
+        menusMap.set(o.menu_id, { id: o.menu_id, name: o.menu_name });
+      }
+    });
+    setMenus(Array.from(menusMap.values()).sort((a, b) => a.name.localeCompare(b.name, 'fr-FR')));
+  };
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter(o => {
+      if (selectedMenuId !== 'all' && o.menu_id !== selectedMenuId) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const name = `${o.child_first_name} ${o.child_last_name}`.toLowerCase();
+        if (!name.includes(q) && !o.parent_name.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    });
+  }, [orders, selectedMenuId, searchQuery]);
+
+  const countsByMenu = useMemo(() => {
+    const map = new Map<string, number>();
+    orders.forEach(o => {
+      map.set(o.menu_id, (map.get(o.menu_id) || 0) + 1);
+    });
+    return map;
+  }, [orders]);
+
+  const sectionsByClass = useMemo(() => {
+    const groups = new Map<string, OrderDetail[]>();
+    filteredOrders.forEach(o => {
+      const grade = o.child_grade || NO_GRADE_LABEL;
+      if (!groups.has(grade)) groups.set(grade, []);
+      groups.get(grade)!.push(o);
+    });
+    return Array.from(groups.entries())
+      .sort((a, b) => sortGrades(a[0], b[0]))
+      .map(([title, data]) => ({
+        title,
+        data: data.sort((x, y) =>
+          `${x.child_last_name} ${x.child_first_name}`.localeCompare(
+            `${y.child_last_name} ${y.child_first_name}`, 'fr-FR'
+          )
+        ),
+      }));
+  }, [filteredOrders]);
+
+  const totalClassesCount = useMemo(() => (
+    new Set(orders.map(o => o.child_grade || NO_GRADE_LABEL)).size
+  ), [orders]);
+
+  const availableClasses = useMemo(() => {
+    const set = new Set<string>();
+    orders.forEach(o => set.add(o.child_grade || NO_GRADE_LABEL));
+    return Array.from(set).sort(sortGrades);
+  }, [orders]);
+
+  const handleExport = async () => {
     setExporting(true);
     try {
-      const headers = ['N°', 'Élève', 'Parent', 'Menu', 'Description', 'Allergènes', 'Suppléments'];
-      const csvRows = [headers.join(',')];
-
-      filteredOrders.forEach((order, index) => {
-        const supplements = order.supplements?.map(s => s.name).join('; ') || '';
-        const row = [
-          index + 1,
-          `"${order.child_name}"`,
-          `"${order.parent_name}"`,
-          `"${order.menu_name}"`,
-          `"${order.menu_description || ''}"`,
-          `"${order.menu_allergens.join(', ')}"`,
-          `"${supplements}"`
-        ];
-        csvRows.push(row.join(','));
+      const toExport = orders.filter(o => {
+        if (exportMenuId !== 'all' && o.menu_id !== exportMenuId) return false;
+        if (exportClass !== 'all' && (o.child_grade || NO_GRADE_LABEL) !== exportClass) return false;
+        return true;
       });
 
-      const csvContent = csvRows.join('\n');
-      const fileName = `commandes-${selectedDate}.csv`;
-      const fileUri = `${(FileSystem as any).documentDirectory}${fileName}`;
+      if (toExport.length === 0) {
+        showAlert('Export impossible', 'Aucune commande à exporter avec ces filtres.');
+        return;
+      }
 
-      await FileSystem.writeAsStringAsync(fileUri, csvContent, {
-        encoding: (FileSystem as any).EncodingType.UTF8,
-      });
+      const header = ['Classe', 'Élève', 'Parent', 'Menu', 'Allergies'];
+      const rows = toExport
+        .sort((a, b) => {
+          const g = sortGrades(a.child_grade || NO_GRADE_LABEL, b.child_grade || NO_GRADE_LABEL);
+          if (g !== 0) return g;
+          return `${a.child_last_name} ${a.child_first_name}`.localeCompare(
+            `${b.child_last_name} ${b.child_first_name}`, 'fr-FR'
+          );
+        })
+        .map(o => [
+          o.child_grade || '',
+          `${o.child_first_name} ${o.child_last_name}`.trim(),
+          o.parent_name,
+          o.menu_name,
+          o.child_allergies.join(', ') || 'Aucune',
+        ] as (string | number)[]);
 
-      await Sharing.shareAsync(fileUri, {
-        mimeType: 'text/csv',
-        dialogTitle: 'Exporter les commandes',
-        UTI: 'public.comma-separated-values-text',
-      });
-    } catch (error) {
-      console.error('Error exporting:', error);
+      const scopeLabel = [
+        exportMenuId !== 'all' && sanitizeFileName(menus.find(m => m.id === exportMenuId)?.name || 'menu'),
+        exportClass !== 'all' && sanitizeFileName(exportClass),
+      ].filter(Boolean).join('-') || 'toutes';
+
+      const baseFileName = `commandes-${sanitizeFileName(date)}-${scopeLabel}`;
+      const isWeb = Platform.OS === 'web';
+
+      if (exportFormat === 'xlsx') {
+        const worksheet = XLSX.utils.aoa_to_sheet([header, ...rows]);
+        worksheet['!cols'] = [{ wch: 14 }, { wch: 28 }, { wch: 26 }, { wch: 28 }, { wch: 28 }];
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Commandes');
+        const fileName = `${baseFileName}.xlsx`;
+        if (isWeb) {
+          XLSX.writeFile(workbook, fileName);
+        } else {
+          const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
+          const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+          await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(fileUri, {
+              mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              dialogTitle: 'Exporter les commandes',
+              UTI: 'org.openxmlformats.spreadsheetml.sheet',
+            });
+          } else {
+            showAlert('Export prêt', `Le fichier Excel a été généré : ${fileName}`);
+          }
+        }
+      } else {
+        const csvContent = [
+          header.map(csvEscape).join(';'),
+          ...rows.map(row => row.map(csvEscape).join(';')),
+        ].join('\n');
+        const fileName = `${baseFileName}.csv`;
+        if (isWeb) {
+          const blob = new Blob([`﻿${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
+        } else {
+          const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+          await FileSystem.writeAsStringAsync(fileUri, `﻿${csvContent}`, { encoding: FileSystem.EncodingType.UTF8 });
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(fileUri, {
+              mimeType: 'text/csv',
+              dialogTitle: 'Exporter les commandes',
+              UTI: 'public.comma-separated-values-text',
+            });
+          } else {
+            showAlert('Export prêt', `Le fichier CSV a été généré : ${fileName}`);
+          }
+        }
+      }
+      setShowExportModal(false);
+    } catch (err) {
+      console.error('Error exporting:', err);
+      showAlert('Erreur', 'Impossible de générer le fichier.');
     } finally {
       setExporting(false);
     }
   };
-
 
   if (loading) {
     return (
@@ -214,531 +322,345 @@ export default function AllOrders() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => safeBack('/(school)')}>
-          <ArrowLeft size={24} color="#111827" />
+        <TouchableOpacity style={styles.backButton} onPress={() => safeBack('/(school)/calendar')}>
+          <ArrowLeft size={22} color="#111827" />
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.exportButton,
-            (exporting || filteredOrders.length === 0) && styles.exportButtonDisabled
-          ]}
-          onPress={exportToCSV}
-          disabled={exporting || filteredOrders.length === 0}
-        >
-          {exporting ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <>
-              <FileSpreadsheet size={20} color="#FFFFFF" />
-              <Text style={styles.exportButtonText}>Excel</Text>
-            </>
-          )}
+        <View style={styles.headerTitleBlock}>
+          <Text style={styles.headerTitle}>Récapitulatif des commandes</Text>
+          <Text style={styles.headerSubtitle}>{formatLongDate(date)}</Text>
+        </View>
+        <TouchableOpacity style={styles.exportButton} onPress={() => setShowExportModal(true)}>
+          <FileDown size={14} color="#111827" />
+          <Text style={styles.exportButtonText}>Export</Text>
         </TouchableOpacity>
       </View>
 
+      <View style={styles.statsStrip}>
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{orders.length}</Text>
+          <Text style={styles.statLabel}>commande{orders.length > 1 ? 's' : ''}</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{menus.length}</Text>
+          <Text style={styles.statLabel}>menu{menus.length > 1 ? 's' : ''}</Text>
+        </View>
+        <View style={styles.statDivider} />
+        <View style={styles.statItem}>
+          <Text style={styles.statValue}>{totalClassesCount}</Text>
+          <Text style={styles.statLabel}>classe{totalClassesCount > 1 ? 's' : ''}</Text>
+        </View>
+      </View>
+
       <ScrollView
-        style={styles.mainScrollView}
-        contentContainerStyle={styles.mainScrollContent}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.tabsContent}
+        style={styles.tabsContainer}
+      >
+        <TouchableOpacity
+          style={[styles.tabPill, selectedMenuId === 'all' && styles.tabPillActive]}
+          onPress={() => setSelectedMenuId('all')}
+        >
+          <Text style={[styles.tabPillText, selectedMenuId === 'all' && styles.tabPillTextActive]}>
+            Tous ({orders.length})
+          </Text>
+        </TouchableOpacity>
+        {menus.map(menu => (
+          <TouchableOpacity
+            key={menu.id}
+            style={[styles.tabPill, selectedMenuId === menu.id && styles.tabPillActive]}
+            onPress={() => setSelectedMenuId(menu.id)}
+          >
+            <View style={styles.tabPillDot} />
+            <Text style={[styles.tabPillText, selectedMenuId === menu.id && styles.tabPillTextActive]}>
+              {menu.name} ({countsByMenu.get(menu.id) || 0})
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      <View style={styles.searchContainer}>
+        <Search size={18} color="#9CA3AF" />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Rechercher un élève ou parent..."
+          placeholderTextColor="#9CA3AF"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery ? (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <X size={18} color="#9CA3AF" />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      <ScrollView
+        style={styles.listContainer}
+        contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void loadData(); }} />
         }
       >
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryIconContainer}>
-            <ShoppingBag size={24} color="#FFFFFF" />
-          </View>
-          <View style={styles.summaryTextContainer}>
-            <Text style={styles.summaryCount}>{orders.length}</Text>
-            <Text style={styles.summaryLabel}>Commandes</Text>
-          </View>
-        </View>
-
-        <View style={styles.searchContainer}>
-          <View style={styles.searchInputWrapper}>
-            <Search size={20} color="#6B7280" />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Rechercher élève, parent ou menu..."
-              placeholderTextColor="#9CA3AF"
-              value={searchQuery}
-              onChangeText={handleSearch}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
-                <X size={20} color="#6B7280" />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        <View style={styles.filtersContainer}>
-          <Text style={styles.filterLabel}>Trier par:</Text>
-          <TouchableOpacity
-            style={styles.dropdownButton}
-            onPress={() => setShowSortDropdown(!showSortDropdown)}
-          >
-            <Text style={styles.dropdownButtonText}>{getSortLabel(sortBy)}</Text>
-            <ChevronDown size={20} color="#111827" />
-          </TouchableOpacity>
-
-          {showSortDropdown && (
-            <View style={styles.dropdownMenu}>
-              <TouchableOpacity
-                style={[styles.dropdownItem, sortBy === 'order' && styles.dropdownItemActive]}
-                onPress={() => handleSort('order')}
-              >
-                <Text style={[styles.dropdownItemText, sortBy === 'order' && styles.dropdownItemTextActive]}>
-                  N° Commande
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.dropdownItem, sortBy === 'child' && styles.dropdownItemActive]}
-                onPress={() => handleSort('child')}
-              >
-                <Text style={[styles.dropdownItemText, sortBy === 'child' && styles.dropdownItemTextActive]}>
-                  Nom Élève
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.dropdownItem, sortBy === 'parent' && styles.dropdownItemActive]}
-                onPress={() => handleSort('parent')}
-              >
-                <Text style={[styles.dropdownItemText, sortBy === 'parent' && styles.dropdownItemTextActive]}>
-                  Nom Parent
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.dropdownItem,
-                  styles.dropdownItemLast,
-                  sortBy === 'menu' && styles.dropdownItemActive
-                ]}
-                onPress={() => handleSort('menu')}
-              >
-                <Text style={[styles.dropdownItemText, sortBy === 'menu' && styles.dropdownItemTextActive]}>
-                  Menu
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-
-        {searchQuery.length > 0 && (
-          <View style={styles.searchResultsContainer}>
-            <Text style={styles.searchResultsText}>
-              {filteredOrders.length} résultat{filteredOrders.length > 1 ? 's' : ''} pour "{searchQuery}"
-            </Text>
-          </View>
-        )}
-
         {filteredOrders.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <ShoppingBag size={64} color="#D1D5DB" />
+          <View style={styles.emptyState}>
+            <UtensilsCrossed size={48} color="#D1D5DB" />
             <Text style={styles.emptyText}>
-              {searchQuery.length > 0 ? 'Aucun résultat trouvé' : 'Aucune commande pour ce jour'}
+              {orders.length === 0 ? 'Aucune commande pour ce jour' : 'Aucune commande ne correspond aux filtres'}
             </Text>
           </View>
         ) : (
-          <View style={styles.ordersList}>
-            {filteredOrders.map((order, index) => (
-              <View key={order.id} style={styles.orderCard}>
-                <View style={styles.orderHeader}>
-                  <View style={styles.orderNumberContainer}>
-                    <Text style={styles.orderNumber}>#{index + 1}</Text>
-                  </View>
-                  <View style={styles.orderHeaderRight}>
-                    <Text style={styles.orderDate}>{formatDate(selectedDate)}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.orderDivider} />
-
-                <View style={styles.orderSection}>
-                  <View style={styles.sectionHeader}>
-                    <UtensilsCrossed size={18} color="#111827" />
-                    <Text style={styles.sectionTitle}>Menu</Text>
-                  </View>
-                  <View style={styles.sectionContent}>
-                    <Text style={styles.menuName}>{order.menu_name}</Text>
-                    {order.menu_description && (
-                      <Text style={styles.menuDescription}>{order.menu_description}</Text>
-                    )}
-                    {order.menu_allergens.length > 0 && (
-                      <View style={styles.allergensContainer}>
-                        <Text style={styles.allergensLabel}>Allergènes:</Text>
-                        <Text style={styles.allergensText}>
-                          {order.menu_allergens.join(', ')}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-
-                <View style={styles.orderSection}>
-                  <View style={styles.sectionHeader}>
-                    <User size={18} color="#111827" />
-                    <Text style={styles.sectionTitle}>Élève</Text>
-                  </View>
-                  <View style={styles.sectionContent}>
-                    <Text style={styles.personName}>{order.child_name}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.orderSection}>
-                  <View style={styles.sectionHeader}>
-                    <Users size={18} color="#111827" />
-                    <Text style={styles.sectionTitle}>Parent</Text>
-                  </View>
-                  <View style={styles.sectionContent}>
-                    <Text style={styles.personName}>{order.parent_name}</Text>
-                  </View>
-                </View>
-
-                {order.supplements && order.supplements.length > 0 && (
-                  <View style={styles.orderSection}>
-                    <View style={styles.sectionHeader}>
-                      <ShoppingBag size={18} color="#111827" />
-                      <Text style={styles.sectionTitle}>Suppléments</Text>
-                    </View>
-                    <View style={styles.sectionContent}>
-                      {order.supplements.map((supp: any, idx: number) => (
-                        <View key={idx} style={styles.supplementItem}>
-                          <Text style={styles.supplementName}>• {supp.name}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                )}
+          sectionsByClass.map(section => (
+            <View key={section.title} style={styles.classSection}>
+              <View style={styles.classHeader}>
+                <Text style={styles.classHeaderTitle}>{section.title}</Text>
+                <Text style={styles.classHeaderCount}>{section.data.length}</Text>
               </View>
-            ))}
-          </View>
+              <View style={styles.classUnderline} />
+              {section.data.map(order => (
+                <TouchableOpacity
+                  key={order.id}
+                  style={styles.orderCard}
+                  activeOpacity={0.7}
+                  onPress={() =>
+                    router.push(`/(school)/student-details?childId=${order.child_id}&reservationId=${order.id}`)
+                  }
+                >
+                  <View style={styles.orderCardLeft}>
+                    <Text style={styles.orderCardName} numberOfLines={1}>
+                      {order.child_first_name} {order.child_last_name}
+                    </Text>
+                    <Text style={styles.orderCardParent} numberOfLines={1}>
+                      Parent: {order.parent_name}
+                    </Text>
+                    <Text style={styles.orderCardMenu} numberOfLines={1}>{order.menu_name}</Text>
+                  </View>
+                  {order.child_allergies.length > 0 && (
+                    <View style={styles.orderCardAllergyBadge}>
+                      <Text style={styles.orderCardAllergyText}>Allergies</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          ))
         )}
       </ScrollView>
+
+      <Modal
+        visible={showExportModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowExportModal(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setShowExportModal(false)}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Exporter</Text>
+              <TouchableOpacity onPress={() => setShowExportModal(false)}>
+                <X size={22} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSectionTitle}>FORMAT</Text>
+            <View style={styles.modalRow}>
+              <TouchableOpacity
+                style={[styles.modalChip, exportFormat === 'xlsx' && styles.modalChipActive]}
+                onPress={() => setExportFormat('xlsx')}
+              >
+                <Text style={[styles.modalChipText, exportFormat === 'xlsx' && styles.modalChipTextActive]}>Excel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalChip, exportFormat === 'csv' && styles.modalChipActive]}
+                onPress={() => setExportFormat('csv')}
+              >
+                <Text style={[styles.modalChipText, exportFormat === 'csv' && styles.modalChipTextActive]}>CSV</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSectionTitle}>MENU</Text>
+            <ScrollView style={styles.modalScrollSection} showsVerticalScrollIndicator={false}>
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => setExportMenuId('all')}
+              >
+                <Text style={[styles.modalOptionText, exportMenuId === 'all' && styles.modalOptionTextActive]}>
+                  Tous les menus
+                </Text>
+                {exportMenuId === 'all' && <Check size={18} color="#4F46E5" />}
+              </TouchableOpacity>
+              {menus.map(m => (
+                <TouchableOpacity
+                  key={m.id}
+                  style={styles.modalOption}
+                  onPress={() => setExportMenuId(m.id)}
+                >
+                  <Text style={[styles.modalOptionText, exportMenuId === m.id && styles.modalOptionTextActive]}>
+                    {m.name}
+                  </Text>
+                  {exportMenuId === m.id && <Check size={18} color="#4F46E5" />}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <Text style={styles.modalSectionTitle}>CLASSE</Text>
+            <ScrollView style={styles.modalScrollSection} showsVerticalScrollIndicator={false}>
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => setExportClass('all')}
+              >
+                <Text style={[styles.modalOptionText, exportClass === 'all' && styles.modalOptionTextActive]}>
+                  Toutes les classes
+                </Text>
+                {exportClass === 'all' && <Check size={18} color="#4F46E5" />}
+              </TouchableOpacity>
+              {availableClasses.map(c => (
+                <TouchableOpacity
+                  key={c}
+                  style={styles.modalOption}
+                  onPress={() => setExportClass(c)}
+                >
+                  <Text style={[styles.modalOptionText, exportClass === c && styles.modalOptionTextActive]}>
+                    {c}
+                  </Text>
+                  {exportClass === c && <Check size={18} color="#4F46E5" />}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={[styles.modalSubmitButton, exporting && styles.modalSubmitButtonDisabled]}
+              onPress={handleExport}
+              disabled={exporting}
+            >
+              {exporting ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.modalSubmitText}>Télécharger</Text>
+              )}
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-  },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFFFFF' },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 12,
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
   },
   backButton: {
-    padding: 8,
-  },
-  exportButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#059669',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  exportButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  exportButtonDisabled: {
-    backgroundColor: '#9CA3AF',
-    opacity: 0.6,
-  },
-  summaryCard: {
-    backgroundColor: '#111827',
-    marginHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 20,
-    borderRadius: 16,
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  summaryIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  summaryTextContainer: {
-    flex: 1,
-  },
-  summaryCount: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  summaryLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.7)',
-    marginTop: 2,
-  },
-  searchContainer: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 12,
-    padding: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  searchInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: '#111827',
-    padding: 0,
-  },
-  clearButton: {
-    padding: 4,
-  },
-  searchResultsContainer: {
-    marginHorizontal: 20,
-    marginBottom: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#EEF2FF',
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#4F46E5',
-  },
-  searchResultsText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4F46E5',
-  },
-  mainScrollView: {
-    flex: 1,
-  },
-  mainScrollContent: {
-    paddingBottom: 40,
-  },
-  filtersContainer: {
-    backgroundColor: '#FFFFFF',
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  filterLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 12,
-  },
-  dropdownButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-  },
-  dropdownButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
-  },
-  dropdownMenu: {
-    marginTop: 8,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  dropdownItem: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  dropdownItemActive: {
+    width: 36, height: 36, borderRadius: 10,
+    justifyContent: 'center', alignItems: 'center',
     backgroundColor: '#F3F4F6',
   },
-  dropdownItemLast: {
-    borderBottomWidth: 0,
+  headerTitleBlock: { flex: 1 },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
+  headerSubtitle: { fontSize: 13, color: '#6B7280', marginTop: 2 },
+  exportButton: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB',
+    paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8,
   },
-  dropdownItemText: {
-    fontSize: 15,
-    color: '#374151',
-    fontWeight: '500',
+  exportButtonText: { fontSize: 13, fontWeight: '600', color: '#111827' },
+  statsStrip: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around',
+    backgroundColor: '#0F172A', marginHorizontal: 16, marginTop: 4,
+    paddingVertical: 16, borderRadius: 14,
   },
-  dropdownItemTextActive: {
-    color: '#111827',
-    fontWeight: '700',
+  statItem: { alignItems: 'center', flex: 1 },
+  statValue: { fontSize: 22, fontWeight: '800', color: '#FFFFFF' },
+  statLabel: { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
+  statDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.12)' },
+  tabsContainer: { marginTop: 14, marginBottom: 6, maxHeight: 44 },
+  tabsContent: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
+  tabPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingVertical: 8, paddingHorizontal: 14,
+    backgroundColor: '#F3F4F6', borderRadius: 999,
   },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 80,
+  tabPillActive: { backgroundColor: '#0F172A' },
+  tabPillDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981' },
+  tabPillText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
+  tabPillTextActive: { color: '#FFFFFF' },
+  searchContainer: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 16, marginVertical: 10,
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderRadius: 12, backgroundColor: '#F3F4F6',
   },
-  emptyText: {
-    fontSize: 16,
-    color: '#9CA3AF',
-    marginTop: 16,
+  searchInput: { flex: 1, fontSize: 14, color: '#111827', padding: 0 },
+  listContainer: { flex: 1 },
+  listContent: { paddingHorizontal: 16, paddingBottom: 32 },
+  emptyState: { alignItems: 'center', paddingVertical: 60 },
+  emptyText: { fontSize: 14, color: '#9CA3AF', marginTop: 12, textAlign: 'center' },
+  classSection: { marginBottom: 16 },
+  classHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingTop: 8, paddingBottom: 6,
   },
-  ordersList: {
-    marginHorizontal: 20,
-    gap: 16,
-  },
+  classHeaderTitle: { fontSize: 16, fontWeight: '700', color: '#111827' },
+  classHeaderCount: { fontSize: 14, fontWeight: '700', color: '#4F46E5' },
+  classUnderline: { height: 1.5, backgroundColor: '#4F46E5', marginBottom: 10 },
   orderCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF', borderRadius: 12,
+    borderWidth: 1, borderColor: '#E5E7EB',
+    paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8,
   },
-  orderHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+  orderCardLeft: { flex: 1 },
+  orderCardName: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  orderCardParent: { fontSize: 13, color: '#4F46E5', marginTop: 2 },
+  orderCardMenu: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  orderCardAllergyBadge: {
+    backgroundColor: '#FEF3C7', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12,
+    marginLeft: 12,
   },
-  orderNumberContainer: {
-    backgroundColor: '#111827',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+  orderCardAllergyText: { fontSize: 12, fontWeight: '700', color: '#92400E' },
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(17, 24, 39, 0.45)',
+    justifyContent: 'center', paddingHorizontal: 24,
   },
-  orderNumber: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  modalContent: {
+    backgroundColor: '#FFFFFF', borderRadius: 18,
+    paddingHorizontal: 18, paddingVertical: 18,
+    maxHeight: '85%',
   },
-  orderHeaderRight: {
-    alignItems: 'flex-end',
-  },
-  orderDate: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  orderDivider: {
-    height: 2,
-    backgroundColor: '#E5E7EB',
-    marginBottom: 16,
-  },
-  orderSection: {
-    marginBottom: 16,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-    paddingBottom: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  sectionContent: {
-    paddingLeft: 26,
-  },
-  menuName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 6,
-  },
-  menuDescription: {
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 20,
+  modalHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginBottom: 8,
   },
-  allergensContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 8,
-    backgroundColor: '#FEF2F2',
-    padding: 8,
-    borderRadius: 6,
-    borderLeftWidth: 3,
-    borderLeftColor: '#DC2626',
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
+  modalSectionTitle: {
+    fontSize: 11, fontWeight: '700', color: '#6B7280', letterSpacing: 0.6,
+    marginTop: 14, marginBottom: 8,
   },
-  allergensLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#DC2626',
-    marginRight: 6,
+  modalRow: { flexDirection: 'row', gap: 8 },
+  modalChip: {
+    flex: 1, paddingVertical: 10, borderRadius: 10,
+    alignItems: 'center', backgroundColor: '#F3F4F6',
+    borderWidth: 1, borderColor: '#E5E7EB',
   },
-  allergensText: {
-    fontSize: 13,
-    color: '#DC2626',
-    flex: 1,
+  modalChipActive: { backgroundColor: '#0F172A', borderColor: '#0F172A' },
+  modalChipText: { fontSize: 14, fontWeight: '600', color: '#6B7280' },
+  modalChipTextActive: { color: '#FFFFFF' },
+  modalScrollSection: { maxHeight: 140 },
+  modalOption: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 4, paddingVertical: 10,
   },
-  personName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
+  modalOptionText: { fontSize: 14, color: '#111827' },
+  modalOptionTextActive: { color: '#4F46E5', fontWeight: '700' },
+  modalSubmitButton: {
+    backgroundColor: '#0F172A', paddingVertical: 14, borderRadius: 12,
+    alignItems: 'center', marginTop: 16,
   },
-  supplementItem: {
-    marginBottom: 6,
-  },
-  supplementName: {
-    fontSize: 14,
-    color: '#374151',
-    fontWeight: '500',
-  },
+  modalSubmitButtonDisabled: { opacity: 0.6 },
+  modalSubmitText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
 });

@@ -21,6 +21,7 @@ interface WeekReservation {
   };
   menus: {
     meal_name: string;
+    description: string | null;
   };
 }
 
@@ -172,12 +173,12 @@ export default function ParentHomeScreen() {
           menu_id,
           total_price,
           children (first_name, last_name),
-          menus (meal_name)
+          menus (meal_name, description)
         `)
         .eq('parent_id', parentData.id)
         .gte('date', todayStr)
         .order('date', { ascending: true })
-        .limit(10);
+        .limit(100);
 
       setUpcomingReservations(upcomingData || []);
 
@@ -537,26 +538,44 @@ export default function ParentHomeScreen() {
               showsVerticalScrollIndicator={true}
               nestedScrollEnabled={true}
             >
-              {upcomingReservations.map((reservation) => (
-                <View key={reservation.id} style={styles.reservationCard}>
-                  <View style={styles.reservationDateBadge}>
-                    <Text style={styles.reservationDateText}>
-                      {formatDate(reservation.date)}
-                    </Text>
+              {(() => {
+                const groups = new Map<string, { childName: string; items: WeekReservation[] }>();
+                upcomingReservations.forEach((res) => {
+                  const childName = `${res.children?.first_name || ''} ${res.children?.last_name || ''}`.trim() || 'Enfant';
+                  if (!groups.has(res.child_id)) {
+                    groups.set(res.child_id, { childName, items: [] });
+                  }
+                  groups.get(res.child_id)!.items.push(res);
+                });
+                return Array.from(groups.entries()).map(([childId, group]) => (
+                  <View key={childId} style={styles.childGroup}>
+                    <Text style={styles.childGroupName}>{group.childName}</Text>
+                    <View style={styles.childGroupUnderline} />
+                    {group.items.map((reservation) => (
+                      <View key={reservation.id} style={styles.menuCard}>
+                        <View style={styles.menuDatePill}>
+                          <Text style={styles.menuDatePillText}>
+                            {formatDate(reservation.date)}
+                          </Text>
+                        </View>
+                        <View style={styles.menuRow}>
+                          <Text style={styles.menuName} numberOfLines={1}>
+                            {reservation.menus?.meal_name || 'Menu'}
+                          </Text>
+                          <Text style={styles.menuPrice}>
+                            {Number(reservation.total_price).toFixed(2)} DH
+                          </Text>
+                        </View>
+                        {reservation.menus?.description ? (
+                          <Text style={styles.menuDescription} numberOfLines={2}>
+                            {reservation.menus.description}
+                          </Text>
+                        ) : null}
+                      </View>
+                    ))}
                   </View>
-                  <View style={styles.reservationInfo}>
-                    <Text style={styles.reservationChildName}>
-                      {reservation.children.first_name} {reservation.children.last_name}
-                    </Text>
-                    <Text style={styles.reservationMenuName}>
-                      {reservation.menus.meal_name}
-                    </Text>
-                    <Text style={styles.reservationPrice}>
-                      {reservation.total_price.toFixed(2)} DH
-                    </Text>
-                  </View>
-                </View>
-              ))}
+                ));
+              })()}
             </ScrollView>
           )}
         </View>
@@ -839,7 +858,64 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   reservationsScrollView: {
-    maxHeight: 280,
+    maxHeight: 360,
+  },
+  childGroup: {
+    marginBottom: 16,
+  },
+  childGroupName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 6,
+  },
+  childGroupUnderline: {
+    height: 1.5,
+    backgroundColor: '#4F46E5',
+    marginBottom: 12,
+  },
+  menuCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+  },
+  menuDatePill: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  menuDatePillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#4F46E5',
+  },
+  menuRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  menuName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  menuPrice: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  menuDescription: {
+    marginTop: 4,
+    fontSize: 13,
+    color: '#6B7280',
   },
   emptyReservations: {
     alignItems: 'center',

@@ -79,23 +79,19 @@ export default function AdminOrdersScreen() {
         return;
       }
 
-      const { data: reservations } = await supabase
+      const { data: reservationsRaw } = await supabase
         .from('reservations')
         .select(`
           id,
           date,
           total_price,
           created_at,
-          child:children(
+          parent_id,
+          child:children!child_id(
             first_name,
             last_name,
             grade,
             school:schools(id, name)
-          ),
-          parent:parents(
-            first_name,
-            last_name,
-            email
           ),
           menu:menus(
             id,
@@ -106,13 +102,24 @@ export default function AdminOrdersScreen() {
         .order('created_at', { ascending: false })
         .limit(500);
 
+      let parentsById = new Map<string, any>();
+      const parentIds = Array.from(new Set((reservationsRaw || []).map((r: any) => r.parent_id).filter(Boolean)));
+      if (parentIds.length > 0) {
+        const { data: parentsData } = await supabase
+          .from('parents')
+          .select('id, first_name, last_name, email')
+          .in('id', parentIds);
+        parentsById = new Map((parentsData || []).map((p: any) => [p.id, p]));
+      }
+
+      const reservations = reservationsRaw;
       if (reservations) {
         const formattedOrders: OrderData[] = reservations.map((r: any) => ({
           id: r.id,
           date: r.date,
           total_price: r.total_price,
           child: r.child,
-          parent: r.parent,
+          parent: parentsById.get(r.parent_id) || { first_name: '', last_name: '', email: null },
           menu: {
             id: r.menu.id,
             meal_name: r.menu.meal_name

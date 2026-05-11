@@ -4,14 +4,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { Calendar, Users, ClipboardList, UtensilsCrossed, History, Share2, ShoppingBag, BarChart3, Building2 } from 'lucide-react-native';
+import { Calendar, Users, UtensilsCrossed, ShoppingBag, BarChart3, Building2 } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useNotifications } from '@/hooks/useNotifications';
+import { parseOrderSupplements, SupplementAggregate } from '@/lib/order-supplements';
+
+interface MenuBreakdownItem {
+  name: string;
+  count: number;
+}
 
 export default function SchoolHomeScreen() {
   const router = useRouter();
   const [school, setSchool] = useState<School | null>(null);
   const [todayOrdersCount, setTodayOrdersCount] = useState(0);
+  const [todayMenuBreakdown, setTodayMenuBreakdown] = useState<MenuBreakdownItem[]>([]);
+  const [todayClassicSupplements, setTodayClassicSupplements] = useState<SupplementAggregate[]>([]);
   const [studentsCount, setStudentsCount] = useState(0);
   const [monthlyOrders, setMonthlyOrders] = useState<number[]>([0, 0, 0, 0, 0]);
   const [loading, setLoading] = useState(true);
@@ -60,12 +68,57 @@ export default function SchoolHomeScreen() {
         .from('reservations')
         .select(`
           id,
+          supplements,
+          menu:menus!menu_id(meal_name),
           child:children!inner(school_id)
         `)
         .eq('date', todayStr)
-        .eq('child.school_id', currentSchool.id);
+        .eq('child.school_id', currentSchool.id)
+        .neq('payment_status', 'cancelled');
 
-      setTodayOrdersCount(todayOrdersData?.length || 0);
+      const todayOrders = (todayOrdersData || []) as any[];
+      setTodayOrdersCount(todayOrders.length);
+
+      const menuCountMap = new Map<string, number>();
+      todayOrders.forEach((order) => {
+        const name = order.menu?.meal_name?.trim();
+        if (name) {
+          menuCountMap.set(name, (menuCountMap.get(name) || 0) + 1);
+        }
+      });
+      const menuBreakdown: MenuBreakdownItem[] = Array.from(menuCountMap.entries())
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'fr-FR'));
+      setTodayMenuBreakdown(menuBreakdown);
+
+      const { data: classicSupplementsRows } = await supabase
+        .from('provider_supplements')
+        .select('id')
+        .eq('school_id', currentSchool.id)
+        .is('menu_id', null)
+        .is('library_menu_id', null);
+
+      const classicIdSet = new Set<string>((classicSupplementsRows || []).map((r: any) => r.id));
+
+      const classicAggMap = new Map<string, SupplementAggregate>();
+      todayOrders.forEach((order) => {
+        const parsed = parseOrderSupplements(order.supplements);
+        parsed.forEach((sup) => {
+          if (!sup.id || !classicIdSet.has(sup.id)) return;
+          const key = sup.name.trim().toLocaleLowerCase('fr-FR');
+          if (!key) return;
+          const existing = classicAggMap.get(key);
+          if (existing) {
+            existing.quantity += sup.quantity;
+          } else {
+            classicAggMap.set(key, { name: sup.name.trim(), quantity: sup.quantity });
+          }
+        });
+      });
+      const classicAgg = Array.from(classicAggMap.values()).sort(
+        (a, b) => b.quantity - a.quantity || a.name.localeCompare(b.name, 'fr-FR')
+      );
+      setTodayClassicSupplements(classicAgg);
 
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -158,19 +211,39 @@ export default function SchoolHomeScreen() {
             <Text style={styles.todayStatValue}>{todayOrdersCount}</Text>
             <Text style={styles.todayStatLabel}>Commande{todayOrdersCount > 1 ? 's' : ''} à distribuer</Text>
           </View>
+
+          {todayMenuBreakdown.length > 0 && (
+            <>
+              <View style={styles.todayDivider} />
+              <Text style={styles.todaySectionLabel}>PAR MENU</Text>
+              {todayMenuBreakdown.map((item) => (
+                <View key={item.name} style={styles.todayRow}>
+                  <Text style={styles.todayRowName}>{item.name}</Text>
+                  <View style={styles.todayCountPill}>
+                    <Text style={styles.todayCountPillText}>×{item.count}</Text>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
+
+          {todayClassicSupplements.length > 0 && (
+            <>
+              <View style={styles.todayDivider} />
+              <Text style={styles.todaySectionLabel}>SUPPLÉMENTS</Text>
+              {todayClassicSupplements.map((item) => (
+                <View key={item.name} style={styles.todayRow}>
+                  <Text style={styles.todayRowName}>{item.name}</Text>
+                  <View style={styles.todayCountPill}>
+                    <Text style={styles.todayCountPillText}>×{item.quantity}</Text>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
         </View>
 
         <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push('/(school)/commander')}
-          >
-            <View style={styles.actionIconContainer}>
-              <ClipboardList size={28} color="#FFFFFF" />
-            </View>
-            <Text style={styles.actionTitle}>Faire une{'\n'}commande</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity
             style={styles.actionCard}
             onPress={() => router.push('/(school)/calendar')}
@@ -179,6 +252,16 @@ export default function SchoolHomeScreen() {
               <Calendar size={28} color="#FFFFFF" />
             </View>
             <Text style={styles.actionTitle}>Voir les{'\n'}commandes</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionCard}
+            onPress={() => router.push('/(school)/my-orders')}
+          >
+            <View style={styles.actionIconContainer}>
+              <ShoppingBag size={28} color="#FFFFFF" />
+            </View>
+            <Text style={styles.actionTitle}>Récapitulatif{'\n'}commandes</Text>
           </TouchableOpacity>
         </View>
 
@@ -196,36 +279,14 @@ export default function SchoolHomeScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.myOrdersButton}
-          onPress={() => router.push('/(school)/my-orders')}
+          style={[styles.secondaryActionCard, styles.statsButton, { backgroundColor: '#BFDBFE' }]}
+          onPress={() => router.push('/(school)/history')}
         >
-          <View style={styles.myOrdersButtonContent}>
-            <ShoppingBag size={24} color="#7C3AED" />
-            <Text style={styles.myOrdersButtonText}>Mes commandes</Text>
+          <View style={[styles.actionIconContainer, { backgroundColor: '#1E40AF' }]}>
+            <BarChart3 size={28} color="#FFFFFF" />
           </View>
+          <Text style={[styles.actionTitle, { color: '#1E40AF' }]}>Voir les{"\n"}statistiques</Text>
         </TouchableOpacity>
-
-        <View style={styles.actionsRow}>
-          <TouchableOpacity
-            style={[styles.secondaryActionCard, { backgroundColor: '#BFDBFE' }]}
-            onPress={() => router.push('/(school)/history')}
-          >
-            <View style={[styles.actionIconContainer, { backgroundColor: '#1E40AF' }]}>
-              <BarChart3 size={28} color="#FFFFFF" />
-            </View>
-            <Text style={[styles.actionTitle, { color: '#1E40AF' }]}>Voir les{"\n"}statistiques</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.secondaryActionCard, { backgroundColor: '#DDD6FE' }]}
-            onPress={() => router.push('/(school)/share-access')}
-          >
-            <View style={[styles.actionIconContainer, { backgroundColor: '#7C3AED' }]}>
-              <Share2 size={28} color="#FFFFFF" />
-            </View>
-            <Text style={[styles.actionTitle, { color: '#7C3AED' }]}>Partager{"\n"}l'accès</Text>
-          </TouchableOpacity>
-        </View>
 
         <View style={styles.chartContainer}>
           <Text style={styles.chartTitle}>Commandes du mois</Text>
@@ -361,6 +422,45 @@ const styles = StyleSheet.create({
     color: '#B45309',
     fontWeight: '600',
   },
+  todayDivider: {
+    height: 1,
+    backgroundColor: 'rgba(146, 64, 14, 0.18)',
+    marginVertical: 16,
+  },
+  todaySectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+    letterSpacing: 1,
+    marginBottom: 8,
+    opacity: 0.7,
+  },
+  todayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    gap: 12,
+  },
+  todayRowName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  todayCountPill: {
+    backgroundColor: '#B45309',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+    minWidth: 36,
+    alignItems: 'center',
+  },
+  todayCountPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   actionsRow: {
     flexDirection: 'row',
     paddingHorizontal: 20,
@@ -406,6 +506,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+  },
+  statsButton: {
+    flex: undefined,
+    marginHorizontal: 20,
+    marginBottom: 16,
   },
   studentsButton: {
     marginHorizontal: 20,

@@ -12,6 +12,8 @@ export default function AdminLayout() {
       <Stack.Screen name="parents" />
       <Stack.Screen name="profile" />
       <Stack.Screen name="refunds" />
+      <Stack.Screen name="create-school" />
+      <Stack.Screen name="create-provider" />
     </Stack>
   );
 }

@@ -1,8 +1,8 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from 'react';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as XLSX from 'xlsx';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, Platform } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -278,36 +278,29 @@ export default function MenuOrdersScreen() {
   };
 
   const buildExportRows = (ordersToExport: OrderDetail[]) => {
-    const groupedBySchool = new Map<string, { schoolName: string; orders: OrderDetail[] }>();
-
-    ordersToExport.forEach((order) => {
-      const existing = groupedBySchool.get(order.school_id);
-      if (existing) {
-        existing.orders.push(order);
-        return;
-      }
-
-      groupedBySchool.set(order.school_id, {
-        schoolName: order.school_name,
-        orders: [order],
-      });
-    });
-
-    return Array.from(groupedBySchool.values())
-      .sort((a, b) => a.schoolName.localeCompare(b.schoolName, 'fr-FR'))
-      .map((schoolGroup) => {
-        const supplements = aggregateOrderSupplements(
-          schoolGroup.orders.map(order => order.supplements)
-        );
-        const supplementSummary = supplements.length > 0
-          ? supplements.map(formatSupplementAggregate).join(' | ')
+    return [...ordersToExport]
+      .sort((a, b) => {
+        const schoolCompare = a.school_name.localeCompare(b.school_name, 'fr-FR');
+        if (schoolCompare !== 0) return schoolCompare;
+        return a.child_name.localeCompare(b.child_name, 'fr-FR');
+      })
+      .map((order) => {
+        const supplementAggregates = aggregateOrderSupplements([order.supplements]);
+        const supplementSummary = supplementAggregates.length > 0
+          ? supplementAggregates.map(formatSupplementAggregate).join(' | ')
           : 'Aucun';
+        const allergies = order.allergies.length > 0 ? order.allergies.join(', ') : 'Aucune';
+        const dietaryRestrictions = order.dietary_restrictions.length > 0
+          ? order.dietary_restrictions.join(', ')
+          : 'Aucune';
 
         return [
-          schoolGroup.schoolName,
-          formatDate(date),
-          menuName,
-          schoolGroup.orders.length,
+          order.school_name,
+          order.child_name,
+          order.grade || '',
+          order.parent_name,
+          allergies,
+          dietaryRestrictions,
           supplementSummary,
         ] as (string | number)[];
       });
@@ -322,7 +315,7 @@ export default function MenuOrdersScreen() {
 
     setExporting(true);
     try {
-      const header = ['École', 'Jour', 'Menu', 'Quantité', 'Suppléments + quantités'];
+      const header = ['École', 'Élève', 'Classe', 'Parent', 'Allergies', 'Restrictions alimentaires', 'Suppléments'];
       const rows = buildExportRows(ordersToExport);
 
       const scopeLabel = exportSchoolId === 'all'
@@ -330,34 +323,42 @@ export default function MenuOrdersScreen() {
         : sanitizeFileName(schoolFilters.find(school => school.id === exportSchoolId)?.name || 'ecole');
       const baseFileName = `commandes-${sanitizeFileName(menuName)}-${date}-${scopeLabel}`;
 
+      const isWeb = Platform.OS === 'web';
+
       if (exportFormat === 'xlsx') {
         const worksheet = XLSX.utils.aoa_to_sheet([header, ...rows]);
         worksheet['!cols'] = [
-          { wch: 30 },
           { wch: 24 },
           { wch: 28 },
-          { wch: 10 },
-          { wch: 50 },
+          { wch: 14 },
+          { wch: 26 },
+          { wch: 28 },
+          { wch: 28 },
+          { wch: 36 },
         ];
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Commandes');
-        const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
-
         const fileName = `${baseFileName}.xlsx`;
-        const fileUri = `${(FileSystem as any).documentDirectory}${fileName}`;
 
-        await FileSystem.writeAsStringAsync(fileUri, base64, {
-          encoding: (FileSystem as any).EncodingType.Base64,
-        });
-
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(fileUri, {
-            mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            dialogTitle: 'Exporter les commandes',
-            UTI: 'org.openxmlformats.spreadsheetml.sheet',
-          });
+        if (isWeb) {
+          XLSX.writeFile(workbook, fileName);
         } else {
-          showAlert('Export prêt', `Le fichier Excel a été généré : ${fileName}`);
+          const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
+          const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+
+          await FileSystem.writeAsStringAsync(fileUri, base64, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(fileUri, {
+              mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+              dialogTitle: 'Exporter les commandes',
+              UTI: 'org.openxmlformats.spreadsheetml.sheet',
+            });
+          } else {
+            showAlert('Export prêt', `Le fichier Excel a été généré : ${fileName}`);
+          }
         }
       } else {
         const csvContent = [
@@ -366,20 +367,33 @@ export default function MenuOrdersScreen() {
         ].join('\n');
 
         const fileName = `${baseFileName}.csv`;
-        const fileUri = `${(FileSystem as any).documentDirectory}${fileName}`;
 
-        await FileSystem.writeAsStringAsync(fileUri, `\uFEFF${csvContent}`, {
-          encoding: (FileSystem as any).EncodingType.UTF8,
-        });
-
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(fileUri, {
-            mimeType: 'text/csv',
-            dialogTitle: 'Exporter les commandes',
-            UTI: 'public.comma-separated-values-text',
-          });
+        if (isWeb) {
+          const blob = new Blob([`﻿${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
         } else {
-          showAlert('Export prêt', `Le fichier CSV a été généré : ${fileName}`);
+          const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+
+          await FileSystem.writeAsStringAsync(fileUri, `﻿${csvContent}`, {
+            encoding: FileSystem.EncodingType.UTF8,
+          });
+
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(fileUri, {
+              mimeType: 'text/csv',
+              dialogTitle: 'Exporter les commandes',
+              UTI: 'public.comma-separated-values-text',
+            });
+          } else {
+            showAlert('Export prêt', `Le fichier CSV a été généré : ${fileName}`);
+          }
         }
       }
 

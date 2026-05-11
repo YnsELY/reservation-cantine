@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { MenuIcon, User, LogOut, Users as UsersIcon, ShoppingBag, BarChart3, Key, School, Undo2 } from 'lucide-react-native';
+import { MenuIcon, User, LogOut, Users as UsersIcon, ShoppingBag, BarChart3, School, Building2, Undo2 } from 'lucide-react-native';
 import Svg, { Path, Rect, Defs, LinearGradient, Stop, Text as SvgText, Polyline, Circle, Line } from 'react-native-svg';
 
 const WhatsAppIcon = ({ size = 22, color = '#25D366' }) => (
@@ -199,17 +199,6 @@ export default function AdminDashboard() {
                 style={styles.dropdownItem}
                 onPress={() => {
                   setIsMenuCardOpen(false);
-                  router.push('/(admin)/provider-access');
-                }}
-              >
-                <Key size={22} color="#4F46E5" />
-                <Text style={styles.dropdownItemText}>Codes Prestataire</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.dropdownItem}
-                onPress={() => {
-                  setIsMenuCardOpen(false);
                   router.push('/(admin)/create-school');
                 }}
               >
@@ -221,11 +210,11 @@ export default function AdminDashboard() {
                 style={styles.dropdownItem}
                 onPress={() => {
                   setIsMenuCardOpen(false);
-                  router.push('/(admin)/school-access');
+                  router.push('/(admin)/create-provider');
                 }}
               >
-                <Key size={22} color="#F59E0B" />
-                <Text style={styles.dropdownItemText}>Codes École</Text>
+                <Building2 size={22} color="#4F46E5" />
+                <Text style={styles.dropdownItemText}>Créer un prestataire</Text>
               </TouchableOpacity>
 
               <TouchableOpacity

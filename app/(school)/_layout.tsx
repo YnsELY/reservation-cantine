@@ -10,7 +10,6 @@ export default function SchoolLayout() {
       <Stack.Screen name="commander" />
       <Stack.Screen name="history" />
       <Stack.Screen name="statistics" />
-      <Stack.Screen name="share-access" />
       <Stack.Screen name="orders" />
       <Stack.Screen name="account" />
     </Stack>

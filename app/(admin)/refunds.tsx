@@ -56,23 +56,18 @@ export default function AdminRefundsScreen() {
       }
       setAdminId(currentParent.id);
 
-      const { data: reservations } = await supabase
+      const { data: reservationsRaw } = await supabase
         .from('reservations')
         .select(`
           id,
           date,
           total_price,
           cancelled_at,
-          child:children(
+          parent_id,
+          child:children!child_id(
             first_name,
             last_name,
             school:schools(id, name)
-          ),
-          parent:parents(
-            first_name,
-            last_name,
-            email,
-            phone
           ),
           menu:menus(
             id,
@@ -84,14 +79,24 @@ export default function AdminRefundsScreen() {
         .eq('refund_status', 'pending')
         .order('cancelled_at', { ascending: false });
 
-      if (reservations) {
-        const formatted: RefundData[] = reservations.map((r: any) => ({
+      const parentIds = Array.from(new Set((reservationsRaw || []).map((r: any) => r.parent_id).filter(Boolean)));
+      let parentsById = new Map<string, any>();
+      if (parentIds.length > 0) {
+        const { data: parentsData } = await supabase
+          .from('parents')
+          .select('id, first_name, last_name, email, phone')
+          .in('id', parentIds);
+        parentsById = new Map((parentsData || []).map((p: any) => [p.id, p]));
+      }
+
+      if (reservationsRaw) {
+        const formatted: RefundData[] = reservationsRaw.map((r: any) => ({
           id: r.id,
           date: r.date,
           total_price: r.total_price,
           cancelled_at: r.cancelled_at,
           child: r.child,
-          parent: r.parent,
+          parent: parentsById.get(r.parent_id) || { first_name: '', last_name: '', email: null, phone: null },
           menu: r.menu,
         }));
         setRefunds(formatted);
