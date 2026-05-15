@@ -9,9 +9,14 @@ export default function AdminLayout() {
     >
       <Stack.Screen name="index" />
       <Stack.Screen name="menus" />
+      <Stack.Screen name="orders" />
+      <Stack.Screen name="orders-date-detail" />
+      <Stack.Screen name="orders-provider-detail" />
+      <Stack.Screen name="orders-school-detail" />
       <Stack.Screen name="parents" />
       <Stack.Screen name="profile" />
       <Stack.Screen name="refunds" />
+      <Stack.Screen name="statistics" />
       <Stack.Screen name="create-school" />
       <Stack.Screen name="create-provider" />
     </Stack>

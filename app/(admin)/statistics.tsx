@@ -1,100 +1,79 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, ShoppingCart, DollarSign, ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react-native';
-import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
+import {
+  ArrowLeft, ShoppingCart, DollarSign, ChevronLeft, ChevronRight,
+  XCircle, Clock, Calendar as CalendarIcon, Building2, Truck,
+} from 'lucide-react-native';
+import Svg, { Polyline, Circle, Line, Text as SvgText, Rect } from 'react-native-svg';
 
 type PeriodType = 'day' | 'week' | 'month' | 'year';
 
-interface ChartData {
-  labels: string[];
-  orders: number[];
-  revenue: number[];
+interface RawReservation {
+  date: string;
+  total_price: number;
+  payment_status: 'pending' | 'paid' | 'cancelled';
+  cancelled_at: string | null;
+  created_at: string;
+  child: { school: { id: string; name: string } | null } | null;
+  menu: { provider: { id: string; company_name: string } | null } | null;
 }
 
-interface Provider {
-  id: string;
-  company_name: string;
+interface ChartData {
+  labels: string[];
+  values: number[];
 }
+
+interface Distribution {
+  name: string;
+  count: number;
+  revenue: number;
+}
+
+const formatDate = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
 
 export default function AdminStatistics() {
   const [periodType, setPeriodType] = useState<PeriodType>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [totalOrders, setTotalOrders] = useState(0);
-  const [totalRevenue, setTotalRevenue] = useState(0);
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
-  const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
-  const [chartData, setChartData] = useState<ChartData>({ labels: [], orders: [], revenue: [] });
+  const [reservations, setReservations] = useState<RawReservation[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    loadProviders();
-  }, []);
+    void loadData();
+  }, [periodType, currentDate]);
 
-  useEffect(() => {
-    loadData();
-  }, [periodType, currentDate, selectedProviderId]);
-
-  const loadProviders = async () => {
-    try {
-      const { data } = await supabase
-        .from('providers')
-        .select('id, company_name')
-        .order('company_name');
-
-      setProviders(data || []);
-    } catch (err) {
-      console.error('Error loading providers:', err);
-    }
-  };
-
-  const getDateRange = () => {
-    const date = new Date(currentDate);
+  const dateRange = useMemo(() => {
+    const date = currentDate;
     const year = date.getFullYear();
     const month = date.getMonth();
     const day = date.getDate();
 
-    const formatDate = (d: Date) => {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${y}-${m}-${day}`;
-    };
-
     if (periodType === 'day') {
-      const start = formatDate(new Date(year, month, day));
-      const end = formatDate(new Date(year, month, day));
-      return { start, end };
+      return { start: formatDate(new Date(year, month, day)), end: formatDate(new Date(year, month, day)) };
     }
-
     if (periodType === 'week') {
       const currentDay = date.getDay();
       const diff = currentDay === 0 ? -6 : 1 - currentDay;
-      const weekStart = new Date(year, month, day + diff);
-      const weekEnd = new Date(year, month, day + diff + 4);
-      return { start: formatDate(weekStart), end: formatDate(weekEnd) };
+      return {
+        start: formatDate(new Date(year, month, day + diff)),
+        end: formatDate(new Date(year, month, day + diff + 6)),
+      };
     }
-
     if (periodType === 'month') {
-      const start = formatDate(new Date(year, month, 1));
-      const end = formatDate(new Date(year, month + 1, 0));
-      return { start, end };
+      return { start: formatDate(new Date(year, month, 1)), end: formatDate(new Date(year, month + 1, 0)) };
     }
-
-    if (periodType === 'year') {
-      const start = formatDate(new Date(year, 0, 1));
-      const end = formatDate(new Date(year, 11, 31));
-      return { start, end };
-    }
-
-    return { start: formatDate(date), end: formatDate(date) };
-  };
+    return { start: formatDate(new Date(year, 0, 1)), end: formatDate(new Date(year, 11, 31)) };
+  }, [periodType, currentDate]);
 
   const loadData = async () => {
     try {
@@ -104,162 +83,146 @@ export default function AdminStatistics() {
         return;
       }
 
-      const { start, end } = getDateRange();
-
-      let reservationsQuery = supabase
+      const { data } = await supabase
         .from('reservations')
-        .select('date, total_price, menu:menus(provider_id)')
-        .gte('date', start)
-        .lte('date', end);
+        .select(`
+          date, total_price, payment_status, cancelled_at, created_at,
+          child:children!child_id(school:schools(id, name)),
+          menu:menus(provider:providers(id, company_name))
+        `)
+        .gte('date', dateRange.start)
+        .lte('date', dateRange.end)
+        .limit(5000);
 
-      const { data: reservations } = await reservationsQuery;
-
-      let filteredReservations = reservations || [];
-
-      if (selectedProviderId) {
-        filteredReservations = filteredReservations.filter(r => r.menu?.provider_id === selectedProviderId);
-      }
-
-      const orders = filteredReservations.length;
-      const revenue = filteredReservations.reduce((sum, r) => sum + Number(r.total_price), 0);
-
-      setTotalOrders(orders);
-      setTotalRevenue(revenue);
-
-      const chartLabels = generateLabels();
-      const ordersData = new Array(chartLabels.length).fill(0);
-      const revenueData = new Array(chartLabels.length).fill(0);
-
-      filteredReservations.forEach(reservation => {
-        const index = getDataIndex(reservation.date, chartLabels);
-        if (index >= 0 && index < ordersData.length) {
-          ordersData[index]++;
-          revenueData[index] += Number(reservation.total_price);
-        }
-      });
-
-      setChartData({
-        labels: chartLabels,
-        orders: ordersData,
-        revenue: revenueData,
-      });
+      const formatted: RawReservation[] = (data || []).map((r: any) => ({
+        date: r.date,
+        total_price: Number(r.total_price) || 0,
+        payment_status: r.payment_status,
+        cancelled_at: r.cancelled_at,
+        created_at: r.created_at,
+        child: r.child,
+        menu: r.menu,
+      }));
+      setReservations(formatted);
     } catch (err) {
-      console.error('Error loading data:', err);
+      console.error('Error loading stats:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const generateLabels = (): string[] => {
+  const stats = useMemo(() => {
+    const total = reservations.length;
+    const cancelled = reservations.filter(r => r.payment_status === 'cancelled' || r.cancelled_at).length;
+    const active = total - cancelled;
+    const revenue = reservations.filter(r => r.payment_status !== 'cancelled').reduce((s, r) => s + r.total_price, 0);
+    const cancellationRate = total > 0 ? Math.round((cancelled / total) * 1000) / 10 : 0;
+    return { total, active, cancelled, revenue, cancellationRate };
+  }, [reservations]);
+
+  const ordersChart: ChartData = useMemo(() => {
     if (periodType === 'day') {
-      return ['Aujourd\'hui'];
+      return { labels: ['Aujourd\'hui'], values: [reservations.length] };
     }
-
     if (periodType === 'week') {
-      return ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven'];
+      const labels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+      const values = new Array(7).fill(0);
+      reservations.forEach(r => {
+        const [y, m, d] = r.date.split('-').map(Number);
+        const day = new Date(y, m - 1, d).getDay();
+        const idx = day === 0 ? 6 : day - 1;
+        values[idx] += 1;
+      });
+      return { labels, values };
     }
-
     if (periodType === 'month') {
-      return ['S1', 'S2', 'S3', 'S4', 'S5'];
+      const labels = ['S1', 'S2', 'S3', 'S4', 'S5'];
+      const values = new Array(5).fill(0);
+      reservations.forEach(r => {
+        const [, , d] = r.date.split('-').map(Number);
+        const idx = Math.min(Math.floor((d - 1) / 7), 4);
+        values[idx] += 1;
+      });
+      return { labels, values };
     }
+    const labels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+    const values = new Array(12).fill(0);
+    reservations.forEach(r => {
+      const [, m] = r.date.split('-').map(Number);
+      values[m - 1] += 1;
+    });
+    return { labels, values };
+  }, [reservations, periodType]);
 
-    if (periodType === 'year') {
-      return ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-    }
+  const peakHours: ChartData = useMemo(() => {
+    const buckets = new Array(24).fill(0);
+    reservations.forEach(r => {
+      const h = new Date(r.created_at).getHours();
+      buckets[h] += 1;
+    });
+    return {
+      labels: ['0', '3', '6', '9', '12', '15', '18', '21'],
+      values: buckets,
+    };
+  }, [reservations]);
 
-    return [];
-  };
+  const peakWeekday: ChartData = useMemo(() => {
+    const labels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    const values = new Array(7).fill(0);
+    reservations.forEach(r => {
+      const d = new Date(r.created_at);
+      const idx = d.getDay() === 0 ? 6 : d.getDay() - 1;
+      values[idx] += 1;
+    });
+    return { labels, values };
+  }, [reservations]);
 
-  const getDataIndex = (dateStr: string, labels: string[]): number => {
-    if (periodType === 'day') {
-      return 0;
-    }
+  const schoolDist: Distribution[] = useMemo(() => {
+    const map = new Map<string, Distribution>();
+    reservations.forEach(r => {
+      const name = r.child?.school?.name || 'Sans école';
+      const e = map.get(name) || { name, count: 0, revenue: 0 };
+      e.count += 1;
+      if (r.payment_status !== 'cancelled') e.revenue += r.total_price;
+      map.set(name, e);
+    });
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [reservations]);
 
-    if (periodType === 'week') {
-      const { start } = getDateRange();
-      const [startYear, startMonth, startDay] = start.split('-').map(Number);
-      const [dateYear, dateMonth, dateDay] = dateStr.split('-').map(Number);
-
-      const weekStartDate = new Date(startYear, startMonth - 1, startDay);
-      const checkDate = new Date(dateYear, dateMonth - 1, dateDay);
-
-      const day = checkDate.getDay();
-      if (day === 0 || day === 6) return -1;
-
-      const diffDays = Math.floor((checkDate.getTime() - weekStartDate.getTime()) / (1000 * 60 * 60 * 24));
-
-      if (diffDays < 0 || diffDays >= 5) return -1;
-
-      return diffDays;
-    }
-
-    if (periodType === 'month') {
-      const [, , day] = dateStr.split('-').map(Number);
-      const weekOfMonth = Math.floor((day - 1) / 7);
-      return Math.min(weekOfMonth, labels.length - 1);
-    }
-
-    if (periodType === 'year') {
-      const [, month] = dateStr.split('-').map(Number);
-      return month - 1;
-    }
-
-    return -1;
-  };
+  const providerDist: Distribution[] = useMemo(() => {
+    const map = new Map<string, Distribution>();
+    reservations.forEach(r => {
+      const name = r.menu?.provider?.company_name || 'Sans prestataire';
+      const e = map.get(name) || { name, count: 0, revenue: 0 };
+      e.count += 1;
+      if (r.payment_status !== 'cancelled') e.revenue += r.total_price;
+      map.set(name, e);
+    });
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [reservations]);
 
   const navigatePeriod = (direction: 'prev' | 'next') => {
-    const newDate = new Date(currentDate);
-
-    if (periodType === 'day') {
-      newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1));
-    } else if (periodType === 'week') {
-      newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7));
-    } else if (periodType === 'month') {
-      newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
-    } else if (periodType === 'year') {
-      newDate.setFullYear(newDate.getFullYear() + (direction === 'next' ? 1 : -1));
-    }
-
-    setCurrentDate(newDate);
+    const d = new Date(currentDate);
+    if (periodType === 'day') d.setDate(d.getDate() + (direction === 'next' ? 1 : -1));
+    else if (periodType === 'week') d.setDate(d.getDate() + (direction === 'next' ? 7 : -7));
+    else if (periodType === 'month') d.setMonth(d.getMonth() + (direction === 'next' ? 1 : -1));
+    else d.setFullYear(d.getFullYear() + (direction === 'next' ? 1 : -1));
+    setCurrentDate(d);
   };
 
-  const getPeriodLabel = (): string => {
-    const date = currentDate;
-
-    if (periodType === 'day') {
-      return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-    }
-
+  const periodLabel = useMemo(() => {
+    const d = currentDate;
+    if (periodType === 'day') return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
     if (periodType === 'week') {
-      const { start, end } = getDateRange();
-      const [startYear, startMonth, startDay] = start.split('-').map(Number);
-      const [endYear, endMonth, endDay] = end.split('-').map(Number);
-      const startDate = new Date(startYear, startMonth - 1, startDay);
-      const endDate = new Date(endYear, endMonth - 1, endDay);
-      return `${startDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} - ${endDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+      const [sy, sm, sd] = dateRange.start.split('-').map(Number);
+      const [ey, em, ed] = dateRange.end.split('-').map(Number);
+      const s = new Date(sy, sm - 1, sd);
+      const e = new Date(ey, em - 1, ed);
+      return `${s.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} - ${e.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}`;
     }
-
-    if (periodType === 'month') {
-      return date.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
-    }
-
-    if (periodType === 'year') {
-      return date.getFullYear().toString();
-    }
-
-    return '';
-  };
-
-  const getProviderLabel = () => {
-    if (!selectedProviderId) return 'Tous les prestataires';
-    const provider = providers.find(p => p.id === selectedProviderId);
-    return provider?.company_name || 'Tous les prestataires';
-  };
-
-  const handleSelectProvider = (providerId: string | null) => {
-    setSelectedProviderId(providerId);
-    setIsProviderDropdownOpen(false);
-  };
+    if (periodType === 'month') return d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    return d.getFullYear().toString();
+  }, [currentDate, periodType, dateRange]);
 
   if (loading) {
     return (
@@ -279,429 +242,223 @@ export default function AdminStatistics() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.providerFilterContainer}>
-          <TouchableOpacity
-            style={styles.providerDropdown}
-            onPress={() => setIsProviderDropdownOpen(!isProviderDropdownOpen)}
-          >
-            <Text style={styles.providerDropdownText}>{getProviderLabel()}</Text>
-            <ChevronDown size={20} color="#6B7280" />
-          </TouchableOpacity>
-
-          {isProviderDropdownOpen && (
-            <View style={styles.providerDropdownMenu}>
-              <TouchableOpacity
-                style={[styles.providerDropdownMenuItem, !selectedProviderId && styles.providerDropdownMenuItemActive]}
-                onPress={() => handleSelectProvider(null)}
-              >
-                <Text style={[styles.providerDropdownMenuItemText, !selectedProviderId && styles.providerDropdownMenuItemTextActive]}>
-                  Tous les prestataires
-                </Text>
-              </TouchableOpacity>
-              {providers.map(provider => (
-                <TouchableOpacity
-                  key={provider.id}
-                  style={[styles.providerDropdownMenuItem, selectedProviderId === provider.id && styles.providerDropdownMenuItemActive]}
-                  onPress={() => handleSelectProvider(provider.id)}
-                >
-                  <Text style={[styles.providerDropdownMenuItemText, selectedProviderId === provider.id && styles.providerDropdownMenuItemTextActive]}>
-                    {provider.company_name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
-
+      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.periodSelector}>
-          <TouchableOpacity
-            style={[styles.periodButton, periodType === 'day' && styles.periodButtonActive]}
-            onPress={() => setPeriodType('day')}
-          >
-            <Text style={[styles.periodButtonText, periodType === 'day' && styles.periodButtonTextActive]}>
-              Jour
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.periodButton, periodType === 'week' && styles.periodButtonActive]}
-            onPress={() => setPeriodType('week')}
-          >
-            <Text style={[styles.periodButtonText, periodType === 'week' && styles.periodButtonTextActive]}>
-              Semaine
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.periodButton, periodType === 'month' && styles.periodButtonActive]}
-            onPress={() => setPeriodType('month')}
-          >
-            <Text style={[styles.periodButtonText, periodType === 'month' && styles.periodButtonTextActive]}>
-              Mois
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.periodButton, periodType === 'year' && styles.periodButtonActive]}
-            onPress={() => setPeriodType('year')}
-          >
-            <Text style={[styles.periodButtonText, periodType === 'year' && styles.periodButtonTextActive]}>
-              Année
-            </Text>
-          </TouchableOpacity>
+          {(['day', 'week', 'month', 'year'] as PeriodType[]).map(p => (
+            <TouchableOpacity
+              key={p}
+              style={[styles.periodButton, periodType === p && styles.periodButtonActive]}
+              onPress={() => setPeriodType(p)}
+            >
+              <Text style={[styles.periodButtonText, periodType === p && styles.periodButtonTextActive]}>
+                {p === 'day' ? 'Jour' : p === 'week' ? 'Semaine' : p === 'month' ? 'Mois' : 'Année'}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         <View style={styles.periodNavigation}>
           <TouchableOpacity onPress={() => navigatePeriod('prev')} style={styles.navButton}>
             <ChevronLeft size={24} color="#111827" />
           </TouchableOpacity>
-          <Text style={styles.periodLabel}>{getPeriodLabel()}</Text>
+          <Text style={styles.periodLabel}>{periodLabel}</Text>
           <TouchableOpacity onPress={() => navigatePeriod('next')} style={styles.navButton}>
             <ChevronRight size={24} color="#111827" />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.statsRow}>
-          <View style={[styles.statCard, { backgroundColor: '#DBEAFE' }]}>
-            <View style={styles.statIconContainer}>
-              <ShoppingCart size={24} color="#1E40AF" />
-            </View>
-            <Text style={styles.statValue}>{totalOrders}</Text>
-            <Text style={styles.statLabel}>Commandes</Text>
-          </View>
-
-          <View style={[styles.statCard, { backgroundColor: '#D1FAE5' }]}>
-            <View style={styles.statIconContainer}>
-              <DollarSign size={24} color="#065F46" />
-            </View>
-            <Text style={styles.statValue}>{totalRevenue.toFixed(2)} DH</Text>
-            <Text style={styles.statLabel}>Revenu total</Text>
-          </View>
+        <View style={styles.statsGrid}>
+          <KpiCard icon={ShoppingCart} value={stats.active.toString()} label="Commandes actives" color="#1E40AF" bg="#DBEAFE" />
+          <KpiCard icon={DollarSign} value={`${stats.revenue.toFixed(0)} DH`} label="Revenu" color="#065F46" bg="#D1FAE5" />
+        </View>
+        <View style={styles.statsGrid}>
+          <KpiCard icon={XCircle} value={stats.cancelled.toString()} label="Annulées" color="#991B1B" bg="#FEE2E2" />
+          <KpiCard icon={XCircle} value={`${stats.cancellationRate}%`} label="Taux d'annulation" color="#92400E" bg="#FEF3C7" />
         </View>
 
-        <View style={styles.chartContainer}>
-          <View style={styles.chartTitleBadge}>
-            <Text style={styles.chartTitle}>Commandes</Text>
-          </View>
-          <LineChart data={chartData.orders} labels={chartData.labels} color="#3B82F6" showDecimals={false} />
-        </View>
+        <Section title="Commandes sur la période" icon={ShoppingCart}>
+          <BarChart data={ordersChart.values} labels={ordersChart.labels} color="#3B82F6" />
+        </Section>
 
-        <View style={styles.chartContainer}>
-          <View style={styles.chartTitleBadge}>
-            <Text style={styles.chartTitle}>Volume généré</Text>
-          </View>
-          <LineChart data={chartData.revenue} labels={chartData.labels} color="#10B981" showDecimals={true} />
-        </View>
+        <Section title="Pic d'activité par heure (commande)" icon={Clock}>
+          <BarChart data={peakHours.values} labels={Array.from({ length: 24 }, (_, i) => `${i}h`)} color="#8B5CF6" compact />
+        </Section>
+
+        <Section title="Pic d'activité par jour" icon={CalendarIcon}>
+          <BarChart data={peakWeekday.values} labels={peakWeekday.labels} color="#F59E0B" />
+        </Section>
+
+        <Section title="Stats par école" icon={Building2}>
+          <DistributionList items={schoolDist} accent="#0EA5E9" />
+        </Section>
+
+        <Section title="Stats par prestataire" icon={Truck}>
+          <DistributionList items={providerDist} accent="#10B981" />
+        </Section>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function LineChart({ data, labels, color, showDecimals }: { data: number[]; labels: string[]; color: string; showDecimals: boolean }) {
-  const width = 340;
-  const height = 200;
-  const paddingLeft = 16;
-  const paddingRight = 16;
-  const paddingTop = 40;
-  const paddingBottom = 40;
+function KpiCard({ icon: Icon, value, label, color, bg }: { icon: any; value: string; label: string; color: string; bg: string }) {
+  return (
+    <View style={[styles.kpiCard, { backgroundColor: bg }]}>
+      <Icon size={22} color={color} />
+      <Text style={[styles.kpiValue, { color }]}>{value}</Text>
+      <Text style={styles.kpiLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function Section({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) {
+  return (
+    <View style={styles.sectionCard}>
+      <View style={styles.sectionHeader}>
+        <Icon size={16} color="#111827" />
+        <Text style={styles.sectionTitle}>{title}</Text>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function DistributionList({ items, accent }: { items: Distribution[]; accent: string }) {
+  if (items.length === 0) {
+    return <Text style={styles.emptyText}>Aucune donnée</Text>;
+  }
+  const max = Math.max(...items.map(i => i.count), 1);
+  return (
+    <View style={{ gap: 10 }}>
+      {items.slice(0, 8).map(item => (
+        <View key={item.name}>
+          <View style={styles.distRow}>
+            <Text style={styles.distName} numberOfLines={1}>{item.name}</Text>
+            <Text style={[styles.distCount, { color: accent }]}>{item.count}</Text>
+          </View>
+          <View style={styles.barTrack}>
+            <View style={[styles.barFill, { width: `${(item.count / max) * 100}%`, backgroundColor: accent }]} />
+          </View>
+          {item.revenue > 0 && (
+            <Text style={styles.distRevenue}>{item.revenue.toFixed(0)} DH</Text>
+          )}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function BarChart({ data, labels, color, compact = false }: { data: number[]; labels: string[]; color: string; compact?: boolean }) {
+  const width = 320;
+  const height = compact ? 160 : 200;
+  const paddingLeft = 24;
+  const paddingRight = 12;
+  const paddingTop = 30;
+  const paddingBottom = 30;
   const chartWidth = width - paddingLeft - paddingRight;
   const chartHeight = height - paddingTop - paddingBottom;
 
-  const maxValue = Math.max(...data, 1);
-  const minValue = 0;
-  const range = maxValue - minValue || 1;
+  const max = Math.max(...data, 1);
+  const barCount = data.length;
+  const barGap = compact ? 1 : 4;
+  const barWidth = Math.max(2, (chartWidth - barGap * (barCount - 1)) / barCount);
 
-  const points = data.map((value, index) => {
-    const x = paddingLeft + (chartWidth / Math.max(data.length - 1, 1)) * index;
-    const y = height - paddingBottom - ((value - minValue) / range) * chartHeight;
-    return { x, y, value };
-  });
-
-  const pathData = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x},${p.y}`).join(' ');
+  const labelStep = compact ? Math.max(1, Math.floor(barCount / labels.length)) : 1;
 
   return (
-    <View style={styles.chartWrapper}>
+    <View style={styles.chartWrap}>
       <Svg width={width} height={height}>
         <Line
           x1={paddingLeft}
           y1={height - paddingBottom}
           x2={width - paddingRight}
           y2={height - paddingBottom}
-          stroke="#111827"
-          strokeWidth="2"
-        />
-        <Line
-          x1={paddingLeft}
-          y1={paddingTop}
-          x2={paddingLeft}
-          y2={height - paddingBottom}
           stroke="#E5E7EB"
-          strokeWidth="2"
+          strokeWidth={1}
         />
-
-        {points.map((p, i) => (
-          <Line
-            key={`tick-${i}`}
-            x1={p.x}
-            y1={height - paddingBottom - 5}
-            x2={p.x}
-            y2={height - paddingBottom}
-            stroke="#111827"
-            strokeWidth="2"
-          />
-        ))}
-
-        {points.map((p, i) => (
-          <Line
-            key={`bar-${i}`}
-            x1={p.x}
-            y1={height - paddingBottom}
-            x2={p.x}
-            y2={p.y}
-            stroke={color}
-            strokeWidth="3"
-            strokeOpacity="0.3"
-          />
-        ))}
-
-        <Polyline
-          points={pathData.replace(/[ML]/g, '')}
-          fill="none"
-          stroke={color}
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        {points.map((p, i) => (
-          <Circle key={i} cx={p.x} cy={p.y} r="5" fill={color} />
-        ))}
-
-        {labels.map((label, i) => (
-          <SvgText
-            key={i}
-            x={points[i]?.x || paddingLeft + (chartWidth / Math.max(labels.length - 1, 1)) * i}
-            y={height - paddingBottom + 20}
-            fontSize="12"
-            fill="#111827"
-            fontWeight="600"
-            textAnchor="middle"
-          >
-            {label}
-          </SvgText>
-        ))}
-
-        {points.map((p, i) => (
-          <SvgText
-            key={i}
-            x={p.x}
-            y={p.y - 10}
-            fontSize="12"
-            fill="#111827"
-            textAnchor="middle"
-            fontWeight="600"
-          >
-            {showDecimals ? p.value.toFixed(2) : p.value.toFixed(0)}
-          </SvgText>
-        ))}
+        {data.map((v, i) => {
+          const x = paddingLeft + i * (barWidth + barGap);
+          const h = (v / max) * chartHeight;
+          const y = height - paddingBottom - h;
+          return (
+            <Rect
+              key={i}
+              x={x}
+              y={y}
+              width={barWidth}
+              height={h}
+              fill={color}
+              rx={2}
+            />
+          );
+        })}
+        {!compact && data.map((v, i) => {
+          if (v === 0) return null;
+          const x = paddingLeft + i * (barWidth + barGap) + barWidth / 2;
+          const y = height - paddingBottom - (v / max) * chartHeight - 6;
+          return (
+            <SvgText key={`v-${i}`} x={x} y={y} fontSize={10} fill="#111827" textAnchor="middle" fontWeight="600">
+              {v}
+            </SvgText>
+          );
+        })}
+        {labels.map((label, i) => {
+          const showAt = compact ? i * labelStep : i;
+          const x = paddingLeft + showAt * (barWidth + barGap) + barWidth / 2;
+          return (
+            <SvgText
+              key={`l-${i}`}
+              x={x}
+              y={height - paddingBottom + 16}
+              fontSize={10}
+              fill="#6B7280"
+              textAnchor="middle"
+              fontWeight="600"
+            >
+              {label}
+            </SvgText>
+          );
+        })}
       </Svg>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#F9FAFB',
-  },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-  },
-  providerFilterContainer: {
-    marginBottom: 24,
-    position: 'relative',
-    zIndex: 1000,
-  },
-  providerDropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  providerDropdownText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
-    flex: 1,
-  },
-  providerDropdownMenu: {
-    position: 'absolute',
-    top: 52,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    zIndex: 1001,
-    maxHeight: 300,
-  },
-  providerDropdownMenuItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  providerDropdownMenuItemActive: {
-    backgroundColor: '#EEF2FF',
-  },
-  providerDropdownMenuItemText: {
-    fontSize: 15,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  providerDropdownMenuItemTextActive: {
-    color: '#4F46E5',
-    fontWeight: '600',
-  },
-  periodSelector: {
-    flexDirection: 'row',
-    backgroundColor: '#E5E7EB',
-    borderRadius: 12,
-    padding: 4,
-    marginBottom: 20,
-  },
-  periodButton: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  periodButtonActive: {
-    backgroundColor: '#111827',
-  },
-  periodButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  periodButtonTextActive: {
-    color: '#FFFFFF',
-  },
+  container: { flex: 1, backgroundColor: '#F9FAFB' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
+  backButton: { padding: 8 },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: '#111827' },
+  content: { flex: 1 },
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 24 },
+  periodSelector: { flexDirection: 'row', backgroundColor: '#E5E7EB', borderRadius: 12, padding: 4, marginBottom: 16 },
+  periodButton: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+  periodButtonActive: { backgroundColor: '#111827' },
+  periodButtonText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
+  periodButtonTextActive: { color: '#FFFFFF' },
   periodNavigation: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: 16, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 10,
+    borderWidth: 1, borderColor: '#E5E7EB',
   },
-  navButton: {
-    padding: 4,
+  navButton: { padding: 4 },
+  periodLabel: { fontSize: 15, fontWeight: '600', color: '#111827', textAlign: 'center', flex: 1 },
+  statsGrid: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  kpiCard: { flex: 1, borderRadius: 12, padding: 14, alignItems: 'flex-start' },
+  kpiValue: { fontSize: 22, fontWeight: '700', marginTop: 6 },
+  kpiLabel: { fontSize: 11, color: '#374151', fontWeight: '600', marginTop: 2 },
+  sectionCard: {
+    backgroundColor: '#FFFFFF', borderRadius: 14, padding: 16, marginTop: 16,
+    borderWidth: 1, borderColor: '#E5E7EB',
   },
-  periodLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    textAlign: 'center',
-    flex: 1,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 24,
-  },
-  statCard: {
-    flex: 1,
-    borderRadius: 16,
-    paddingVertical: 20,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  statIconContainer: {
-    marginBottom: 12,
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#000000',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
-    textAlign: 'center',
-  },
-  chartContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  chartTitleBadge: {
-    backgroundColor: '#111827',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-    marginBottom: 20,
-  },
-  chartTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  chartWrapper: {
-    alignItems: 'center',
-  },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#111827' },
+  chartWrap: { alignItems: 'center' },
+  distRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  distName: { fontSize: 13, color: '#111827', fontWeight: '600', flex: 1, marginRight: 8 },
+  distCount: { fontSize: 14, fontWeight: '700' },
+  distRevenue: { fontSize: 11, color: '#6B7280', marginTop: 4, textAlign: 'right' },
+  barTrack: { height: 6, backgroundColor: '#F3F4F6', borderRadius: 3, overflow: 'hidden' },
+  barFill: { height: '100%', borderRadius: 3 },
+  emptyText: { fontSize: 13, color: '#6B7280', textAlign: 'center', paddingVertical: 16 },
 });
