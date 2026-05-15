@@ -7,9 +7,9 @@ import { supabase } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import {
   ArrowLeft, ShoppingCart, DollarSign, ChevronLeft, ChevronRight,
-  XCircle, Clock, Calendar as CalendarIcon, Building2, Truck,
+  XCircle, Clock, Calendar as CalendarIcon, Building2, Truck, ChevronDown,
 } from 'lucide-react-native';
-import Svg, { Polyline, Circle, Line, Text as SvgText, Rect } from 'react-native-svg';
+import Svg, { Line, Text as SvgText, Rect } from 'react-native-svg';
 
 type PeriodType = 'day' | 'week' | 'month' | 'year';
 
@@ -28,10 +28,9 @@ interface ChartData {
   values: number[];
 }
 
-interface Distribution {
+interface Option {
+  id: string;
   name: string;
-  count: number;
-  revenue: number;
 }
 
 const formatDate = (d: Date) => {
@@ -41,16 +40,41 @@ const formatDate = (d: Date) => {
   return `${y}-${m}-${day}`;
 };
 
+const HOUR_LABELS = ['0h', '2h', '4h', '6h', '8h', '10h', '12h', '14h', '16h', '18h', '20h', '22h'];
+
 export default function AdminStatistics() {
   const [periodType, setPeriodType] = useState<PeriodType>('week');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [reservations, setReservations] = useState<RawReservation[]>([]);
+  const [schools, setSchools] = useState<Option[]>([]);
+  const [providers, setProviders] = useState<Option[]>([]);
+  const [selectedSchoolId, setSelectedSchoolId] = useState<string | null>(null);
+  const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
+  const [schoolDropdownOpen, setSchoolDropdownOpen] = useState(false);
+  const [providerDropdownOpen, setProviderDropdownOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
+    void loadOptions();
+  }, []);
+
+  useEffect(() => {
     void loadData();
   }, [periodType, currentDate]);
+
+  const loadOptions = async () => {
+    try {
+      const [{ data: schoolsData }, { data: providersData }] = await Promise.all([
+        supabase.from('schools').select('id, name').order('name'),
+        supabase.from('providers').select('id, company_name').order('company_name'),
+      ]);
+      setSchools((schoolsData || []).map((s: any) => ({ id: s.id, name: s.name })));
+      setProviders((providersData || []).map((p: any) => ({ id: p.id, name: p.company_name || 'Sans nom' })));
+    } catch (err) {
+      console.error('Error loading options:', err);
+    }
+  };
 
   const dateRange = useMemo(() => {
     const date = currentDate;
@@ -111,23 +135,33 @@ export default function AdminStatistics() {
     }
   };
 
+  const filteredReservations = useMemo(() => {
+    return reservations.filter(r => {
+      if (selectedSchoolId && r.child?.school?.id !== selectedSchoolId) return false;
+      if (selectedProviderId && r.menu?.provider?.id !== selectedProviderId) return false;
+      return true;
+    });
+  }, [reservations, selectedSchoolId, selectedProviderId]);
+
   const stats = useMemo(() => {
-    const total = reservations.length;
-    const cancelled = reservations.filter(r => r.payment_status === 'cancelled' || r.cancelled_at).length;
+    const total = filteredReservations.length;
+    const cancelled = filteredReservations.filter(r => r.payment_status === 'cancelled' || r.cancelled_at).length;
     const active = total - cancelled;
-    const revenue = reservations.filter(r => r.payment_status !== 'cancelled').reduce((s, r) => s + r.total_price, 0);
+    const revenue = filteredReservations
+      .filter(r => r.payment_status !== 'cancelled')
+      .reduce((s, r) => s + r.total_price, 0);
     const cancellationRate = total > 0 ? Math.round((cancelled / total) * 1000) / 10 : 0;
     return { total, active, cancelled, revenue, cancellationRate };
-  }, [reservations]);
+  }, [filteredReservations]);
 
   const ordersChart: ChartData = useMemo(() => {
     if (periodType === 'day') {
-      return { labels: ['Aujourd\'hui'], values: [reservations.length] };
+      return { labels: ['Aujourd\'hui'], values: [filteredReservations.length] };
     }
     if (periodType === 'week') {
       const labels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
       const values = new Array(7).fill(0);
-      reservations.forEach(r => {
+      filteredReservations.forEach(r => {
         const [y, m, d] = r.date.split('-').map(Number);
         const day = new Date(y, m - 1, d).getDay();
         const idx = day === 0 ? 6 : day - 1;
@@ -138,7 +172,7 @@ export default function AdminStatistics() {
     if (periodType === 'month') {
       const labels = ['S1', 'S2', 'S3', 'S4', 'S5'];
       const values = new Array(5).fill(0);
-      reservations.forEach(r => {
+      filteredReservations.forEach(r => {
         const [, , d] = r.date.split('-').map(Number);
         const idx = Math.min(Math.floor((d - 1) / 7), 4);
         values[idx] += 1;
@@ -147,59 +181,32 @@ export default function AdminStatistics() {
     }
     const labels = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
     const values = new Array(12).fill(0);
-    reservations.forEach(r => {
+    filteredReservations.forEach(r => {
       const [, m] = r.date.split('-').map(Number);
       values[m - 1] += 1;
     });
     return { labels, values };
-  }, [reservations, periodType]);
+  }, [filteredReservations, periodType]);
 
-  const peakHours: ChartData = useMemo(() => {
+  const peakHours = useMemo(() => {
     const buckets = new Array(24).fill(0);
-    reservations.forEach(r => {
+    filteredReservations.forEach(r => {
       const h = new Date(r.created_at).getHours();
       buckets[h] += 1;
     });
-    return {
-      labels: ['0', '3', '6', '9', '12', '15', '18', '21'],
-      values: buckets,
-    };
-  }, [reservations]);
+    return buckets;
+  }, [filteredReservations]);
 
   const peakWeekday: ChartData = useMemo(() => {
     const labels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
     const values = new Array(7).fill(0);
-    reservations.forEach(r => {
+    filteredReservations.forEach(r => {
       const d = new Date(r.created_at);
       const idx = d.getDay() === 0 ? 6 : d.getDay() - 1;
       values[idx] += 1;
     });
     return { labels, values };
-  }, [reservations]);
-
-  const schoolDist: Distribution[] = useMemo(() => {
-    const map = new Map<string, Distribution>();
-    reservations.forEach(r => {
-      const name = r.child?.school?.name || 'Sans école';
-      const e = map.get(name) || { name, count: 0, revenue: 0 };
-      e.count += 1;
-      if (r.payment_status !== 'cancelled') e.revenue += r.total_price;
-      map.set(name, e);
-    });
-    return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [reservations]);
-
-  const providerDist: Distribution[] = useMemo(() => {
-    const map = new Map<string, Distribution>();
-    reservations.forEach(r => {
-      const name = r.menu?.provider?.company_name || 'Sans prestataire';
-      const e = map.get(name) || { name, count: 0, revenue: 0 };
-      e.count += 1;
-      if (r.payment_status !== 'cancelled') e.revenue += r.total_price;
-      map.set(name, e);
-    });
-    return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [reservations]);
+  }, [filteredReservations]);
 
   const navigatePeriod = (direction: 'prev' | 'next') => {
     const d = new Date(currentDate);
@@ -224,6 +231,9 @@ export default function AdminStatistics() {
     return d.getFullYear().toString();
   }, [currentDate, periodType, dateRange]);
 
+  const selectedSchoolName = selectedSchoolId ? schools.find(s => s.id === selectedSchoolId)?.name : null;
+  const selectedProviderName = selectedProviderId ? providers.find(p => p.id === selectedProviderId)?.name : null;
+
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -243,6 +253,41 @@ export default function AdminStatistics() {
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.filtersRow}>
+          <FilterDropdown
+            icon={Building2}
+            iconColor="#0EA5E9"
+            placeholder="Toutes les écoles"
+            value={selectedSchoolName}
+            open={schoolDropdownOpen}
+            onToggle={() => {
+              setSchoolDropdownOpen(o => !o);
+              setProviderDropdownOpen(false);
+            }}
+            options={schools}
+            onSelect={(id) => {
+              setSelectedSchoolId(id);
+              setSchoolDropdownOpen(false);
+            }}
+          />
+          <FilterDropdown
+            icon={Truck}
+            iconColor="#10B981"
+            placeholder="Tous les prestataires"
+            value={selectedProviderName}
+            open={providerDropdownOpen}
+            onToggle={() => {
+              setProviderDropdownOpen(o => !o);
+              setSchoolDropdownOpen(false);
+            }}
+            options={providers}
+            onSelect={(id) => {
+              setSelectedProviderId(id);
+              setProviderDropdownOpen(false);
+            }}
+          />
+        </View>
+
         <View style={styles.periodSelector}>
           {(['day', 'week', 'month', 'year'] as PeriodType[]).map(p => (
             <TouchableOpacity
@@ -281,22 +326,55 @@ export default function AdminStatistics() {
         </Section>
 
         <Section title="Pic d'activité par heure (commande)" icon={Clock}>
-          <BarChart data={peakHours.values} labels={Array.from({ length: 24 }, (_, i) => `${i}h`)} color="#8B5CF6" compact />
+          <BarChart data={peakHours} labels={HOUR_LABELS} color="#8B5CF6" labelEvery={2} />
         </Section>
 
         <Section title="Pic d'activité par jour" icon={CalendarIcon}>
           <BarChart data={peakWeekday.values} labels={peakWeekday.labels} color="#F59E0B" />
         </Section>
-
-        <Section title="Stats par école" icon={Building2}>
-          <DistributionList items={schoolDist} accent="#0EA5E9" />
-        </Section>
-
-        <Section title="Stats par prestataire" icon={Truck}>
-          <DistributionList items={providerDist} accent="#10B981" />
-        </Section>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function FilterDropdown({
+  icon: Icon, iconColor, placeholder, value, open, onToggle, options, onSelect,
+}: {
+  icon: any;
+  iconColor: string;
+  placeholder: string;
+  value: string | null | undefined;
+  open: boolean;
+  onToggle: () => void;
+  options: Option[];
+  onSelect: (id: string | null) => void;
+}) {
+  return (
+    <View style={styles.filterDropdown}>
+      <TouchableOpacity style={styles.filterButton} onPress={onToggle}>
+        <Icon size={16} color={iconColor} />
+        <Text style={[styles.filterButtonText, !value && styles.filterButtonPlaceholder]} numberOfLines={1}>
+          {value || placeholder}
+        </Text>
+        <ChevronDown size={16} color="#6B7280" />
+      </TouchableOpacity>
+      {open && (
+        <View style={styles.filterMenu}>
+          <ScrollView style={{ maxHeight: 280 }} nestedScrollEnabled>
+            <TouchableOpacity style={styles.filterItem} onPress={() => onSelect(null)}>
+              <Text style={[styles.filterItemText, !value && styles.filterItemTextActive]}>{placeholder}</Text>
+            </TouchableOpacity>
+            {options.map(opt => (
+              <TouchableOpacity key={opt.id} style={styles.filterItem} onPress={() => onSelect(opt.id)}>
+                <Text style={[styles.filterItemText, value === opt.name && styles.filterItemTextActive]} numberOfLines={1}>
+                  {opt.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -322,34 +400,13 @@ function Section({ title, icon: Icon, children }: { title: string; icon: any; ch
   );
 }
 
-function DistributionList({ items, accent }: { items: Distribution[]; accent: string }) {
-  if (items.length === 0) {
-    return <Text style={styles.emptyText}>Aucune donnée</Text>;
-  }
-  const max = Math.max(...items.map(i => i.count), 1);
-  return (
-    <View style={{ gap: 10 }}>
-      {items.slice(0, 8).map(item => (
-        <View key={item.name}>
-          <View style={styles.distRow}>
-            <Text style={styles.distName} numberOfLines={1}>{item.name}</Text>
-            <Text style={[styles.distCount, { color: accent }]}>{item.count}</Text>
-          </View>
-          <View style={styles.barTrack}>
-            <View style={[styles.barFill, { width: `${(item.count / max) * 100}%`, backgroundColor: accent }]} />
-          </View>
-          {item.revenue > 0 && (
-            <Text style={styles.distRevenue}>{item.revenue.toFixed(0)} DH</Text>
-          )}
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function BarChart({ data, labels, color, compact = false }: { data: number[]; labels: string[]; color: string; compact?: boolean }) {
+function BarChart({
+  data, labels, color, labelEvery = 1,
+}: {
+  data: number[]; labels: string[]; color: string; labelEvery?: number;
+}) {
   const width = 320;
-  const height = compact ? 160 : 200;
+  const height = 200;
   const paddingLeft = 24;
   const paddingRight = 12;
   const paddingTop = 30;
@@ -359,10 +416,8 @@ function BarChart({ data, labels, color, compact = false }: { data: number[]; la
 
   const max = Math.max(...data, 1);
   const barCount = data.length;
-  const barGap = compact ? 1 : 4;
+  const barGap = barCount > 12 ? 2 : 4;
   const barWidth = Math.max(2, (chartWidth - barGap * (barCount - 1)) / barCount);
-
-  const labelStep = compact ? Math.max(1, Math.floor(barCount / labels.length)) : 1;
 
   return (
     <View style={styles.chartWrap}>
@@ -379,19 +434,9 @@ function BarChart({ data, labels, color, compact = false }: { data: number[]; la
           const x = paddingLeft + i * (barWidth + barGap);
           const h = (v / max) * chartHeight;
           const y = height - paddingBottom - h;
-          return (
-            <Rect
-              key={i}
-              x={x}
-              y={y}
-              width={barWidth}
-              height={h}
-              fill={color}
-              rx={2}
-            />
-          );
+          return <Rect key={i} x={x} y={y} width={barWidth} height={h} fill={color} rx={2} />;
         })}
-        {!compact && data.map((v, i) => {
+        {data.map((v, i) => {
           if (v === 0) return null;
           const x = paddingLeft + i * (barWidth + barGap) + barWidth / 2;
           const y = height - paddingBottom - (v / max) * chartHeight - 6;
@@ -402,8 +447,9 @@ function BarChart({ data, labels, color, compact = false }: { data: number[]; la
           );
         })}
         {labels.map((label, i) => {
-          const showAt = compact ? i * labelStep : i;
-          const x = paddingLeft + showAt * (barWidth + barGap) + barWidth / 2;
+          const barIndex = i * labelEvery;
+          if (barIndex >= barCount) return null;
+          const x = paddingLeft + barIndex * (barWidth + barGap) + barWidth / 2;
           return (
             <SvgText
               key={`l-${i}`}
@@ -431,6 +477,24 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 20, fontWeight: '700', color: '#111827' },
   content: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 24 },
+  filtersRow: { flexDirection: 'row', gap: 10, marginBottom: 12, zIndex: 100 },
+  filterDropdown: { flex: 1, position: 'relative', zIndex: 100 },
+  filterButton: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FFFFFF', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 12,
+    borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  filterButtonText: { flex: 1, fontSize: 13, fontWeight: '600', color: '#111827' },
+  filterButtonPlaceholder: { color: '#6B7280', fontWeight: '500' },
+  filterMenu: {
+    position: 'absolute', top: 48, left: 0, right: 0,
+    backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8,
+    elevation: 6, zIndex: 200,
+  },
+  filterItem: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  filterItemText: { fontSize: 13, fontWeight: '500', color: '#6B7280' },
+  filterItemTextActive: { color: '#4F46E5', fontWeight: '700' },
   periodSelector: { flexDirection: 'row', backgroundColor: '#E5E7EB', borderRadius: 12, padding: 4, marginBottom: 16 },
   periodButton: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
   periodButtonActive: { backgroundColor: '#111827' },
@@ -454,11 +518,4 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   sectionTitle: { fontSize: 14, fontWeight: '700', color: '#111827' },
   chartWrap: { alignItems: 'center' },
-  distRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  distName: { fontSize: 13, color: '#111827', fontWeight: '600', flex: 1, marginRight: 8 },
-  distCount: { fontSize: 14, fontWeight: '700' },
-  distRevenue: { fontSize: 11, color: '#6B7280', marginTop: 4, textAlign: 'right' },
-  barTrack: { height: 6, backgroundColor: '#F3F4F6', borderRadius: 3, overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: 3 },
-  emptyText: { fontSize: 13, color: '#6B7280', textAlign: 'center', paddingVertical: 16 },
 });
