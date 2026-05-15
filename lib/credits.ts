@@ -1,5 +1,5 @@
 import { supabase, ParentCredit } from './supabase';
-import { formatYmd, getWeekStart, getWeekEnd, getWeekStartYmd } from './dates';
+import { formatYmd, getWeekStart, getWeekStartYmd } from './dates';
 
 export const MAX_CANCELLATIONS_PER_WEEK = 2;
 export const CANCELLATION_CUTOFF_HOUR = 7;
@@ -45,13 +45,13 @@ export async function getBalance(parentId: string): Promise<number> {
 
 export async function countCancellationsThisWeek(
   parentId: string,
-  weekStart: string
+  mealWeekStart: string
 ): Promise<number> {
   const { count, error } = await supabase
     .from('parent_credits')
     .select('id', { count: 'exact', head: true })
     .eq('parent_id', parentId)
-    .eq('week_start_date', weekStart);
+    .eq('meal_week_start_date', mealWeekStart);
   if (error) {
     console.error('countCancellationsThisWeek error:', error);
     return 0;
@@ -66,23 +66,56 @@ export interface CreateCreditInput {
   mealDate: string;
 }
 
+/**
+ * Fenêtre de validité du crédit pour une annulation.
+ *
+ * Règle : si l'annulation a lieu le samedi de la même semaine que le repas,
+ * la semaine du repas se termine dans la journée et le crédit n'aurait plus
+ * le temps d'être utilisé. On décale la validité au lundi suivant pour que
+ * le parent puisse consommer le crédit la semaine d'après.
+ *
+ * La limite "2 annulations par semaine" reste calée sur la semaine du repas
+ * (via `mealWeekStart`), pas sur la semaine de validité.
+ */
+export function getCreditWindow(
+  mealDate: string,
+  now: Date = new Date()
+): { mealWeekStart: Date; usableWeekStart: Date; expiresAt: Date } {
+  const mealWeekStart = getWeekStart(mealDate);
+  let usableWeekStart = mealWeekStart;
+
+  const isSameWeek = getWeekStartYmd(now) === formatYmd(mealWeekStart);
+  if (now.getDay() === 6 && isSameWeek) {
+    usableWeekStart = new Date(mealWeekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+  }
+
+  const expiresAt = new Date(
+    usableWeekStart.getFullYear(),
+    usableWeekStart.getMonth(),
+    usableWeekStart.getDate() + 5,
+    23, 59, 59, 999
+  );
+
+  return { mealWeekStart, usableWeekStart, expiresAt };
+}
+
 export async function createCreditForCancellation(
   input: CreateCreditInput
-): Promise<{ ok: boolean; error?: string }> {
-  const weekStart = getWeekStart(input.mealDate);
-  const weekEnd = getWeekEnd(input.mealDate);
+): Promise<{ ok: boolean; error?: string; expiresAt?: Date }> {
+  const { mealWeekStart, usableWeekStart, expiresAt } = getCreditWindow(input.mealDate);
   const { error } = await supabase.from('parent_credits').insert({
     parent_id: input.parentId,
     amount: input.amount,
     used_amount: 0,
     source_reservation_id: input.reservationId,
-    week_start_date: formatYmd(weekStart),
-    expires_at: weekEnd.toISOString(),
+    week_start_date: formatYmd(usableWeekStart),
+    meal_week_start_date: formatYmd(mealWeekStart),
+    expires_at: expiresAt.toISOString(),
   });
   if (error) {
     return { ok: false, error: error.message };
   }
-  return { ok: true };
+  return { ok: true, expiresAt };
 }
 
 export function applyCreditsToCart(

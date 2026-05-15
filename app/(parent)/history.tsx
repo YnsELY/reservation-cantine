@@ -9,6 +9,7 @@ import { authService } from '@/lib/auth';
 import {
   countCancellationsThisWeek,
   createCreditForCancellation,
+  getCreditWindow,
   MAX_CANCELLATIONS_PER_WEEK,
   CANCELLATION_CUTOFF_HOUR,
 } from '@/lib/credits';
@@ -143,9 +144,14 @@ export default function HistoryScreen() {
   };
 
   const handleCancelReservation = (reservation: ReservationWithDetails) => {
+    const previewWindow = getCreditWindow(reservation.date);
+    const previewExpiry = previewWindow.expiresAt.toLocaleDateString('fr-FR', {
+      weekday: 'long', day: 'numeric', month: 'long',
+    });
+
     showAlert(
       'Annuler la commande',
-      `Voulez-vous vraiment annuler la commande "${reservation.menu.meal_name}" du ${new Date(reservation.date).toLocaleDateString('fr-FR')} ? Un crédit de ${reservation.total_price.toFixed(2)} DH sera ajouté à votre cagnotte, utilisable jusqu'à samedi soir sur un autre repas de la même semaine.`,
+      `Voulez-vous vraiment annuler la commande "${reservation.menu.meal_name}" du ${new Date(reservation.date).toLocaleDateString('fr-FR')} ? Un crédit de ${reservation.total_price.toFixed(2)} DH sera ajouté à votre cagnotte, utilisable jusqu'au ${previewExpiry} sur un autre repas.`,
       [
         { text: 'Non', style: 'cancel' },
         {
@@ -155,8 +161,8 @@ export default function HistoryScreen() {
             if (!parent) return;
             setCancellingId(reservation.id);
             try {
-              const weekStart = getWeekStartYmd(reservation.date);
-              const cancellations = await countCancellationsThisWeek(parent.id, weekStart);
+              const mealWeekStart = getWeekStartYmd(reservation.date);
+              const cancellations = await countCancellationsThisWeek(parent.id, mealWeekStart);
               if (cancellations >= MAX_CANCELLATIONS_PER_WEEK) {
                 showAlert(
                   'Limite atteinte',
@@ -175,7 +181,7 @@ export default function HistoryScreen() {
 
               if (updateError) throw updateError;
 
-              const { ok, error: creditError } = await createCreditForCancellation({
+              const { ok, error: creditError, expiresAt } = await createCreditForCancellation({
                 parentId: parent.id,
                 reservationId: reservation.id,
                 amount: Number(reservation.total_price),
@@ -186,9 +192,12 @@ export default function HistoryScreen() {
               }
 
               await loadData();
+              const expiryLabel = (expiresAt || previewWindow.expiresAt).toLocaleDateString('fr-FR', {
+                weekday: 'long', day: 'numeric', month: 'long',
+              });
               showAlert(
                 'Commande annulée',
-                `Un crédit de ${Number(reservation.total_price).toFixed(2)} DH est disponible dans votre cagnotte jusqu'à samedi soir.`
+                `Un crédit de ${Number(reservation.total_price).toFixed(2)} DH est disponible dans votre cagnotte jusqu'au ${expiryLabel}.`
               );
             } catch (err: any) {
               console.error('Error cancelling reservation:', err);
