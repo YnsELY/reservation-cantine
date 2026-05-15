@@ -4,14 +4,16 @@ import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
-import { supabase, Parent, Child, School } from '@/lib/supabase';
+import { supabase, Parent, Child, School, ParentCredit } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { User, LogOut, Users, Plus, ArrowLeft, X, School as SchoolIcon, Trash2 } from 'lucide-react-native';
+import { getAvailableCredits } from '@/lib/credits';
+import { User, LogOut, Users, Plus, ArrowLeft, X, School as SchoolIcon, Trash2, Wallet } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const [parent, setParent] = useState<Parent | null>(null);
   const [children, setChildren] = useState<Child[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
+  const [credits, setCredits] = useState<ParentCredit[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddSchoolModal, setShowAddSchoolModal] = useState(false);
   const [schoolIdentifier, setSchoolIdentifier] = useState('');
@@ -76,6 +78,9 @@ export default function ProfileScreen() {
 
       const affiliatedSchools = affiliationsData?.map((aff: any) => aff.schools).filter(Boolean) || [];
       setSchools(affiliatedSchools);
+
+      const availableCredits = await getAvailableCredits(parentData.id);
+      setCredits(availableCredits);
     } catch (err) {
       console.error('Error loading profile:', err);
     } finally {
@@ -236,6 +241,16 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionHeaderLeft}>
+              <Wallet size={20} color="#111827" />
+              <Text style={styles.sectionTitle}>Ma cagnotte</Text>
+            </View>
+          </View>
+          <CagnotteCard credits={credits} />
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeaderLeft}>
               <Users size={20} color="#111827" />
               <Text style={styles.sectionTitle}>Mes enfants</Text>
             </View>
@@ -391,6 +406,47 @@ export default function ProfileScreen() {
   );
 }
 
+function CagnotteCard({ credits }: { credits: ParentCredit[] }) {
+  const balance = credits.reduce((s, c) => s + (Number(c.amount) - Number(c.used_amount)), 0);
+
+  if (balance <= 0.005) {
+    return (
+      <View style={styles.cagnotteEmpty}>
+        <Text style={styles.cagnotteEmptyText}>Aucun crédit en cours.</Text>
+        <Text style={styles.cagnotteEmptyHint}>
+          Annulez un repas avant 7h le jour J pour recevoir un crédit utilisable sur un autre repas de la semaine.
+        </Text>
+      </View>
+    );
+  }
+
+  const earliestExpiry = credits
+    .map(c => new Date(c.expires_at).getTime())
+    .reduce((min, t) => (t < min ? t : min), Number.POSITIVE_INFINITY);
+  const expiryLabel = earliestExpiry !== Number.POSITIVE_INFINITY
+    ? new Date(earliestExpiry).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
+    : null;
+
+  return (
+    <View style={styles.cagnotteCard}>
+      <View style={styles.cagnotteRow}>
+        <Wallet size={28} color="#4F46E5" />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.cagnotteBalance}>{balance.toFixed(2)} DH</Text>
+          <Text style={styles.cagnotteSub}>
+            disponible{credits.length > 1 ? ` (${credits.length} crédits)` : ''}
+          </Text>
+        </View>
+      </View>
+      {expiryLabel && (
+        <Text style={styles.cagnotteExpiry}>
+          Valable jusqu'au {expiryLabel} — utilisable sur les repas de la même semaine.
+        </Text>
+      )}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -491,6 +547,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
+  cagnotteCard: {
+    backgroundColor: '#EEF2FF',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  cagnotteRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  cagnotteBalance: { fontSize: 24, fontWeight: '700', color: '#4F46E5' },
+  cagnotteSub: { fontSize: 13, color: '#6366F1', marginTop: 2 },
+  cagnotteExpiry: { fontSize: 12, color: '#4338CA', marginTop: 10, lineHeight: 16 },
+  cagnotteEmpty: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  cagnotteEmptyText: { fontSize: 14, fontWeight: '600', color: '#111827' },
+  cagnotteEmptyHint: { fontSize: 12, color: '#6B7280', marginTop: 6, lineHeight: 16 },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

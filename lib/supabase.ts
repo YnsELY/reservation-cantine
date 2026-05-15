@@ -208,6 +208,17 @@ export interface ProviderSchoolAccess {
   granted_by: string | null;
 }
 
+export interface ParentCredit {
+  id: string;
+  parent_id: string;
+  amount: number;
+  used_amount: number;
+  source_reservation_id: string;
+  week_start_date: string;
+  expires_at: string;
+  created_at: string;
+}
+
 export interface PendingPayment {
   id: string;
   order_id: string;

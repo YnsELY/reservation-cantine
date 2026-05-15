@@ -153,6 +153,29 @@ serve(async (req) => {
         .delete()
         .in('id', cartItemIds)
 
+      // Consommer les crédits cagnotte appliqués à la commande
+      const appliedCredits: Array<{ credit_id: string; amount: number }> =
+        Array.isArray(pendingPayment.applied_credits) ? pendingPayment.applied_credits : []
+      if (appliedCredits.length > 0) {
+        const creditIds = appliedCredits.map(c => c.credit_id)
+        const { data: creditRows } = await supabase
+          .from('parent_credits')
+          .select('id, used_amount')
+          .in('id', creditIds)
+        const usedById = new Map<string, number>(
+          (creditRows || []).map((r: any) => [r.id, Number(r.used_amount)])
+        )
+        for (const applied of appliedCredits) {
+          const current = usedById.get(applied.credit_id) || 0
+          const next = Math.round((current + applied.amount) * 100) / 100
+          const { error: creditError } = await supabase
+            .from('parent_credits')
+            .update({ used_amount: next })
+            .eq('id', applied.credit_id)
+          if (creditError) console.error('Credit update error:', creditError)
+        }
+      }
+
       // Mettre à jour le statut du paiement en attente
       await supabase
         .from('pending_payments')

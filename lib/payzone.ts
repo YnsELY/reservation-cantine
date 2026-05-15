@@ -58,7 +58,8 @@ class PayzoneService {
     cartItems: CartItemForPayment[],
     totalAmount: number,
     customerEmail?: string,
-    customerName?: string
+    customerName?: string,
+    appliedCredits?: { credit_id: string; amount: number }[]
   ): Promise<PaymentInitResponse> {
     try {
       // Récupérer le token d'authentification
@@ -80,6 +81,7 @@ class PayzoneService {
           totalAmount,
           customerEmail,
           customerName,
+          appliedCredits: appliedCredits || [],
         }),
       });
 

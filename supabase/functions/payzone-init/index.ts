@@ -31,6 +31,7 @@ interface PaymentRequest {
   totalAmount: number
   customerEmail?: string
   customerName?: string
+  appliedCredits?: Array<{ credit_id: string; amount: number }>
 }
 
 async function sha256(message: string): Promise<string> {
@@ -47,7 +48,7 @@ serve(async (req) => {
   }
 
   try {
-    const { parentId, cartItems, totalAmount, customerEmail, customerName }: PaymentRequest = await req.json()
+    const { parentId, cartItems, totalAmount, customerEmail, customerName, appliedCredits = [] }: PaymentRequest = await req.json()
 
     // Validation
     if (!parentId || !cartItems || cartItems.length === 0 || !totalAmount) {
@@ -131,6 +132,7 @@ serve(async (req) => {
         cart_items: cartItems,
         total_amount: totalAmount,
         status: 'pending',
+        applied_credits: appliedCredits,
         created_at: new Date().toISOString(),
       })
 

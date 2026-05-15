@@ -6,6 +6,13 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
+import {
+  countCancellationsThisWeek,
+  createCreditForCancellation,
+  MAX_CANCELLATIONS_PER_WEEK,
+  CANCELLATION_CUTOFF_HOUR,
+} from '@/lib/credits';
+import { getWeekStartYmd } from '@/lib/dates';
 import { Receipt, AlertCircle, History, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, XCircle } from 'lucide-react-native';
 
 interface Child {
@@ -130,35 +137,59 @@ export default function HistoryScreen() {
 
   const canCancel = (reservation: ReservationWithDetails) => {
     if (reservation.payment_status !== 'paid') return false;
-    const deadline = new Date(`${reservation.date}T09:00:00`);
+    const cutoff = `T${String(CANCELLATION_CUTOFF_HOUR).padStart(2, '0')}:00:00`;
+    const deadline = new Date(`${reservation.date}${cutoff}`);
     return new Date() < deadline;
   };
 
   const handleCancelReservation = (reservation: ReservationWithDetails) => {
     showAlert(
       'Annuler la commande',
-      `Voulez-vous vraiment annuler la commande "${reservation.menu.meal_name}" du ${new Date(reservation.date).toLocaleDateString('fr-FR')} ? Le remboursement sera traité par l'administrateur.`,
+      `Voulez-vous vraiment annuler la commande "${reservation.menu.meal_name}" du ${new Date(reservation.date).toLocaleDateString('fr-FR')} ? Un crédit de ${reservation.total_price.toFixed(2)} DH sera ajouté à votre cagnotte, utilisable jusqu'à samedi soir sur un autre repas de la même semaine.`,
       [
         { text: 'Non', style: 'cancel' },
         {
           text: 'Oui, annuler',
           style: 'destructive',
           onPress: async () => {
+            if (!parent) return;
             setCancellingId(reservation.id);
             try {
-              const { error } = await supabase
+              const weekStart = getWeekStartYmd(reservation.date);
+              const cancellations = await countCancellationsThisWeek(parent.id, weekStart);
+              if (cancellations >= MAX_CANCELLATIONS_PER_WEEK) {
+                showAlert(
+                  'Limite atteinte',
+                  `Vous avez déjà annulé ${MAX_CANCELLATIONS_PER_WEEK} commandes cette semaine. Vous pourrez à nouveau annuler la semaine prochaine.`
+                );
+                return;
+              }
+
+              const { error: updateError } = await supabase
                 .from('reservations')
                 .update({
                   payment_status: 'cancelled',
                   cancelled_at: new Date().toISOString(),
-                  refund_status: 'pending',
                 })
                 .eq('id', reservation.id);
 
-              if (error) throw error;
+              if (updateError) throw updateError;
+
+              const { ok, error: creditError } = await createCreditForCancellation({
+                parentId: parent.id,
+                reservationId: reservation.id,
+                amount: Number(reservation.total_price),
+                mealDate: reservation.date,
+              });
+              if (!ok) {
+                console.error('Credit creation failed:', creditError);
+              }
 
               await loadData();
-              showAlert('Commande annulée', 'Votre commande a été annulée. Le remboursement sera traité prochainement.');
+              showAlert(
+                'Commande annulée',
+                `Un crédit de ${Number(reservation.total_price).toFixed(2)} DH est disponible dans votre cagnotte jusqu'à samedi soir.`
+              );
             } catch (err: any) {
               console.error('Error cancelling reservation:', err);
               showAlert('Erreur', err.message || "Impossible d'annuler la commande");

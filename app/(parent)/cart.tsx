@@ -1,14 +1,15 @@
-﻿import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+﻿import { useState, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Switch } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
-import { supabase, CartItem, Child, Menu, Parent } from '@/lib/supabase';
+import { supabase, CartItem, Child, Menu, Parent, ParentCredit } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { sendOrderConfirmationEmail } from '@/lib/emails';
 import { payzoneService, CartItemForPayment } from '@/lib/payzone';
-import { ArrowLeft, Trash2, ShoppingCart, Lock, User, FlaskConical } from 'lucide-react-native';
+import { applyCreditsToCart, consumeCredits, getAvailableCredits } from '@/lib/credits';
+import { ArrowLeft, Trash2, ShoppingCart, Lock, User, FlaskConical, Wallet, Check } from 'lucide-react-native';
 
 interface CartItemWithDetails extends CartItem {
   child: Child;
@@ -18,6 +19,8 @@ interface CartItemWithDetails extends CartItem {
 export default function CartScreen() {
   const [parent, setParent] = useState<Parent | null>(null);
   const [cartItems, setCartItems] = useState<CartItemWithDetails[]>([]);
+  const [credits, setCredits] = useState<ParentCredit[]>([]);
+  const [useCredits, setUseCredits] = useState(true);
   const [loading, setLoading] = useState(true);
   const [processingPayment, setProcessingPayment] = useState(false);
   const router = useRouter();
@@ -68,6 +71,9 @@ export default function CartScreen() {
 
         setCartItems(itemsWithDetails.filter(item => item.child && item.menu));
       }
+
+      const availableCredits = await getAvailableCredits(currentParent.id);
+      setCredits(availableCredits);
     } catch (err) {
       console.error('Error loading cart:', err);
     } finally {
@@ -92,16 +98,31 @@ export default function CartScreen() {
     }
   };
 
-  const calculateTotal = () => {
-    return cartItems.reduce((sum, item) => sum + Number(item.total_price), 0);
-  };
+  const subtotal = useMemo(
+    () => cartItems.reduce((sum, item) => sum + Number(item.total_price), 0),
+    [cartItems]
+  );
+
+  const balance = useMemo(
+    () => credits.reduce((s, c) => s + (Number(c.amount) - Number(c.used_amount)), 0),
+    [credits]
+  );
+
+  const application = useMemo(
+    () => applyCreditsToCart(
+      useCredits ? credits : [],
+      cartItems.map(item => ({ id: item.id, date: item.date, total_price: item.total_price }))
+    ),
+    [useCredits, credits, cartItems]
+  );
+
+  const totalAfterCredit = Math.max(0, Math.round((subtotal - application.totalDiscount) * 100) / 100);
 
   const handlePayment = async () => {
     if (cartItems.length === 0 || !parent) return;
 
     setProcessingPayment(true);
     try {
-      // Préparer les données du panier pour PayZone
       const cartItemsForPayment: CartItemForPayment[] = cartItems.map(item => ({
         id: item.id,
         child_id: item.child_id,
@@ -119,22 +140,24 @@ export default function CartScreen() {
         },
       }));
 
-      const totalAmount = calculateTotal();
+      if (totalAfterCredit <= 0.005 && application.creditsUsed.length > 0) {
+        await finalizeFreeOrder(cartItemsForPayment, application.creditsUsed);
+        return;
+      }
 
-      // Initialiser le paiement PayZone
       const response = await payzoneService.initializePayment(
         parent.id,
         cartItemsForPayment,
-        totalAmount,
+        totalAfterCredit,
         parent.email || undefined,
-        `${parent.first_name} ${parent.last_name}`
+        `${parent.first_name} ${parent.last_name}`,
+        application.creditsUsed
       );
 
       if (!response.success || !response.paywallUrl || !response.payload || !response.signature) {
         throw new Error(response.error || 'Erreur lors de l\'initialisation du paiement');
       }
 
-      // Naviguer vers l'écran de paiement avec les paramètres PayZone
       router.push({
         pathname: '/(parent)/payment',
         params: {
@@ -154,6 +177,43 @@ export default function CartScreen() {
     } finally {
       setProcessingPayment(false);
     }
+  };
+
+  const finalizeFreeOrder = async (
+    items: CartItemForPayment[],
+    creditsUsed: { credit_id: string; amount: number }[]
+  ) => {
+    if (!parent) return;
+    const reference = `CRD_${Date.now()}`;
+
+    const reservations = items.map(item => ({
+      parent_id: parent.id,
+      child_id: item.child_id,
+      menu_id: item.menu_id,
+      date: item.date,
+      supplements: item.supplements || [],
+      annotations: item.annotations,
+      total_price: item.total_price,
+      payment_status: 'paid',
+      payment_intent_id: reference,
+    }));
+
+    const { error: insertError } = await supabase.from('reservations').insert(reservations);
+    if (insertError) throw insertError;
+
+    const cartItemIds = items.map(item => item.id);
+    await supabase.from('cart_items').delete().in('id', cartItemIds);
+
+    await consumeCredits(creditsUsed);
+
+    setCredits([]);
+    setCartItems([]);
+
+    showAlert(
+      'Commande validée',
+      `Votre crédit cagnotte de ${application.totalDiscount.toFixed(2)} DH a couvert l'intégralité de la commande.`,
+      [{ text: 'OK', onPress: () => safeBack('/(parent)') }]
+    );
   };
 
   const handleTestOrder = async () => {
@@ -193,9 +253,13 @@ export default function CartScreen() {
               const cartItemIds = cartItems.map(item => item.id);
               await supabase.from('cart_items').delete().in('id', cartItemIds);
 
+              if (application.creditsUsed.length > 0) {
+                await consumeCredits(application.creditsUsed);
+              }
+
               // Send test notifications
               try {
-                const totalAmount = calculateTotal();
+                const totalAmount = totalAfterCredit;
 
                 const { error: emailError } = await sendOrderConfirmationEmail({
                   orderId: testReference,
@@ -396,10 +460,52 @@ export default function CartScreen() {
           </ScrollView>
 
           <View style={styles.footer}>
+            {balance > 0 && (
+              <View style={styles.cagnotteCard}>
+                <View style={styles.cagnotteLeft}>
+                  <View style={styles.cagnotteIconWrap}>
+                    <Wallet size={20} color="#4F46E5" />
+                  </View>
+                  <View style={styles.cagnotteInfo}>
+                    <Text style={styles.cagnotteTitle}>Ma cagnotte</Text>
+                    <Text style={styles.cagnotteAmount}>{balance.toFixed(2)} DH disponible</Text>
+                    {useCredits && application.totalDiscount > 0 ? (
+                      <Text style={styles.cagnotteApplied}>
+                        −{application.totalDiscount.toFixed(2)} DH appliqués
+                      </Text>
+                    ) : useCredits && application.totalDiscount === 0 ? (
+                      <Text style={styles.cagnotteHint}>Aucun repas de la même semaine</Text>
+                    ) : null}
+                  </View>
+                </View>
+                <Switch
+                  value={useCredits}
+                  onValueChange={setUseCredits}
+                  trackColor={{ false: '#E5E7EB', true: '#C7D2FE' }}
+                  thumbColor={useCredits ? '#4F46E5' : '#F9FAFB'}
+                />
+              </View>
+            )}
+
             <View style={styles.totalContainer}>
-              <Text style={styles.totalLabel}>Total (TTC)</Text>
-              <Text style={styles.totalAmount}>{calculateTotal().toFixed(2)} DH</Text>
+              {application.totalDiscount > 0 && (
+                <View style={styles.subtotalRow}>
+                  <Text style={styles.subtotalLabel}>Sous-total</Text>
+                  <Text style={styles.subtotalValue}>{subtotal.toFixed(2)} DH</Text>
+                </View>
+              )}
+              {application.totalDiscount > 0 && (
+                <View style={styles.subtotalRow}>
+                  <Text style={styles.discountLabel}>Crédit cagnotte</Text>
+                  <Text style={styles.discountValue}>−{application.totalDiscount.toFixed(2)} DH</Text>
+                </View>
+              )}
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Total à payer</Text>
+                <Text style={styles.totalAmount}>{totalAfterCredit.toFixed(2)} DH</Text>
+              </View>
             </View>
+
             <TouchableOpacity
               style={[styles.testButton, processingPayment && styles.payButtonDisabled]}
               onPress={handleTestOrder}
@@ -415,6 +521,11 @@ export default function CartScreen() {
             >
               {processingPayment ? (
                 <ActivityIndicator color="#FFFFFF" />
+              ) : totalAfterCredit <= 0.005 && application.totalDiscount > 0 ? (
+                <>
+                  <Check size={18} color="#FFFFFF" />
+                  <Text style={styles.payButtonText}>Confirmer la commande</Text>
+                </>
               ) : (
                 <>
                   <Lock size={18} color="#FFFFFF" />
@@ -423,7 +534,11 @@ export default function CartScreen() {
               )}
             </TouchableOpacity>
             <View style={styles.securePaymentNote}>
-              <Text style={styles.securePaymentText}>Paiement sécurisé par PayZone</Text>
+              <Text style={styles.securePaymentText}>
+                {totalAfterCredit <= 0.005 && application.totalDiscount > 0
+                  ? 'Aucun paiement requis — cagnotte suffisante'
+                  : 'Paiement sécurisé par PayZone'}
+              </Text>
             </View>
           </View>
         </>
@@ -635,11 +750,27 @@ const styles = StyleSheet.create({
     right: 0,
   },
   totalContainer: {
+    marginBottom: 12,
+    paddingHorizontal: 12,
+  },
+  subtotalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-    paddingHorizontal: 12,
+    paddingVertical: 2,
+  },
+  subtotalLabel: { fontSize: 14, color: '#6B7280' },
+  subtotalValue: { fontSize: 14, color: '#6B7280', fontWeight: '600' },
+  discountLabel: { fontSize: 14, color: '#4F46E5', fontWeight: '600' },
+  discountValue: { fontSize: 14, color: '#4F46E5', fontWeight: '700' },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
   },
   totalLabel: {
     fontSize: 18,
@@ -652,6 +783,29 @@ const styles = StyleSheet.create({
     color: '#111827',
     paddingHorizontal: 8,
   },
+  cagnotteCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 12,
+    marginBottom: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#EEF2FF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+  },
+  cagnotteLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  cagnotteIconWrap: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center',
+  },
+  cagnotteInfo: { flex: 1 },
+  cagnotteTitle: { fontSize: 13, fontWeight: '700', color: '#4F46E5' },
+  cagnotteAmount: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  cagnotteApplied: { fontSize: 12, color: '#10B981', fontWeight: '700', marginTop: 2 },
+  cagnotteHint: { fontSize: 11, color: '#9CA3AF', marginTop: 2, fontStyle: 'italic' },
   testButton: {
     backgroundColor: '#F59E0B',
     borderRadius: 0,
