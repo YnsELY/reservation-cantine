@@ -5,9 +5,15 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { showAlert } from '@/lib/alert';
+import { parseOrderSupplements, SupplementAggregate } from '@/lib/order-supplements';
 import { Calendar, Building2, UtensilsCrossed, BarChart3, ChefHat, Eye } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useNotifications } from '@/hooks/useNotifications';
+
+interface MenuBreakdownItem {
+  label: string;
+  count: number;
+}
 
 // Suggestion de 1ère connexion affichée une seule fois par session d'app
 let firstLoginPrompted = false;
@@ -16,6 +22,8 @@ export default function ProviderHomeScreen() {
   const router = useRouter();
   const [provider, setProvider] = useState<Provider | null>(null);
   const [todayOrdersCount, setTodayOrdersCount] = useState(0);
+  const [todayMenuBreakdown, setTodayMenuBreakdown] = useState<MenuBreakdownItem[]>([]);
+  const [todayGenericSupplements, setTodayGenericSupplements] = useState<SupplementAggregate[]>([]);
   const [schoolsCount, setSchoolsCount] = useState(0);
   const [monthlyOrders, setMonthlyOrders] = useState<number[]>([0, 0, 0, 0, 0]);
   const [loading, setLoading] = useState(true);
@@ -74,29 +82,75 @@ export default function ProviderHomeScreen() {
       const todayStr = `${year}-${month}-${day}`;
 
       let todayCount = 0;
+      let menuBreakdown: MenuBreakdownItem[] = [];
+      let genericAgg: SupplementAggregate[] = [];
       if (schoolIds.length > 0) {
         const { data: todayMenusData } = await supabase
           .from('menus')
-          .select('id')
+          .select('id, meal_name')
           .in('school_id', schoolIds)
           .eq('date', todayStr)
           .eq('available', true);
 
-        const menuIds = (todayMenusData || []).map(m => m.id);
+        const menuNameById = new Map<string, string>(
+          (todayMenusData || []).map((m: any) => [m.id, (m.meal_name || 'Menu').trim()])
+        );
+        const menuIds = (todayMenusData || []).map((m: any) => m.id);
 
         if (menuIds.length > 0) {
           const { data: todayOrdersData } = await supabase
             .from('reservations')
-            .select('id')
+            .select('id, menu_id, supplements')
             .eq('date', todayStr)
             .in('menu_id', menuIds)
             .neq('payment_status', 'cancelled');
+          const todayOrders = (todayOrdersData || []) as any[];
+          todayCount = todayOrders.length;
 
-          todayCount = todayOrdersData?.length || 0;
+          // Suppléments GÉNÉRIQUES du prestataire (ni menu_id ni library_menu_id)
+          const { data: genericRows } = await supabase
+            .from('provider_supplements')
+            .select('id')
+            .eq('provider_id', currentProvider.id)
+            .is('menu_id', null)
+            .is('library_menu_id', null);
+          const genericIdSet = new Set<string>((genericRows || []).map((r: any) => r.id));
+
+          // Menu + suppléments SPÉCIFIQUES = variante séparée ; génériques agrégés à part
+          const variantMap = new Map<string, { label: string; count: number }>();
+          const genAggMap = new Map<string, SupplementAggregate>();
+          todayOrders.forEach((order) => {
+            const menuName = menuNameById.get(order.menu_id) || 'Menu';
+            const specificNames: string[] = [];
+            parseOrderSupplements(order.supplements).forEach((s) => {
+              const name = (s.name || '').trim();
+              if (s.id && genericIdSet.has(s.id)) {
+                const key = name.toLocaleLowerCase('fr-FR');
+                if (!key) return;
+                const ex = genAggMap.get(key);
+                if (ex) ex.quantity += s.quantity;
+                else genAggMap.set(key, { name, quantity: s.quantity });
+              } else if (name) {
+                specificNames.push(name);
+              }
+            });
+            specificNames.sort((a, b) => a.localeCompare(b, 'fr-FR'));
+            const label = specificNames.length ? `${menuName} + ${specificNames.join(', ')}` : menuName;
+            const key = `${order.menu_id}|${specificNames.join('§').toLocaleLowerCase('fr-FR')}`;
+            const ex = variantMap.get(key);
+            if (ex) ex.count += 1;
+            else variantMap.set(key, { label, count: 1 });
+          });
+          menuBreakdown = Array.from(variantMap.values())
+            .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'fr-FR'));
+          genericAgg = Array.from(genAggMap.values())
+            .sort((a, b) => b.quantity - a.quantity || a.name.localeCompare(b.name, 'fr-FR'));
         }
       }
 
       setTodayOrdersCount(todayCount);
+      setTodayMenuBreakdown(menuBreakdown);
+      setTodayGenericSupplements(genericAgg);
 
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -193,6 +247,36 @@ export default function ProviderHomeScreen() {
             <Text style={styles.todayStatValue}>{todayOrdersCount}</Text>
             <Text style={styles.todayStatLabel}>Menu{todayOrdersCount > 1 ? 's' : ''} à préparer</Text>
           </View>
+
+          {todayMenuBreakdown.length > 0 && (
+            <>
+              <View style={styles.todayDivider} />
+              <Text style={styles.todaySectionLabel}>PAR MENU</Text>
+              {todayMenuBreakdown.map((item, idx) => (
+                <View key={`${item.label}-${idx}`} style={styles.todayRow}>
+                  <Text style={styles.todayRowName}>{item.label}</Text>
+                  <View style={styles.todayCountPill}>
+                    <Text style={styles.todayCountPillText}>×{item.count}</Text>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
+
+          {todayGenericSupplements.length > 0 && (
+            <>
+              <View style={styles.todayDivider} />
+              <Text style={styles.todaySectionLabel}>SUPPLÉMENTS GÉNÉRIQUES</Text>
+              {todayGenericSupplements.map((item, idx) => (
+                <View key={`${item.name}-${idx}`} style={styles.todayRow}>
+                  <Text style={styles.todayRowName}>{item.name}</Text>
+                  <View style={styles.todayCountPill}>
+                    <Text style={styles.todayCountPillText}>×{item.quantity}</Text>
+                  </View>
+                </View>
+              ))}
+            </>
+          )}
         </View>
 
         <View style={styles.actionsRow}>
@@ -389,6 +473,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#B45309',
     fontWeight: '600',
+  },
+  todayDivider: {
+    height: 1,
+    backgroundColor: 'rgba(146, 64, 14, 0.18)',
+    marginVertical: 16,
+  },
+  todaySectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400E',
+    letterSpacing: 1,
+    marginBottom: 8,
+    opacity: 0.7,
+  },
+  todayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    gap: 12,
+  },
+  todayRowName: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  todayCountPill: {
+    backgroundColor: '#B45309',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+    minWidth: 36,
+    alignItems: 'center',
+  },
+  todayCountPillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   actionsRow: {
     flexDirection: 'row',
