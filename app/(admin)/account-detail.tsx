@@ -132,20 +132,28 @@ export default function AccountDetailScreen() {
   const performDeactivate = async () => {
     if (!id) return;
     setProcessing(true);
+    let errorMsg: string | null = null;
     try {
       const { error: upErr } = await supabase.from('providers').update({ is_active: false }).eq('id', id);
       if (upErr) throw upErr;
       // Disparition des affiliations : retire le prestataire de toutes les écoles.
-      await supabase.from('provider_school_access').delete().eq('provider_id', id);
-      setShowDeactivateModal(false);
-      setConfirmText('');
-      showAlert('Compte désactivé', 'Le prestataire ne peut plus se connecter et a été retiré des écoles partenaires.');
+      const { error: delErr } = await supabase.from('provider_school_access').delete().eq('provider_id', id);
+      if (delErr) throw delErr;
       await loadData();
     } catch (e: any) {
       console.error('deactivate error', e);
-      showAlert('Erreur', e?.message || 'Impossible de désactiver le compte');
+      errorMsg = e?.message || 'Impossible de désactiver le compte';
     } finally {
+      // On ferme TOUJOURS la modale avant d'afficher l'alerte : sinon l'alerte
+      // (qui est aussi une Modal sur web) s'affiche derrière et reste invisible.
       setProcessing(false);
+      setShowDeactivateModal(false);
+      setConfirmText('');
+    }
+    if (errorMsg) {
+      showAlert('Erreur', errorMsg);
+    } else {
+      showAlert('Compte désactivé', 'Le prestataire ne peut plus se connecter et a été retiré des écoles partenaires.');
     }
   };
 
