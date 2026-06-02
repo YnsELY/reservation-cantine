@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Dimensions, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Parent, Reservation } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { Calendar, UserPlus, History, UtensilsCrossed, User, ShoppingCart } from 'lucide-react-native';
-import Svg, { Path } from 'react-native-svg';
+import { Calendar, UserPlus, History, UtensilsCrossed, User, ShoppingCart, Clock, Check } from 'lucide-react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { LineChart } from 'react-native-chart-kit';
 import { useNotifications } from '@/hooks/useNotifications';
 
@@ -38,6 +38,70 @@ interface ChildWithStatus extends Child {
   status: 'none' | 'partial' | 'complete';
 }
 
+const formatDateToLocal = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Prochaine date commandable: aujourd'hui si avant 7h, sinon demain (règle identique à reservation.tsx)
+const getFirstBookableDate = (): Date => {
+  const now = new Date();
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const deadline = new Date();
+  deadline.setHours(7, 0, 0, 0);
+  if (now >= deadline) {
+    start.setDate(start.getDate() + 1);
+  }
+  return start;
+};
+
+const getTargetLabel = (target: Date): string => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const t = new Date(target);
+  t.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((t.getTime() - today.getTime()) / 86400000);
+  if (diffDays <= 0) return "aujourd'hui";
+  if (diffDays === 1) return 'demain';
+  return t.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' });
+};
+
+function OrderCountdown({ deadlineMs, onExpire }: { deadlineMs: number; onExpire?: () => void }) {
+  const [now, setNow] = useState(() => Date.now());
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    firedRef.current = false;
+    setNow(Date.now());
+    const id = setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      if (t >= deadlineMs && !firedRef.current) {
+        firedRef.current = true;
+        onExpire?.();
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [deadlineMs]);
+
+  const remaining = Math.max(0, deadlineMs - now);
+  const totalSec = Math.floor(remaining / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  return (
+    <View style={styles.countdownTimer}>
+      <Clock size={20} color="#B45309" />
+      <Text style={styles.countdownValue}>{pad(h)}h {pad(m)}m {pad(s)}s</Text>
+    </View>
+  );
+}
+
 export default function ParentHomeScreen() {
   const router = useRouter();
   const [parent, setParent] = useState<Parent | null>(null);
@@ -47,6 +111,12 @@ export default function ParentHomeScreen() {
   const [childrenCount, setChildrenCount] = useState(0);
   const [children, setChildren] = useState<ChildWithStatus[]>([]);
   const [cartCount, setCartCount] = useState(0);
+  const [countdown, setCountdown] = useState<{
+    deadlineMs: number;
+    label: string;
+    missing: ChildWithStatus[];
+    hasService: boolean;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -164,6 +234,52 @@ export default function ParentHomeScreen() {
 
       setWeekReservations(weekReservationsData || []);
 
+      // Compte à rebours: prochaine échéance de commande (jour J à 7h)
+      const targetDate = getFirstBookableDate();
+      const targetDateStr = formatDateToLocal(targetDate);
+      const childSchoolIds = Array.from(
+        new Set((childrenData || []).map((c) => c.school_id).filter(Boolean))
+      );
+
+      let hasService = false;
+      let missing: ChildWithStatus[] = [];
+      if (childSchoolIds.length > 0) {
+        const { data: targetMenus } = await supabase
+          .from('menus')
+          .select('school_id')
+          .in('school_id', childSchoolIds)
+          .eq('date', targetDateStr)
+          .eq('available', true);
+        const schoolsWithService = new Set<string>(
+          (targetMenus || []).map((m: any) => m.school_id)
+        );
+
+        const { data: targetReservations } = await supabase
+          .from('reservations')
+          .select('child_id')
+          .eq('parent_id', parentData.id)
+          .eq('date', targetDateStr)
+          .neq('payment_status', 'cancelled');
+        const orderedChildIds = new Set<string>(
+          (targetReservations || []).map((r: any) => r.child_id)
+        );
+
+        const servableChildren = childrenWithStatus.filter((c) =>
+          schoolsWithService.has(c.school_id)
+        );
+        hasService = servableChildren.length > 0;
+        missing = servableChildren.filter((c) => !orderedChildIds.has(c.id));
+      }
+
+      const deadline = new Date(targetDate);
+      deadline.setHours(7, 0, 0, 0);
+      setCountdown({
+        deadlineMs: deadline.getTime(),
+        label: getTargetLabel(targetDate),
+        missing,
+        hasService,
+      });
+
       const { data: upcomingData } = await supabase
         .from('reservations')
         .select(`
@@ -272,58 +388,43 @@ export default function ParentHomeScreen() {
     const daysPerWeek = 6;
     const maxMeals = childrenCount * daysPerWeek;
     const bookedMeals = weekReservations.length;
-    const percentage = maxMeals > 0 ? (bookedMeals / maxMeals) * 100 : 0;
+    const pct = maxMeals > 0 ? Math.min(1, bookedMeals / maxMeals) : 0;
 
-    const radius = 70;
-    const strokeWidth = 14;
-    const center = 90;
-
-    const startAngle = -180;
-    const totalAngle = 180;
-    const progressAngle = (percentage / 100) * totalAngle;
-
-    const startX = center + radius * Math.cos((startAngle * Math.PI) / 180);
-    const startY = center + radius * Math.sin((startAngle * Math.PI) / 180);
-
-    const progressEndAngle = startAngle + progressAngle;
-    const progressEndX = center + radius * Math.cos((progressEndAngle * Math.PI) / 180);
-    const progressEndY = center + radius * Math.sin((progressEndAngle * Math.PI) / 180);
-
-    const largeArcFlag = progressAngle > 180 ? 1 : 0;
-
-    const backgroundPath = `
-      M ${startX} ${startY}
-      A ${radius} ${radius} 0 1 1 ${center + radius} ${center}
-    `;
-
-    const progressPath = progressAngle > 0 ? `
-      M ${startX} ${startY}
-      A ${radius} ${radius} 0 ${largeArcFlag} 1 ${progressEndX} ${progressEndY}
-    ` : '';
+    const size = 190;
+    const strokeWidth = 16;
+    const radius = (size - strokeWidth) / 2;
+    const center = size / 2;
+    const circumference = 2 * Math.PI * radius;
+    const dash = circumference * pct;
 
     return (
-      <View style={styles.gaugeContainer}>
-        <Svg width="180" height="110" viewBox="0 0 180 110">
-          <Path
-            d={backgroundPath}
-            fill="none"
+      <View style={styles.ringWrap}>
+        <Svg width={size} height={size}>
+          <Circle
+            cx={center}
+            cy={center}
+            r={radius}
             stroke="#E5E7EB"
             strokeWidth={strokeWidth}
-            strokeLinecap="round"
+            fill="none"
           />
-          {progressPath && (
-            <Path
-              d={progressPath}
-              fill="none"
+          {pct > 0 && (
+            <Circle
+              cx={center}
+              cy={center}
+              r={radius}
               stroke="#FCD34D"
               strokeWidth={strokeWidth}
+              fill="none"
+              strokeDasharray={`${dash} ${circumference}`}
               strokeLinecap="round"
+              transform={`rotate(-90 ${center} ${center})`}
             />
           )}
         </Svg>
-        <View style={styles.gaugeTextContainer}>
-          <Text style={styles.gaugeNumber}>{bookedMeals}/{maxMeals}</Text>
-          <Text style={styles.gaugeLabel}>menus réservés</Text>
+        <View style={styles.ringCenter}>
+          <Text style={styles.ringNumber}>{bookedMeals}/{maxMeals}</Text>
+          <Text style={styles.ringLabel}>menus réservés</Text>
         </View>
       </View>
     );
@@ -428,14 +529,58 @@ export default function ParentHomeScreen() {
           )}
         </View>
 
-        {renderGauge()}
+        <View style={styles.weekCard}>
+          <Text style={styles.weekCardTitle}>Réservations de la semaine</Text>
+          {renderGauge()}
+          <Text style={styles.weekPhrase}>
+            N'oubliez pas de commander les repas pour la semaine prochaine !
+          </Text>
+
+          {countdown?.hasService && (
+            <>
+              <View style={styles.weekDivider} />
+              {countdown.missing.length > 0 ? (
+                <View>
+                  <View style={styles.countdownHeaderRow}>
+                    <Text style={styles.countdownTitle}>
+                      Temps restant pour commander {countdown.label}
+                    </Text>
+                  </View>
+                  <OrderCountdown deadlineMs={countdown.deadlineMs} onExpire={loadData} />
+                  <Text style={styles.missingLabel}>
+                    Sans commande pour {countdown.label} :
+                  </Text>
+                  <View style={styles.missingChips}>
+                    {countdown.missing.map((child) => (
+                      <View key={child.id} style={styles.missingChip}>
+                        <Text style={styles.missingChipText}>
+                          {child.first_name} {child.last_name}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.allOrderedRow}>
+                  <Check size={18} color="#059669" />
+                  <Text style={styles.allOrderedText}>
+                    Tout est commandé pour {countdown.label} 🎉
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
+        </View>
 
         <TouchableOpacity
-          style={styles.largeButton}
+          style={styles.orderButton}
           onPress={() => router.push('/(parent)/reservation')}
         >
-          <Calendar size={24} color="#FFFFFF" />
-          <Text style={styles.largeButtonText}>Commander un menu</Text>
+          <View style={styles.orderButtonTextWrap}>
+            <Text style={styles.orderButtonTitle}>Commander un menu</Text>
+            <Text style={styles.orderButtonSubtitle}>ACTION PRIORITAIRE</Text>
+          </View>
+          <UtensilsCrossed size={32} color="#5A3214" />
         </TouchableOpacity>
 
         <View style={styles.squareButtonsContainer}>
@@ -683,6 +828,150 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 4,
+  },
+  weekCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  weekCardTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#111827',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  ringWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 8,
+  },
+  ringCenter: {
+    position: 'absolute',
+    alignItems: 'center',
+  },
+  ringNumber: {
+    fontSize: 40,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  ringLabel: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  weekPhrase: {
+    fontSize: 15,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 12,
+    lineHeight: 21,
+  },
+  weekDivider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginVertical: 18,
+  },
+  countdownHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  countdownTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  countdownTimer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    alignSelf: 'flex-start',
+    backgroundColor: '#FEF3C7',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginBottom: 14,
+  },
+  countdownValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#92400E',
+    fontVariant: ['tabular-nums'],
+  },
+  missingLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 8,
+  },
+  missingChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  missingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
+  missingChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#B91C1C',
+  },
+  allOrderedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  allOrderedText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#059669',
+  },
+  orderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F0973E',
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    marginBottom: 24,
+    shadowColor: '#F0973E',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  orderButtonTextWrap: {
+    flex: 1,
+  },
+  orderButtonTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#3D2200',
+  },
+  orderButtonSubtitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(61, 34, 0, 0.65)',
+    letterSpacing: 1.5,
+    marginTop: 2,
   },
   childrenSection: {
     backgroundColor: '#FFFFFF',
