@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { User, LogOut, ArrowLeft, Key } from 'lucide-react-native';
+import { User, LogOut, ArrowLeft } from 'lucide-react-native';
 
 export default function AdminProfile() {
   const [parent, setParent] = useState<Parent | null>(null);
@@ -85,21 +85,6 @@ export default function AdminProfile() {
               <Text style={styles.infoValue}>{parent?.email || 'Non renseigné'}</Text>
             </View>
           </View>
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Actions</Text>
-          </View>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => router.push('/(admin)/provider-access')}
-          >
-            <View style={styles.actionIconContainer}>
-              <Key size={24} color="#4F46E5" />
-            </View>
-            <Text style={styles.actionButtonText}>Donner accès à un prestataire</Text>
-          </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
@@ -228,30 +213,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     flex: 1,
     marginLeft: 16,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    gap: 12,
-  },
-  actionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#EEF2FF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    flex: 1,
   },
   legalButton: {
     backgroundColor: '#FFFFFF',
