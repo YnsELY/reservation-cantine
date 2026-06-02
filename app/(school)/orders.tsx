@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as XLSX from 'xlsx';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput, Modal, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import { showAlert } from '@/lib/alert';
+import { exportData, ExportFormat } from '@/lib/exports';
+import { ExportSheet } from '@/components/ExportSheet';
 import { ArrowLeft, Search, X, FileDown, Check, User } from 'lucide-react-native';
 
 interface OrderDetail {
@@ -17,6 +16,7 @@ interface OrderDetail {
   child_last_name: string;
   child_grade: string | null;
   child_allergies: string[];
+  child_genre: 'fille' | 'garcon' | null;
   parent_name: string;
 }
 
@@ -54,7 +54,8 @@ const sanitizeFileName = (value: string) => (
     .replace(/[^a-zA-Z0-9-_]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'export'
 );
 
-const csvEscape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+const genreLabel = (g: 'fille' | 'garcon' | null) =>
+  g === 'fille' ? 'Fille' : g === 'garcon' ? 'Garçon' : '—';
 
 export default function OrdersPage() {
   const router = useRouter();
@@ -70,8 +71,9 @@ export default function OrdersPage() {
 
   const [showExportModal, setShowExportModal] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [exportFormat, setExportFormat] = useState<'xlsx' | 'csv'>('xlsx');
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('xlsx');
   const [exportClass, setExportClass] = useState<string>('all');
+  const [exportGenre, setExportGenre] = useState<'all' | 'fille' | 'garcon'>('all');
 
   useEffect(() => {
     void loadOrders();
@@ -95,7 +97,7 @@ export default function OrdersPage() {
         .from('reservations')
         .select(`
           id, parent_id,
-          child:children!child_id(id, first_name, last_name, grade, allergies)
+          child:children!child_id(id, first_name, last_name, grade, allergies, genre)
         `)
         .eq('menu_id', menuId)
         .eq('date', date)
@@ -124,6 +126,7 @@ export default function OrdersPage() {
           child_last_name: r.child?.last_name || '',
           child_grade: r.child?.grade || null,
           child_allergies: Array.isArray(r.child?.allergies) ? r.child.allergies : [],
+          child_genre: r.child?.genre || null,
           parent_name: parent ? `${parent.first_name || ''} ${parent.last_name || ''}`.trim() : 'Parent',
         };
       });
@@ -179,88 +182,57 @@ export default function OrdersPage() {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const toExport = orders.filter(o => {
-        if (exportClass !== 'all' && (o.child_grade || NO_GRADE_LABEL) !== exportClass) return false;
-        return true;
-      });
-
-      if (toExport.length === 0) {
-        showAlert('Export impossible', 'Aucune commande à exporter avec ces filtres.');
-        return;
-      }
-
-      const header = ['Classe', 'Élève', 'Parent', 'Allergies'];
-      const rows = toExport
+      const toExport = orders
+        .filter(o => {
+          if (exportClass !== 'all' && (o.child_grade || NO_GRADE_LABEL) !== exportClass) return false;
+          if (exportGenre !== 'all' && o.child_genre !== exportGenre) return false;
+          return true;
+        })
         .sort((a, b) => {
           const g = sortGrades(a.child_grade || NO_GRADE_LABEL, b.child_grade || NO_GRADE_LABEL);
           if (g !== 0) return g;
           return `${a.child_last_name} ${a.child_first_name}`.localeCompare(
             `${b.child_last_name} ${b.child_first_name}`, 'fr-FR'
           );
-        })
-        .map(o => [
-          o.child_grade || '',
-          `${o.child_first_name} ${o.child_last_name}`.trim(),
-          o.parent_name,
-          o.child_allergies.join(', ') || 'Aucune',
-        ] as (string | number)[]);
+        });
 
-      const scopeLabel = exportClass !== 'all' ? sanitizeFileName(exportClass) : 'toutes-classes';
-      const baseFileName = `commandes-${sanitizeFileName(menuName)}-${sanitizeFileName(date)}-${scopeLabel}`;
-      const isWeb = Platform.OS === 'web';
-
-      if (exportFormat === 'xlsx') {
-        const worksheet = XLSX.utils.aoa_to_sheet([header, ...rows]);
-        worksheet['!cols'] = [{ wch: 14 }, { wch: 28 }, { wch: 26 }, { wch: 28 }];
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Commandes');
-        const fileName = `${baseFileName}.xlsx`;
-        if (isWeb) {
-          XLSX.writeFile(workbook, fileName);
-        } else {
-          const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
-          const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-          await FileSystem.writeAsStringAsync(fileUri, base64, { encoding: FileSystem.EncodingType.Base64 });
-          if (await Sharing.isAvailableAsync()) {
-            await Sharing.shareAsync(fileUri, {
-              mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-              dialogTitle: 'Exporter les commandes',
-              UTI: 'org.openxmlformats.spreadsheetml.sheet',
-            });
-          } else {
-            showAlert('Export prêt', `Le fichier Excel a été généré : ${fileName}`);
-          }
-        }
-      } else {
-        const csvContent = [
-          header.map(csvEscape).join(';'),
-          ...rows.map(row => row.map(csvEscape).join(';')),
-        ].join('\n');
-        const fileName = `${baseFileName}.csv`;
-        if (isWeb) {
-          const blob = new Blob([`﻿${csvContent}`], { type: 'text/csv;charset=utf-8;' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = fileName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-        } else {
-          const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-          await FileSystem.writeAsStringAsync(fileUri, `﻿${csvContent}`, { encoding: FileSystem.EncodingType.UTF8 });
-          if (await Sharing.isAvailableAsync()) {
-            await Sharing.shareAsync(fileUri, {
-              mimeType: 'text/csv',
-              dialogTitle: 'Exporter les commandes',
-              UTI: 'public.comma-separated-values-text',
-            });
-          } else {
-            showAlert('Export prêt', `Le fichier CSV a été généré : ${fileName}`);
-          }
-        }
+      if (toExport.length === 0) {
+        showAlert('Export impossible', 'Aucune commande à exporter avec ces filtres.');
+        return;
       }
+
+      const header = ['Classe', 'Élève', 'Sexe', 'Parent', 'Allergies'];
+      const rows = toExport.map(o => [
+        o.child_grade || '',
+        `${o.child_first_name} ${o.child_last_name}`.trim(),
+        genreLabel(o.child_genre),
+        o.parent_name,
+        o.child_allergies.join(', ') || 'Aucune',
+      ] as (string | number)[]);
+
+      const classeLabel = exportClass === 'all' ? 'Toutes' : exportClass;
+      const sexeLabel = exportGenre === 'all' ? 'Tous' : exportGenre === 'fille' ? 'Filles' : 'Garçons';
+
+      const scopeLabel = [
+        exportClass !== 'all' && sanitizeFileName(exportClass),
+        exportGenre !== 'all' && exportGenre,
+      ].filter(Boolean).join('-') || 'toutes-classes';
+
+      await exportData(exportFormat, {
+        fileName: `commandes-${sanitizeFileName(menuName)}-${sanitizeFileName(date)}-${scopeLabel}`,
+        sheetName: 'Commandes',
+        title: menuName || 'Commandes',
+        subtitle: formatLongDate(date),
+        meta: [
+          { label: 'Menu', value: menuName || '—' },
+          { label: 'Classe', value: classeLabel },
+          { label: 'Sexe', value: sexeLabel },
+        ],
+        totals: [{ label: 'Commandes', value: rows.length }],
+        header,
+        rows,
+      });
+
       setShowExportModal(false);
     } catch (err) {
       console.error('Error exporting:', err);
@@ -373,76 +345,46 @@ export default function OrdersPage() {
         )}
       </ScrollView>
 
-      <Modal
+      <ExportSheet
         visible={showExportModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowExportModal(false)}
+        onClose={() => setShowExportModal(false)}
+        format={exportFormat}
+        onFormatChange={setExportFormat}
+        onExport={handleExport}
+        exporting={exporting}
+        title="Exporter les commandes"
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowExportModal(false)}>
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Exporter</Text>
-              <TouchableOpacity onPress={() => setShowExportModal(false)}>
-                <X size={22} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.modalSectionTitle}>FORMAT</Text>
-            <View style={styles.modalRow}>
-              <TouchableOpacity
-                style={[styles.modalChip, exportFormat === 'xlsx' && styles.modalChipActive]}
-                onPress={() => setExportFormat('xlsx')}
-              >
-                <Text style={[styles.modalChipText, exportFormat === 'xlsx' && styles.modalChipTextActive]}>Excel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalChip, exportFormat === 'csv' && styles.modalChipActive]}
-                onPress={() => setExportFormat('csv')}
-              >
-                <Text style={[styles.modalChipText, exportFormat === 'csv' && styles.modalChipTextActive]}>CSV</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.modalSectionTitle}>CLASSE</Text>
-            <ScrollView style={styles.modalScrollSection} showsVerticalScrollIndicator={false}>
-              <TouchableOpacity
-                style={styles.modalOption}
-                onPress={() => setExportClass('all')}
-              >
-                <Text style={[styles.modalOptionText, exportClass === 'all' && styles.modalOptionTextActive]}>
-                  Toutes les classes
-                </Text>
-                {exportClass === 'all' && <Check size={18} color="#4F46E5" />}
-              </TouchableOpacity>
-              {availableClasses.map(c => (
-                <TouchableOpacity
-                  key={c}
-                  style={styles.modalOption}
-                  onPress={() => setExportClass(c)}
-                >
-                  <Text style={[styles.modalOptionText, exportClass === c && styles.modalOptionTextActive]}>
-                    {c}
-                  </Text>
-                  {exportClass === c && <Check size={18} color="#4F46E5" />}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <TouchableOpacity
-              style={[styles.modalSubmitButton, exporting && styles.modalSubmitButtonDisabled]}
-              onPress={handleExport}
-              disabled={exporting}
-            >
-              {exporting ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.modalSubmitText}>Télécharger</Text>
-              )}
+        <Text style={styles.modalSectionTitle}>CLASSE</Text>
+        <ScrollView style={styles.modalScrollSection} showsVerticalScrollIndicator={false} nestedScrollEnabled>
+          <TouchableOpacity style={styles.modalOption} onPress={() => setExportClass('all')}>
+            <Text style={[styles.modalOptionText, exportClass === 'all' && styles.modalOptionTextActive]}>
+              Toutes les classes
+            </Text>
+            {exportClass === 'all' && <Check size={18} color="#4F46E5" />}
+          </TouchableOpacity>
+          {availableClasses.map(c => (
+            <TouchableOpacity key={c} style={styles.modalOption} onPress={() => setExportClass(c)}>
+              <Text style={[styles.modalOptionText, exportClass === c && styles.modalOptionTextActive]}>
+                {c}
+              </Text>
+              {exportClass === c && <Check size={18} color="#4F46E5" />}
             </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+          ))}
+        </ScrollView>
+
+        <Text style={styles.modalSectionTitle}>SEXE</Text>
+        <View style={[styles.modalRow, { marginBottom: 4 }]}>
+          {([['all', 'Tous'], ['fille', 'Filles'], ['garcon', 'Garçons']] as const).map(([key, label]) => (
+            <TouchableOpacity
+              key={key}
+              style={[styles.modalChip, exportGenre === key && styles.modalChipActive]}
+              onPress={() => setExportGenre(key)}
+            >
+              <Text style={[styles.modalChipText, exportGenre === key && styles.modalChipTextActive]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ExportSheet>
     </SafeAreaView>
   );
 }
