@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PinGate } from '@/components/PinGate';
 import { useRouter } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase, Provider } from '@/lib/supabase';
@@ -258,6 +259,7 @@ export default function ProviderStatistics() {
   }
 
   return (
+    <PinGate title="Statistiques">
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => safeBack('/(provider)')} style={styles.backButton}>
@@ -346,6 +348,7 @@ export default function ProviderStatistics() {
         </View>
       </ScrollView>
     </SafeAreaView>
+    </PinGate>
   );
 }
 

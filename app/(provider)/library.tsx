@@ -2,6 +2,7 @@
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PinGate } from '@/components/PinGate';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { ArrowLeft, Plus } from 'lucide-react-native';
@@ -263,6 +264,7 @@ export default function ProviderLibraryScreen() {
   }
 
   return (
+    <PinGate title="Menus & suppléments">
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => safeBack('/(provider)')} style={styles.headerIconButton}>
@@ -357,6 +359,7 @@ export default function ProviderLibraryScreen() {
         )}
       </ScrollView>
     </SafeAreaView>
+    </PinGate>
   );
 }
 
