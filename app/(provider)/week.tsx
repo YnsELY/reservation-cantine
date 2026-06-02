@@ -1,6 +1,7 @@
 ﻿import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PinGate } from '@/components/PinGate';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { ArrowLeft, Check, ChefHat, Edit, XCircle } from 'lucide-react-native';
@@ -135,6 +136,7 @@ export default function ProviderWeekScreen() {
   }
 
   return (
+    <PinGate title="Voir ma semaine">
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => safeBack('/(provider)')} style={styles.backButton}>
@@ -215,6 +217,7 @@ export default function ProviderWeekScreen() {
         ))}
       </ScrollView>
     </SafeAreaView>
+    </PinGate>
   );
 }
 

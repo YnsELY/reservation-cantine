@@ -2,6 +2,7 @@
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PinGate } from '@/components/PinGate';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Package, Plus, X } from 'lucide-react-native';
@@ -525,6 +526,7 @@ export default function CreateWeekScreen() {
   const pickerConfig = pickerDate ? dayConfigs[pickerDate] : null;
 
   return (
+    <PinGate title="Créer ma semaine">
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => safeBack('/(provider)')} style={styles.backButton}>
@@ -692,6 +694,7 @@ export default function CreateWeekScreen() {
         </View>
       </Modal>
     </SafeAreaView>
+    </PinGate>
   );
 }
 

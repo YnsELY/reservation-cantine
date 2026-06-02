@@ -2,6 +2,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PinGate } from '@/components/PinGate';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase, Provider } from '@/lib/supabase';
@@ -179,6 +180,7 @@ export default function ProviderSupplements() {
   }
 
   return (
+    <PinGate title="Suppléments">
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => safeBack('/(provider)')} style={styles.backButton}>
@@ -338,6 +340,7 @@ export default function ProviderSupplements() {
         </View>
       </ScrollView>
     </SafeAreaView>
+    </PinGate>
   );
 }
 

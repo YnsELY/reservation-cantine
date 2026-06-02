@@ -191,6 +191,8 @@ export interface Provider {
   company_name: string | null;
   phone: string | null;
   is_active: boolean;
+  pin: string | null;
+  must_change_credentials: boolean;
   created_at: string;
 }
 

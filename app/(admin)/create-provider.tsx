@@ -45,11 +45,16 @@ function generatePassword(): string {
   return password.split('').sort(() => Math.random() - 0.5).join('');
 }
 
+function generatePin(): string {
+  return String(Math.floor(1000 + Math.random() * 9000));
+}
+
 export default function CreateProviderScreen() {
   const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [pin, setPin] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
   const handleGeneratePassword = () => {
@@ -78,6 +83,10 @@ export default function CreateProviderScreen() {
     }
     if (!password || password.length < 8) {
       showAlert('Erreur', 'Le mot de passe doit contenir au moins 8 caractères');
+      return;
+    }
+    if (!/^[0-9]{4}$/.test(pin)) {
+      showAlert('Erreur', 'Le PIN doit contenir exactement 4 chiffres');
       return;
     }
 
@@ -112,6 +121,7 @@ export default function CreateProviderScreen() {
         company_name: companyName.trim(),
         email: email.trim().toLowerCase(),
         contact_email: email.trim().toLowerCase(),
+        pin,
       });
 
       if (insertError) {
@@ -122,14 +132,16 @@ export default function CreateProviderScreen() {
       const capturedPassword = password;
       const capturedEmail = email.trim().toLowerCase();
       const capturedName = companyName.trim();
+      const capturedPin = pin;
 
       setCompanyName('');
       setEmail('');
       setPassword('');
+      setPin('');
 
       showAlert(
         'Prestataire créé !',
-        `Le compte de "${capturedName}" a été créé.\n\nEmail : ${capturedEmail}\nMot de passe temporaire : ${capturedPassword}\n\nCommuniquez ces identifiants au prestataire.`,
+        `Le compte de "${capturedName}" a été créé.\n\nEmail : ${capturedEmail}\nMot de passe temporaire : ${capturedPassword}\nPIN d'accès (4 chiffres) : ${capturedPin}\n\nCommuniquez ces identifiants au prestataire.`,
         [
           {
             text: 'Copier le mot de passe',
@@ -247,6 +259,29 @@ export default function CreateProviderScreen() {
             )}
           </View>
 
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>PIN d'accès (4 chiffres) *</Text>
+            <View style={styles.passwordActions}>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                value={pin}
+                onChangeText={(t) => setPin(t.replace(/[^0-9]/g, '').slice(0, 4))}
+                placeholder="Ex : 4821"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="number-pad"
+                maxLength={4}
+              />
+              <TouchableOpacity
+                style={[styles.passwordActionButton, { flex: 0, paddingHorizontal: 16 }]}
+                onPress={() => setPin(generatePin())}
+              >
+                <RefreshCw size={16} color="#4F46E5" />
+                <Text style={styles.passwordActionText}>Générer</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.pinHint}>Protège les pages de gestion (semaines, menus, suppléments).</Text>
+          </View>
+
           <TouchableOpacity
             style={[styles.createButton, isCreating && styles.createButtonDisabled]}
             onPress={handleCreateProvider}
@@ -268,8 +303,9 @@ export default function CreateProviderScreen() {
           <Text style={styles.instructionsText}>1. Renseignez le nom et l'email du prestataire</Text>
           <Text style={styles.instructionsText}>2. Générez un mot de passe temporaire sécurisé</Text>
           <Text style={styles.instructionsText}>3. Créez le compte — le prestataire est immédiatement actif</Text>
-          <Text style={styles.instructionsText}>4. Communiquez l'email et le mot de passe au prestataire</Text>
-          <Text style={styles.instructionsText}>5. Le prestataire pourra changer son mot de passe après connexion</Text>
+          <Text style={styles.instructionsText}>4. Communiquez l'email, le mot de passe ET le PIN au prestataire</Text>
+          <Text style={styles.instructionsText}>5. Le PIN protège les pages de gestion (semaines, menus, suppléments)</Text>
+          <Text style={styles.instructionsText}>6. Le prestataire pourra changer son mot de passe et son PIN après connexion</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -407,6 +443,11 @@ const styles = StyleSheet.create({
   passwordWarning: {
     fontSize: 12,
     color: '#EF4444',
+    marginTop: 6,
+  },
+  pinHint: {
+    fontSize: 12,
+    color: '#6B7280',
     marginTop: 6,
   },
   createButton: {
