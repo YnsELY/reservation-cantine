@@ -5,7 +5,8 @@ import { router } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase, Child, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { exportData } from '@/lib/exports';
+import { exportData, type ExportFormat } from '@/lib/exports';
+import { ExportSheet } from '@/components/ExportSheet';
 import { showAlert } from '@/lib/alert';
 import { Search, ArrowLeft, ChevronDown, ChevronUp, Download, SlidersHorizontal } from 'lucide-react-native';
 
@@ -70,6 +71,8 @@ export default function SchoolChildrenScreen() {
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('xlsx');
+  const [showExportModal, setShowExportModal] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -229,12 +232,14 @@ export default function SchoolChildrenScreen() {
         allergyFilter === 'with' ? 'avec-allergie' : allergyFilter === 'without' ? 'sans-allergie' : null,
         activityName ? `repas-${activityName}` : null,
       ].filter(Boolean);
-      await exportData('xlsx', {
+      await exportData(exportFormat, {
         fileName: `eleves-${school?.name || 'ecole'}${parts.length ? '-' + parts.join('-') : ''}`,
         sheetName: 'Élèves',
+        title: `Élèves${school?.name ? ' – ' + school.name : ''}`,
         header,
         rows,
       });
+      setShowExportModal(false);
     } catch (e: any) {
       console.error('export error', e);
       showAlert('Erreur', e?.message || "Impossible d'exporter la liste");
@@ -317,19 +322,13 @@ export default function SchoolChildrenScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.exportButton, (exporting || visibleChildren.length === 0) && styles.exportButtonDisabled]}
-          onPress={handleExport}
-          disabled={exporting || visibleChildren.length === 0}
+          style={[styles.exportButton, visibleChildren.length === 0 && styles.exportButtonDisabled]}
+          onPress={() => setShowExportModal(true)}
+          disabled={visibleChildren.length === 0}
           activeOpacity={0.85}
         >
-          {exporting ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <>
-              <Download size={18} color="#FFFFFF" />
-              <Text style={styles.exportButtonText}>Exporter ({visibleChildren.length})</Text>
-            </>
-          )}
+          <Download size={18} color="#FFFFFF" />
+          <Text style={styles.exportButtonText}>Exporter ({visibleChildren.length})</Text>
         </TouchableOpacity>
       </View>
 
@@ -418,6 +417,16 @@ export default function SchoolChildrenScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
+
+      <ExportSheet
+        visible={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        format={exportFormat}
+        onFormatChange={setExportFormat}
+        onExport={handleExport}
+        exporting={exporting}
+        title="Exporter les élèves"
+      />
     </SafeAreaView>
   );
 }

@@ -15,8 +15,9 @@ import {
   parseOrderSupplements,
 } from '@/lib/order-supplements';
 import { AlertTriangle, ArrowLeft, Check, FileDown, Users as UsersIcon } from 'lucide-react-native';
+import { exportData } from '@/lib/exports';
 
-type ExportFormat = 'csv' | 'xlsx';
+type ExportFormat = 'csv' | 'xlsx' | 'pdf';
 
 interface OrderDetail {
   id: string;
@@ -328,6 +329,18 @@ export default function MenuOrdersScreen() {
 
       const isWeb = Platform.OS === 'web';
 
+      if (exportFormat === 'pdf') {
+        await exportData('pdf', {
+          fileName: baseFileName,
+          title: menuName,
+          subtitle: formatDate(date),
+          header,
+          rows,
+        });
+        setShowExportModal(false);
+        return;
+      }
+
       if (exportFormat === 'xlsx') {
         const worksheet = XLSX.utils.aoa_to_sheet([header, ...rows]);
         worksheet['!cols'] = [
@@ -570,7 +583,7 @@ export default function MenuOrdersScreen() {
                 onPress={() => setExportFormat('xlsx')}
               >
                 <Text style={[styles.formatOptionText, exportFormat === 'xlsx' && styles.formatOptionTextActive]}>
-                  Excel (.xlsx)
+                  Excel
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -578,7 +591,15 @@ export default function MenuOrdersScreen() {
                 onPress={() => setExportFormat('csv')}
               >
                 <Text style={[styles.formatOptionText, exportFormat === 'csv' && styles.formatOptionTextActive]}>
-                  CSV (.csv)
+                  CSV
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.formatOption, exportFormat === 'pdf' && styles.formatOptionActive]}
+                onPress={() => setExportFormat('pdf')}
+              >
+                <Text style={[styles.formatOptionText, exportFormat === 'pdf' && styles.formatOptionTextActive]}>
+                  PDF
                 </Text>
               </TouchableOpacity>
             </View>
@@ -651,7 +672,7 @@ export default function MenuOrdersScreen() {
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
                 <Text style={styles.sheetExportButtonText}>
-                  {exportFormat === 'xlsx' ? 'Exporter en Excel' : 'Exporter en CSV'}
+                  {exportFormat === 'xlsx' ? 'Exporter en Excel' : exportFormat === 'csv' ? 'Exporter en CSV' : 'Exporter en PDF'}
                 </Text>
               )}
             </TouchableOpacity>
