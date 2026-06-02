@@ -73,6 +73,10 @@ export default function SchoolChildrenScreen() {
   const [exporting, setExporting] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>('xlsx');
   const [showExportModal, setShowExportModal] = useState(false);
+  // Filtres PROPRES à l'export (indépendants des filtres d'écran)
+  const [exportGenre, setExportGenre] = useState<'all' | 'fille' | 'garcon'>('all');
+  const [exportClasse, setExportClasse] = useState<string>('all');
+  const [exportAllergie, setExportAllergie] = useState<'all' | 'with' | 'without'>('all');
 
   useEffect(() => {
     loadData();
@@ -192,6 +196,18 @@ export default function SchoolChildrenScreen() {
 
   const sections = useMemo(() => groupChildrenByGrade(visibleChildren), [visibleChildren]);
 
+  // Liste à exporter : filtrée par les filtres de la MODALE (pas ceux de l'écran)
+  const exportChildren = useMemo(() => {
+    return children.filter((c: any) => {
+      if (exportClasse !== 'all' && (c.grade || '') !== exportClasse) return false;
+      if (exportGenre !== 'all' && c.genre !== exportGenre) return false;
+      const hasAllergy = Array.isArray(c.allergies) && c.allergies.length > 0;
+      if (exportAllergie === 'with' && !hasAllergy) return false;
+      if (exportAllergie === 'without' && hasAllergy) return false;
+      return true;
+    });
+  }, [children, exportClasse, exportGenre, exportAllergie]);
+
   const activeCount = [
     gradeFilter !== 'all',
     genreFilter !== 'all',
@@ -207,15 +223,15 @@ export default function SchoolChildrenScreen() {
   };
 
   const handleExport = async () => {
-    if (visibleChildren.length === 0) {
-      showAlert('Export', 'Aucun élève à exporter avec ces filtres.');
+    if (exportChildren.length === 0) {
+      showAlert('Export', 'Aucun élève à exporter avec cette sélection.');
       return;
     }
     setExporting(true);
     try {
       const genreText = (g: any) => (g === 'fille' ? 'Fille' : g === 'garcon' ? 'Garçon' : '');
       const header = ['Nom', 'Prénom', 'Classe', 'Sexe', 'Allergies', 'Parent', 'Dernier repas réservé'];
-      const rows = visibleChildren.map((c: any) => [
+      const rows = exportChildren.map((c: any) => [
         c.last_name || '',
         c.first_name || '',
         c.grade || '',
@@ -224,13 +240,10 @@ export default function SchoolChildrenScreen() {
         c.parents ? `${c.parents.first_name || ''} ${c.parents.last_name || ''}`.trim() : '',
         fmtDate(lastMeals[c.id]),
       ]);
-      const activityName =
-        activityFilter === '3d' ? '3j' : activityFilter === '7d' ? '7j' : activityFilter === '3m' ? '3mois' : null;
       const parts = [
-        gradeFilter !== 'all' ? gradeFilter : null,
-        genreFilter === 'fille' ? 'filles' : genreFilter === 'garcon' ? 'garcons' : null,
-        allergyFilter === 'with' ? 'avec-allergie' : allergyFilter === 'without' ? 'sans-allergie' : null,
-        activityName ? `repas-${activityName}` : null,
+        exportClasse !== 'all' ? exportClasse : null,
+        exportGenre === 'fille' ? 'filles' : exportGenre === 'garcon' ? 'garcons' : null,
+        exportAllergie === 'with' ? 'avec-allergie' : exportAllergie === 'without' ? 'sans-allergie' : null,
       ].filter(Boolean);
       await exportData(exportFormat, {
         fileName: `eleves-${school?.name || 'ecole'}${parts.length ? '-' + parts.join('-') : ''}`,
@@ -291,9 +304,9 @@ export default function SchoolChildrenScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Liste des élèves</Text>
         <TouchableOpacity
-          style={[styles.headerExportButton, visibleChildren.length === 0 && styles.exportButtonDisabled]}
+          style={[styles.headerExportButton, children.length === 0 && styles.exportButtonDisabled]}
           onPress={() => setShowExportModal(true)}
-          disabled={visibleChildren.length === 0}
+          disabled={children.length === 0}
         >
           <FileDown size={17} color="#FFFFFF" />
           <Text style={styles.headerExportText}>Exporter</Text>
@@ -422,7 +435,54 @@ export default function SchoolChildrenScreen() {
         onExport={handleExport}
         exporting={exporting}
         title="Exporter les élèves"
-      />
+      >
+        <Text style={styles.exportSectionTitle}>Sexe à inclure</Text>
+        <View style={styles.segmented}>
+          <TouchableOpacity style={[styles.segment, exportGenre === 'all' && styles.segmentActive]} onPress={() => setExportGenre('all')}>
+            <Text style={[styles.segmentText, exportGenre === 'all' && styles.segmentTextActive]}>Tous</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.segment, exportGenre === 'fille' && styles.segmentActive]} onPress={() => setExportGenre('fille')}>
+            <Text style={[styles.segmentText, exportGenre === 'fille' && styles.segmentTextActive]}>Filles</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.segment, exportGenre === 'garcon' && styles.segmentActive]} onPress={() => setExportGenre('garcon')}>
+            <Text style={[styles.segmentText, exportGenre === 'garcon' && styles.segmentTextActive]}>Garçons</Text>
+          </TouchableOpacity>
+        </View>
+
+        {availableGrades.length > 0 && (
+          <>
+            <Text style={styles.exportSectionTitle}>Classe à inclure</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.exportPillsScroll}
+              contentContainerStyle={styles.exportPillsRow}
+            >
+              <Pill label="Toutes" active={exportClasse === 'all'} onPress={() => setExportClasse('all')} />
+              {availableGrades.map((g) => (
+                <Pill key={g} label={g} active={exportClasse === g} onPress={() => setExportClasse(g)} />
+              ))}
+            </ScrollView>
+          </>
+        )}
+
+        <Text style={styles.exportSectionTitle}>Allergie</Text>
+        <View style={styles.segmented}>
+          <TouchableOpacity style={[styles.segment, exportAllergie === 'all' && styles.segmentActive]} onPress={() => setExportAllergie('all')}>
+            <Text style={[styles.segmentText, exportAllergie === 'all' && styles.segmentTextActive]}>Tous</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.segment, exportAllergie === 'with' && styles.segmentActive]} onPress={() => setExportAllergie('with')}>
+            <Text style={[styles.segmentText, exportAllergie === 'with' && styles.segmentTextActive]}>Avec</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.segment, exportAllergie === 'without' && styles.segmentActive]} onPress={() => setExportAllergie('without')}>
+            <Text style={[styles.segmentText, exportAllergie === 'without' && styles.segmentTextActive]}>Sans</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.exportCount}>
+          {exportChildren.length} élève{exportChildren.length > 1 ? 's' : ''} à exporter
+        </Text>
+      </ExportSheet>
     </SafeAreaView>
   );
 }
@@ -654,6 +714,52 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
+  },
+  exportSectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
+  segmented: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: 18,
+  },
+  segment: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  segmentText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  segmentTextActive: {
+    color: '#111827',
+  },
+  exportPillsScroll: {
+    marginBottom: 18,
+  },
+  exportPillsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  exportCount: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 16,
   },
   sectionHeaderWrapper: {
     backgroundColor: '#F9FAFB',
