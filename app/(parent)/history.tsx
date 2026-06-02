@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -14,7 +14,8 @@ import {
   CANCELLATION_CUTOFF_HOUR,
 } from '@/lib/credits';
 import { getWeekStartYmd } from '@/lib/dates';
-import { Receipt, AlertCircle, History, ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, XCircle } from 'lucide-react-native';
+import { Receipt, AlertCircle, History, ArrowLeft, ChevronLeft, ChevronRight, XCircle } from 'lucide-react-native';
+import { NativeSelect } from '@/components/NativeSelect';
 
 interface Child {
   id: string;
@@ -50,8 +51,6 @@ export default function HistoryScreen() {
   const [selectedChild, setSelectedChild] = useState<string>('all');
   const [periodFilter, setPeriodFilter] = useState<PeriodFilter>('all');
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [showChildModal, setShowChildModal] = useState(false);
-  const [showPeriodModal, setShowPeriodModal] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const router = useRouter();
 
@@ -336,29 +335,32 @@ export default function HistoryScreen() {
 
       <View style={styles.filtersContainer}>
         <View style={styles.filterRow}>
-          <TouchableOpacity
-            style={styles.filterButton}
-            onPress={() => setShowPeriodModal(true)}
-          >
-            <Text style={styles.filterButtonText}>
-              {periodFilter === 'day' ? 'Jour' :
-               periodFilter === 'week' ? 'Semaine' :
-               periodFilter === 'month' ? 'Mois' : 'Tout'}
-            </Text>
-            <ChevronDown size={16} color="#111827" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.filterButton}
-            onPress={() => setShowChildModal(true)}
-          >
-            <Text style={styles.filterButtonText}>
-              {selectedChild === 'all'
-                ? 'Tous les enfants'
-                : children.find(c => c.id === selectedChild)?.first_name || 'Enfant'}
-            </Text>
-            <ChevronDown size={16} color="#111827" />
-          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <NativeSelect
+              value={periodFilter}
+              onValueChange={(v) => setPeriodFilter(v as PeriodFilter)}
+              placeholder=""
+              title="Sélectionner une période"
+              options={[
+                { value: 'all', label: 'Tout' },
+                { value: 'day', label: 'Jour' },
+                { value: 'week', label: 'Semaine' },
+                { value: 'month', label: 'Mois' },
+              ]}
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <NativeSelect
+              value={selectedChild}
+              onValueChange={setSelectedChild}
+              placeholder=""
+              title="Sélectionner un enfant"
+              options={[
+                { value: 'all', label: 'Tous les enfants' },
+                ...children.map((c) => ({ value: c.id, label: `${c.first_name} ${c.last_name}` })),
+              ]}
+            />
+          </View>
         </View>
 
         {periodFilter !== 'all' && (
@@ -382,89 +384,6 @@ export default function HistoryScreen() {
           <Text style={styles.periodLabel}>{getPeriodLabel()}</Text>
         )}
       </View>
-
-      <Modal
-        visible={showPeriodModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowPeriodModal(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowPeriodModal(false)}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Sélectionner une période</Text>
-            {[{value: 'day', label: 'Jour'}, {value: 'week', label: 'Semaine'}, {value: 'month', label: 'Mois'}, {value: 'all', label: 'Tout'}].map((option) => (
-              <TouchableOpacity
-                key={option.value}
-                style={[
-                  styles.modalOption,
-                  periodFilter === option.value && styles.modalOptionSelected
-                ]}
-                onPress={() => {
-                  setPeriodFilter(option.value as PeriodFilter);
-                  setShowPeriodModal(false);
-                }}
-              >
-                <Text style={[
-                  styles.modalOptionText,
-                  periodFilter === option.value && styles.modalOptionTextSelected
-                ]}>
-                  {option.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        visible={showChildModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowChildModal(false)}
-      >
-        <Pressable style={styles.modalOverlay} onPress={() => setShowChildModal(false)}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Sélectionner un enfant</Text>
-            <TouchableOpacity
-              style={[
-                styles.modalOption,
-                selectedChild === 'all' && styles.modalOptionSelected
-              ]}
-              onPress={() => {
-                setSelectedChild('all');
-                setShowChildModal(false);
-              }}
-            >
-              <Text style={[
-                styles.modalOptionText,
-                selectedChild === 'all' && styles.modalOptionTextSelected
-              ]}>
-                Tous les enfants
-              </Text>
-            </TouchableOpacity>
-            {children.map((child) => (
-              <TouchableOpacity
-                key={child.id}
-                style={[
-                  styles.modalOption,
-                  selectedChild === child.id && styles.modalOptionSelected
-                ]}
-                onPress={() => {
-                  setSelectedChild(child.id);
-                  setShowChildModal(false);
-                }}
-              >
-                <Text style={[
-                  styles.modalOptionText,
-                  selectedChild === child.id && styles.modalOptionTextSelected
-                ]}>
-                  {child.first_name} {child.last_name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
 
       <View style={styles.statisticsContainer}>
         <View style={styles.statCard}>

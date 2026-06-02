@@ -13,7 +13,8 @@ import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
-import { ArrowLeft, Save, X, CircleCheck as CheckCircle, ChevronDown, Plus } from 'lucide-react-native';
+import { ArrowLeft, Save, X, CircleCheck as CheckCircle, Plus } from 'lucide-react-native';
+import { NativeSelect } from '@/components/NativeSelect';
 import { supabase } from '@/lib/supabase';
 
 const GRADE_OPTIONS = [
@@ -178,11 +179,11 @@ export default function EditChildScreen() {
   };
 
   const handleAddCustomAllergy = () => {
-    if (customAllergy.trim() && allergies.length < 2 && !allergies.includes(customAllergy.trim())) {
-      setAllergies([...allergies, customAllergy.trim()]);
-      setCustomAllergy('');
-      setShowAllergyModal(false);
+    const value = customAllergy.trim();
+    if (value && allergies.length < 2 && !allergies.includes(value)) {
+      setAllergies([...allergies, value]);
     }
+    setCustomAllergy('');
   };
 
   const removeAllergy = (allergy: string) => {
@@ -371,35 +372,36 @@ export default function EditChildScreen() {
         <View style={styles.section}>
           <Text style={styles.label}>Date de naissance</Text>
           <View style={styles.dateInputRow}>
-            <TouchableOpacity
-              style={styles.dateSelector}
-              onPress={() => setShowDayModal(true)}
-            >
-              <Text style={[styles.dateSelectorText, !birthDay && styles.dateSelectorPlaceholder]}>
-                {birthDay || 'Jour'}
-              </Text>
-              <ChevronDown size={16} color="#6B7280" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.dateSelector}
-              onPress={() => setShowMonthModal(true)}
-            >
-              <Text style={[styles.dateSelectorText, !birthMonth && styles.dateSelectorPlaceholder]}>
-                {birthMonth ? MONTHS.find(m => m.value === birthMonth)?.label : 'Mois'}
-              </Text>
-              <ChevronDown size={16} color="#6B7280" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.dateSelector}
-              onPress={() => setShowYearModal(true)}
-            >
-              <Text style={[styles.dateSelectorText, !birthYear && styles.dateSelectorPlaceholder]}>
-                {birthYear || 'Année'}
-              </Text>
-              <ChevronDown size={16} color="#6B7280" />
-            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <NativeSelect
+                value={birthDay}
+                onValueChange={setBirthDay}
+                placeholder="Jour"
+                title="Sélectionner un jour"
+                options={Array.from({ length: getDaysInMonth(birthMonth, birthYear) }, (_, i) => ({
+                  value: String(i + 1),
+                  label: String(i + 1),
+                }))}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <NativeSelect
+                value={birthMonth}
+                onValueChange={setBirthMonth}
+                placeholder="Mois"
+                title="Sélectionner un mois"
+                options={MONTHS.map((m) => ({ value: m.value, label: m.label }))}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <NativeSelect
+                value={birthYear}
+                onValueChange={setBirthYear}
+                placeholder="Année"
+                title="Sélectionner une année"
+                options={generateYears().map((y) => ({ value: String(y), label: String(y) }))}
+              />
+            </View>
           </View>
           {calculateAge() !== null && (
             <View style={styles.ageDisplay}>
@@ -415,41 +417,60 @@ export default function EditChildScreen() {
 
         <View style={styles.section}>
           <Text style={styles.label}>Classe</Text>
-          <TouchableOpacity
-            style={styles.gradeSelector}
-            onPress={() => setShowGradeModal(true)}
-          >
-            <Text style={[styles.gradeSelectorText, !grade && styles.gradeSelectorPlaceholder]}>
-              {grade || 'Sélectionner une classe'}
-            </Text>
-            <ChevronDown size={20} color="#6B7280" />
-          </TouchableOpacity>
+          <NativeSelect
+            value={grade}
+            onValueChange={setGrade}
+            placeholder="Sélectionner une classe"
+            title="Sélectionner une classe"
+            options={GRADE_OPTIONS.flatMap((s) => s.grades).map((g) => ({ value: g, label: g }))}
+          />
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Allergies (Maximum 2)</Text>
-          {allergies.length > 0 && (
-            <View style={styles.selectedAllergiesContainer}>
-              {allergies.map((allergy, index) => (
-                <View key={index} style={styles.allergyTag}>
-                  <Text style={styles.allergyTagText}>{allergy}</Text>
-                  <TouchableOpacity onPress={() => removeAllergy(allergy)}>
-                    <X size={16} color="#EF4444" />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )}
+          <Text style={styles.label}>Allergies (maximum 2)</Text>
+          <View style={styles.allergyChips}>
+            {KNOWN_ALLERGIES.map((allergy) => {
+              const selected = allergies.includes(allergy);
+              const isDisabled = !selected && allergies.length >= 2;
+              return (
+                <TouchableOpacity
+                  key={allergy}
+                  style={[styles.allergyChip, selected && styles.allergyChipSelected, isDisabled && styles.allergyChipDisabled]}
+                  onPress={() => handleSelectAllergy(allergy)}
+                  disabled={isDisabled}
+                >
+                  <Text style={[styles.allergyChipText, selected && styles.allergyChipTextSelected]}>{allergy}</Text>
+                </TouchableOpacity>
+              );
+            })}
+            {allergies.filter((a) => !KNOWN_ALLERGIES.includes(a)).map((allergy) => (
+              <TouchableOpacity
+                key={allergy}
+                style={[styles.allergyChip, styles.allergyChipSelected]}
+                onPress={() => removeAllergy(allergy)}
+              >
+                <Text style={[styles.allergyChipText, styles.allergyChipTextSelected]}>{allergy}</Text>
+                <X size={14} color="#FFFFFF" />
+              </TouchableOpacity>
+            ))}
+          </View>
           {allergies.length < 2 && (
-            <TouchableOpacity
-              style={styles.addAllergyButton}
-              onPress={() => setShowAllergyModal(true)}
-            >
-              <Plus size={16} color="#111827" />
-              <Text style={styles.addAllergyButtonText}>
-                {allergies.length === 0 ? 'Ajouter une allergie' : 'Ajouter une autre allergie'}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.customAllergyRow}>
+              <TextInput
+                style={styles.customAllergyRowInput}
+                value={customAllergy}
+                onChangeText={setCustomAllergy}
+                placeholder="Autre allergie..."
+                placeholderTextColor="#9CA3AF"
+              />
+              <TouchableOpacity
+                style={[styles.customAllergyRowAdd, !customAllergy.trim() && styles.customAllergyRowAddDisabled]}
+                onPress={handleAddCustomAllergy}
+                disabled={!customAllergy.trim()}
+              >
+                <Plus size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
           )}
         </View>
       </ScrollView>
@@ -927,6 +948,63 @@ const styles = StyleSheet.create({
   },
   gradeSelectorPlaceholder: {
     color: '#9CA3AF',
+  },
+  allergyChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  allergyChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+  },
+  allergyChipSelected: {
+    backgroundColor: '#111827',
+    borderColor: '#111827',
+  },
+  allergyChipDisabled: {
+    opacity: 0.4,
+  },
+  allergyChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  allergyChipTextSelected: {
+    color: '#FFFFFF',
+  },
+  customAllergyRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  customAllergyRowInput: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: '#111827',
+  },
+  customAllergyRowAdd: {
+    backgroundColor: '#111827',
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  customAllergyRowAddDisabled: {
+    opacity: 0.4,
   },
   selectedAllergiesContainer: {
     flexDirection: 'row',
