@@ -8,7 +8,7 @@ import { authService } from '@/lib/auth';
 import { exportData, type ExportFormat } from '@/lib/exports';
 import { ExportSheet } from '@/components/ExportSheet';
 import { showAlert } from '@/lib/alert';
-import { Search, ArrowLeft, ChevronDown, ChevronUp, Download, SlidersHorizontal } from 'lucide-react-native';
+import { Search, ArrowLeft, ChevronDown, ChevronUp, FileDown, SlidersHorizontal } from 'lucide-react-native';
 
 const GRADE_ORDER: string[] = [
   'Petite Section', 'Moyenne Section', 'Grande Section',
@@ -285,13 +285,19 @@ export default function SchoolChildrenScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.topSection}>
-        <TouchableOpacity style={styles.backButton} onPress={() => safeBack('/(school)')}>
-          <ArrowLeft size={24} color="#111827" />
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.headerBackButton} onPress={() => safeBack('/(school)')}>
+          <ArrowLeft size={22} color="#111827" />
         </TouchableOpacity>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>Liste des élèves</Text>
-        </View>
+        <Text style={styles.headerTitle}>Liste des élèves</Text>
+        <TouchableOpacity
+          style={[styles.headerExportButton, visibleChildren.length === 0 && styles.exportButtonDisabled]}
+          onPress={() => setShowExportModal(true)}
+          disabled={visibleChildren.length === 0}
+        >
+          <FileDown size={17} color="#FFFFFF" />
+          <Text style={styles.headerExportText}>Exporter</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.searchContainer}>
@@ -319,16 +325,6 @@ export default function SchoolChildrenScreen() {
             </View>
           )}
           {filtersOpen ? <ChevronUp size={16} color="#6B7280" /> : <ChevronDown size={16} color="#6B7280" />}
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.exportButton, visibleChildren.length === 0 && styles.exportButtonDisabled]}
-          onPress={() => setShowExportModal(true)}
-          disabled={visibleChildren.length === 0}
-          activeOpacity={0.85}
-        >
-          <Download size={18} color="#FFFFFF" />
-          <Text style={styles.exportButtonText}>Exporter ({visibleChildren.length})</Text>
         </TouchableOpacity>
       </View>
 
@@ -441,6 +437,46 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#F9FAFB',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 12,
+    backgroundColor: '#F9FAFB',
+    gap: 12,
+  },
+  headerBackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  headerExportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 40,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: '#16A34A',
+  },
+  headerExportText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   topSection: {
     paddingHorizontal: 16,

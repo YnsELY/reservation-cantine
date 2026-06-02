@@ -131,7 +131,8 @@ const buildHtml = (payload: ExportPayload): string => {
 <title>${escapeHtml(title)}</title>
 <style>
   * { box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #111827; margin: 32px; }
+  @page { margin: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #111827; margin: 0; padding: 40px 40px 72px; }
   h1 { font-size: 22px; margin: 0 0 4px; color: #111827; }
   .subtitle { color: #6B7280; margin: 0 0 16px; font-size: 13px; }
   .meta { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; padding: 12px; background: #F9FAFB; border-radius: 8px; }
@@ -147,6 +148,7 @@ const buildHtml = (payload: ExportPayload): string => {
   td { padding: 9px 12px; border-bottom: 1px solid #E5E7EB; color: #111827; }
   tr:nth-child(even) td { background: #F9FAFB; }
   .footer { margin-top: 24px; font-size: 11px; color: #9CA3AF; text-align: right; }
+  .brand-footer { position: fixed; left: 40px; right: 40px; bottom: 22px; display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: #9CA3AF; background: #FFFFFF; padding-top: 6px; }
 </style>
 </head>
 <body>
@@ -158,7 +160,7 @@ const buildHtml = (payload: ExportPayload): string => {
     <thead>${thead}</thead>
     <tbody>${tbody}</tbody>
   </table>
-  <div class="footer">Généré le ${escapeHtml(new Date().toLocaleString('fr-FR'))}</div>
+  <div class="brand-footer"><span>Children's Kitchen</span><span>Généré le ${escapeHtml(new Date().toLocaleString('fr-FR'))}</span></div>
 </body>
 </html>`;
 };
