@@ -96,7 +96,7 @@ function OrderCountdown({ deadlineMs, onExpire }: { deadlineMs: number; onExpire
 
   return (
     <View style={styles.countdownTimer}>
-      <Clock size={20} color="#B45309" />
+      <Clock size={20} color="#EA580C" />
       <Text style={styles.countdownValue}>{pad(h)}h {pad(m)}m {pad(s)}s</Text>
     </View>
   );
@@ -413,7 +413,7 @@ export default function ParentHomeScreen() {
               cx={center}
               cy={center}
               r={radius}
-              stroke="#FCD34D"
+              stroke="#F97316"
               strokeWidth={strokeWidth}
               fill="none"
               strokeDasharray={`${dash} ${circumference}`}
@@ -433,7 +433,7 @@ export default function ParentHomeScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#111827" />
+        <ActivityIndicator size="large" color="#1E293B" />
       </SafeAreaView>
     );
   }
@@ -449,7 +449,7 @@ export default function ParentHomeScreen() {
             style={styles.headerButton}
             onPress={() => router.push('/(parent)/cart')}
           >
-            <ShoppingCart size={24} color="#111827" />
+            <ShoppingCart size={24} color="#1E293B" />
             {cartCount > 0 && (
               <View style={styles.cartBadge}>
                 <Text style={styles.cartBadgeText}>{cartCount}</Text>
@@ -460,7 +460,7 @@ export default function ParentHomeScreen() {
             style={styles.headerButton}
             onPress={() => router.push('/(parent)/profile')}
           >
-            <User size={24} color="#111827" />
+            <User size={24} color="#1E293B" />
           </TouchableOpacity>
         </View>
       </View>
@@ -486,13 +486,7 @@ export default function ParentHomeScreen() {
                   key={child.id}
                   style={[
                     styles.childCard,
-                    {
-                      borderColor: getAvatarColor(child.status) + '99',
-                      shadowColor: getAvatarColor(child.status),
-                      shadowOffset: { width: 0, height: 0 },
-                      shadowOpacity: 0.3,
-                      shadowRadius: 8,
-                    }
+                    { borderColor: getAvatarColor(child.status) }
                   ]}
                   onPress={() => router.push({
                     pathname: '/(parent)/child-details',
@@ -500,7 +494,7 @@ export default function ParentHomeScreen() {
                   })}
                 >
                   <View style={styles.childAvatar}>
-                    <User size={40} color="#6B7280" />
+                    <User size={36} color="#1E293B" />
                   </View>
                   <Text style={styles.childName}>
                     {child.first_name}
@@ -580,28 +574,28 @@ export default function ParentHomeScreen() {
             <Text style={styles.orderButtonTitle}>Commander un menu</Text>
             <Text style={styles.orderButtonSubtitle}>ACTION PRIORITAIRE</Text>
           </View>
-          <UtensilsCrossed size={32} color="#5A3214" />
+          <UtensilsCrossed size={30} color="#0F172A" />
         </TouchableOpacity>
 
         <View style={styles.squareButtonsContainer}>
           <TouchableOpacity
-            style={[styles.squareButton, styles.addChildButton]}
+            style={styles.squareButton}
             onPress={() => router.push('/(parent)/add-child')}
           >
-            <View style={styles.squareButtonIconContainer}>
-              <UserPlus size={32} color="#065F46" />
+            <View style={styles.squareButtonIconCircle}>
+              <UserPlus size={26} color="#FFFFFF" />
             </View>
-            <Text style={[styles.squareButtonText, styles.addChildButtonText]}>Ajouter un enfant</Text>
+            <Text style={styles.squareButtonText}>Ajouter un enfant</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.squareButton, styles.historyButton]}
+            style={styles.squareButton}
             onPress={() => router.push('/(parent)/history')}
           >
-            <View style={styles.squareButtonIconContainer}>
-              <History size={32} color="#1E40AF" />
+            <View style={styles.squareButtonIconCircle}>
+              <History size={26} color="#FFFFFF" />
             </View>
-            <Text style={[styles.squareButtonText, styles.historyButtonText]}>Historique</Text>
+            <Text style={styles.squareButtonText}>Historique</Text>
           </TouchableOpacity>
         </View>
 
@@ -622,7 +616,7 @@ export default function ParentHomeScreen() {
               backgroundGradientFrom: '#FFFFFF',
               backgroundGradientTo: '#FFFFFF',
               decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(17, 24, 39, ${opacity})`,
+              color: (opacity = 1) => `rgba(30, 41, 59, ${opacity})`,
               labelColor: (opacity = 1) => `rgba(107, 114, 128, ${opacity})`,
               style: {
                 borderRadius: 16,
@@ -630,7 +624,7 @@ export default function ParentHomeScreen() {
               propsForDots: {
                 r: '6',
                 strokeWidth: '2',
-                stroke: '#111827',
+                stroke: '#1E293B',
               },
             }}
               bezier
@@ -647,7 +641,7 @@ export default function ParentHomeScreen() {
                       top: y - 20,
                       fontSize: 12,
                       fontWeight: '600',
-                      color: '#111827',
+                      color: '#1E293B',
                       textAlign: 'center',
                       width: 30,
                     }}
@@ -738,13 +732,13 @@ export default function ParentHomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   header: {
     flexDirection: 'row',
@@ -752,7 +746,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingVertical: 16,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   headerButtons: {
     flexDirection: 'row',
@@ -798,7 +792,7 @@ const styles = StyleSheet.create({
   welcomeText: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#111827',
+    color: '#1E293B',
     flex: 1,
   },
   gaugeContainer: {
@@ -822,7 +816,7 @@ const styles = StyleSheet.create({
   gaugeNumber: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#111827',
+    color: '#1E293B',
   },
   gaugeLabel: {
     fontSize: 14,
@@ -843,7 +837,7 @@ const styles = StyleSheet.create({
   weekCardTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: '#1E293B',
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -859,7 +853,7 @@ const styles = StyleSheet.create({
   ringNumber: {
     fontSize: 40,
     fontWeight: '800',
-    color: '#111827',
+    color: '#1E293B',
   },
   ringLabel: {
     fontSize: 14,
@@ -881,41 +875,44 @@ const styles = StyleSheet.create({
   countdownHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
-    marginBottom: 10,
+    marginBottom: 12,
   },
   countdownTitle: {
-    flex: 1,
     fontSize: 14,
     fontWeight: '700',
-    color: '#92400E',
+    color: '#334155',
+    textAlign: 'center',
   },
   countdownTimer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    alignSelf: 'flex-start',
-    backgroundColor: '#FEF3C7',
+    alignSelf: 'center',
+    backgroundColor: '#FFF1E7',
     borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
     marginBottom: 14,
   },
   countdownValue: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#92400E',
+    color: '#C2410C',
     fontVariant: ['tabular-nums'],
   },
   missingLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#64748B',
     marginBottom: 8,
+    textAlign: 'center',
   },
   missingChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 8,
   },
   missingChip: {
@@ -935,6 +932,7 @@ const styles = StyleSheet.create({
   allOrderedRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 8,
   },
   allOrderedText: {
@@ -947,16 +945,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F0973E',
-    borderRadius: 16,
+    backgroundColor: '#F97316',
+    borderRadius: 18,
     paddingVertical: 18,
     paddingHorizontal: 24,
     marginBottom: 24,
-    shadowColor: '#F0973E',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowColor: '#F97316',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.32,
+    shadowRadius: 12,
+    elevation: 5,
   },
   orderButtonTextWrap: {
     flex: 1,
@@ -964,12 +962,12 @@ const styles = StyleSheet.create({
   orderButtonTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#3D2200',
+    color: '#0F172A',
   },
   orderButtonSubtitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: 'rgba(61, 34, 0, 0.65)',
+    color: 'rgba(15, 23, 42, 0.6)',
     letterSpacing: 1.5,
     marginTop: 2,
   },
@@ -987,7 +985,7 @@ const styles = StyleSheet.create({
   childrenTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: '#1E293B',
     marginBottom: 16,
   },
   childrenList: {
@@ -996,23 +994,23 @@ const styles = StyleSheet.create({
   },
   childCard: {
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 18,
     paddingHorizontal: 20,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 3,
-    minWidth: 110,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    borderRadius: 18,
+    borderWidth: 2,
+    minWidth: 112,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
     elevation: 2,
   },
   childAvatar: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#EEF2FB',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -1020,7 +1018,7 @@ const styles = StyleSheet.create({
   childName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: '#1E293B',
     textAlign: 'center',
   },
   emptyChildren: {
@@ -1036,7 +1034,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#111827',
+    backgroundColor: '#1E293B',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 12,
@@ -1047,7 +1045,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   largeButton: {
-    backgroundColor: '#111827',
+    backgroundColor: '#1E293B',
     borderRadius: 16,
     paddingVertical: 20,
     paddingHorizontal: 24,
@@ -1075,37 +1073,33 @@ const styles = StyleSheet.create({
   squareButton: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 18,
+    padding: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E9F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
     elevation: 2,
     minHeight: 140,
   },
-  squareButtonIconContainer: {
-    marginBottom: 12,
+  squareButtonIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#1E293B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
   },
   squareButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: '#1E293B',
     textAlign: 'center',
-  },
-  addChildButton: {
-    backgroundColor: '#A7F3D0',
-  },
-  addChildButtonText: {
-    color: '#065F46',
-  },
-  historyButton: {
-    backgroundColor: '#BFDBFE',
-  },
-  historyButtonText: {
-    color: '#1E40AF',
   },
   chartContainer: {
     backgroundColor: '#FFFFFF',
@@ -1121,7 +1115,7 @@ const styles = StyleSheet.create({
   chartTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: '#1E293B',
     marginBottom: 16,
   },
   chart: {
@@ -1143,7 +1137,7 @@ const styles = StyleSheet.create({
   reservationsTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: '#1E293B',
     marginBottom: 16,
   },
   reservationsScrollView: {
@@ -1155,12 +1149,12 @@ const styles = StyleSheet.create({
   childGroupName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: '#1E293B',
     marginBottom: 6,
   },
   childGroupUnderline: {
     height: 1.5,
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#1E293B',
     marginBottom: 12,
   },
   menuCard: {
@@ -1173,7 +1167,7 @@ const styles = StyleSheet.create({
   },
   menuDatePill: {
     alignSelf: 'flex-start',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#EEF2FB',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 12,
@@ -1182,7 +1176,7 @@ const styles = StyleSheet.create({
   menuDatePillText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#4F46E5',
+    color: '#1E293B',
   },
   menuRow: {
     flexDirection: 'row',
@@ -1194,12 +1188,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: '#1E293B',
   },
   menuPrice: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111827',
+    color: '#1E293B',
   },
   menuDescription: {
     marginTop: 4,
@@ -1218,7 +1212,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   emptyReservationsButton: {
-    backgroundColor: '#111827',
+    backgroundColor: '#1E293B',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 12,
@@ -1254,7 +1248,7 @@ const styles = StyleSheet.create({
   reservationChildName: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: '#1E293B',
     marginBottom: 2,
   },
   reservationMenuName: {
@@ -1265,7 +1259,7 @@ const styles = StyleSheet.create({
   reservationPrice: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#111827',
+    color: '#1E293B',
   },
   bottomBanner: {
     width: '100%',
