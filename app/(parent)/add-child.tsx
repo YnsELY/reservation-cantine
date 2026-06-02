@@ -304,6 +304,11 @@ export default function AddChildScreen() {
       return;
     }
 
+    if (!genre) {
+      showAlert('Erreur', "Veuillez indiquer le sexe de l'enfant");
+      return;
+    }
+
     if (!selectedSchool) {
       showAlert('Erreur', 'Veuillez sélectionner une école');
       return;
@@ -391,7 +396,7 @@ export default function AddChildScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Sexe</Text>
+          <Text style={styles.label}>Sexe *</Text>
           <View style={styles.genreRow}>
             <TouchableOpacity
               style={[styles.genrePill, genre === 'fille' && styles.genrePillFille]}
