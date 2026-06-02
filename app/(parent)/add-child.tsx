@@ -720,7 +720,7 @@ export default function AddChildScreen() {
               </TouchableOpacity>
             </View>
             <Text style={styles.modalDescription}>
-              Entrez le code d'accès de l'école fourni par l'établissement
+              Entrez le code d'accès de l'école fourni par l'administration
             </Text>
             <TextInput
               style={styles.modalInput}
