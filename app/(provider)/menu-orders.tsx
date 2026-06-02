@@ -26,6 +26,7 @@ interface OrderDetail {
   school_id: string;
   school_name: string;
   grade: string | null;
+  genre: string | null;
   allergies: string[];
   dietary_restrictions: string[];
   supplements: OrderSupplement[];
@@ -102,6 +103,7 @@ export default function MenuOrdersScreen() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportSchoolId, setExportSchoolId] = useState<SchoolScope>('all');
   const [exportFormat, setExportFormat] = useState<ExportFormat>('xlsx');
+  const [exportGenre, setExportGenre] = useState<'all' | 'fille' | 'garcon'>('all');
   const [exporting, setExporting] = useState(false);
 
   const menuName = getParamValue(params.menuName as string | string[] | undefined);
@@ -185,7 +187,7 @@ export default function MenuOrdersScreen() {
         childIds.length > 0
           ? supabase
               .from('children')
-              .select('id, first_name, last_name, grade, allergies, dietary_restrictions, school_id')
+              .select('id, first_name, last_name, grade, allergies, dietary_restrictions, school_id, genre')
               .in('id', childIds)
           : Promise.resolve({ data: [], error: null }),
         parentIds.length > 0
@@ -234,6 +236,7 @@ export default function MenuOrdersScreen() {
           school_id: schoolId,
           school_name: school?.name || 'École non renseignée',
           grade: child?.grade || null,
+          genre: child?.genre || null,
           allergies: Array.isArray(child?.allergies) ? child.allergies : [],
           dietary_restrictions: Array.isArray(child?.dietary_restrictions) ? child.dietary_restrictions : [],
           supplements: parseOrderSupplements(reservation.supplements),
@@ -265,11 +268,10 @@ export default function MenuOrdersScreen() {
   };
 
   const getOrdersForExport = () => {
-    if (exportSchoolId === 'all') {
-      return orders;
-    }
-
-    return orders.filter(order => order.school_id === exportSchoolId);
+    return orders.filter(order =>
+      (exportSchoolId === 'all' || order.school_id === exportSchoolId) &&
+      (exportGenre === 'all' || order.genre === exportGenre)
+    );
   };
 
   const handleOpenExport = () => {
@@ -297,6 +299,7 @@ export default function MenuOrdersScreen() {
         return [
           order.school_name,
           order.child_name,
+          order.genre === 'fille' ? 'Fille' : order.genre === 'garcon' ? 'Garçon' : '',
           order.grade || '',
           order.parent_name,
           allergies,
@@ -315,7 +318,7 @@ export default function MenuOrdersScreen() {
 
     setExporting(true);
     try {
-      const header = ['École', 'Élève', 'Classe', 'Parent', 'Allergies', 'Restrictions alimentaires', 'Suppléments'];
+      const header = ['École', 'Élève', 'Sexe', 'Classe', 'Parent', 'Allergies', 'Restrictions alimentaires', 'Suppléments'];
       const rows = buildExportRows(ordersToExport);
 
       const scopeLabel = exportSchoolId === 'all'
@@ -330,6 +333,7 @@ export default function MenuOrdersScreen() {
         worksheet['!cols'] = [
           { wch: 24 },
           { wch: 28 },
+          { wch: 10 },
           { wch: 14 },
           { wch: 26 },
           { wch: 28 },
@@ -576,6 +580,28 @@ export default function MenuOrdersScreen() {
                 <Text style={[styles.formatOptionText, exportFormat === 'csv' && styles.formatOptionTextActive]}>
                   CSV (.csv)
                 </Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.sheetSectionTitle}>Sexe à inclure</Text>
+            <View style={styles.formatToggle}>
+              <TouchableOpacity
+                style={[styles.formatOption, exportGenre === 'all' && styles.formatOptionActive]}
+                onPress={() => setExportGenre('all')}
+              >
+                <Text style={[styles.formatOptionText, exportGenre === 'all' && styles.formatOptionTextActive]}>Tous</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.formatOption, exportGenre === 'fille' && styles.formatOptionActive]}
+                onPress={() => setExportGenre('fille')}
+              >
+                <Text style={[styles.formatOptionText, exportGenre === 'fille' && styles.formatOptionTextActive]}>Filles</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.formatOption, exportGenre === 'garcon' && styles.formatOptionActive]}
+                onPress={() => setExportGenre('garcon')}
+              >
+                <Text style={[styles.formatOptionText, exportGenre === 'garcon' && styles.formatOptionTextActive]}>Garçons</Text>
               </TouchableOpacity>
             </View>
 
