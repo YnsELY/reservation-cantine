@@ -85,6 +85,7 @@ export default function AddChildScreen() {
   const [birthMonth, setBirthMonth] = useState('');
   const [birthYear, setBirthYear] = useState('');
   const [allergies, setAllergies] = useState<string[]>([]);
+  const [genre, setGenre] = useState('');
   const [schools, setSchools] = useState<School[]>([]);
   const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
   const [showAddSchoolModal, setShowAddSchoolModal] = useState(false);
@@ -327,6 +328,7 @@ export default function AddChildScreen() {
         school_id: selectedSchool.id,
         first_name: firstName.trim(),
         last_name: lastName.trim(),
+        genre: genre || null,
         grade: grade.trim() || null,
         date_of_birth: dateOfBirth,
         allergies: allergies,
@@ -386,6 +388,24 @@ export default function AddChildScreen() {
             placeholder="Nom de l'enfant"
             placeholderTextColor="#9CA3AF"
           />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.label}>Sexe</Text>
+          <View style={styles.genreRow}>
+            <TouchableOpacity
+              style={[styles.genrePill, genre === 'fille' && styles.genrePillFille]}
+              onPress={() => setGenre(genre === 'fille' ? '' : 'fille')}
+            >
+              <Text style={[styles.genrePillText, genre === 'fille' && styles.genrePillTextSelected]}>Fille</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.genrePill, genre === 'garcon' && styles.genrePillGarcon]}
+              onPress={() => setGenre(genre === 'garcon' ? '' : 'garcon')}
+            >
+              <Text style={[styles.genrePillText, genre === 'garcon' && styles.genrePillTextSelected]}>Garçon</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -943,6 +963,35 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     fontSize: 16,
+    color: '#111827',
+  },
+  genreRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  genrePill: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+  },
+  genrePillFille: {
+    backgroundColor: '#FCE7F3',
+    borderColor: '#EC4899',
+  },
+  genrePillGarcon: {
+    backgroundColor: '#DBEAFE',
+    borderColor: '#3B82F6',
+  },
+  genrePillText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  genrePillTextSelected: {
     color: '#111827',
   },
   dateInputRow: {

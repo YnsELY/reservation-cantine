@@ -72,6 +72,7 @@ export interface Child {
   school_id: string;
   first_name: string;
   last_name: string;
+  genre: 'fille' | 'garcon' | null;
   grade: string | null;
   date_of_birth: string | null;
   allergies: string[];

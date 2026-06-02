@@ -1,11 +1,13 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { Search, ArrowLeft, Users as UsersIcon, Building2, Store, ChevronDown } from 'lucide-react-native';
+import { Search, ArrowLeft, Users as UsersIcon, Building2, Store, ChevronRight } from 'lucide-react-native';
+
+type FilterType = 'all' | 'parent' | 'school' | 'provider';
 
 interface UserData {
   id: string;
@@ -18,13 +20,19 @@ interface UserData {
   created_at: string;
 }
 
+const FILTERS: { key: FilterType; label: string }[] = [
+  { key: 'all', label: 'Tous' },
+  { key: 'parent', label: 'Parents' },
+  { key: 'school', label: 'Écoles' },
+  { key: 'provider', label: 'Prestataires' },
+];
+
 export default function AdminUsersScreen() {
   const [users, setUsers] = useState<UserData[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'parent' | 'school' | 'provider'>('all');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [filterType, setFilterType] = useState<FilterType>('all');
 
   useEffect(() => {
     loadData();
@@ -116,6 +124,9 @@ export default function AdminUsersScreen() {
     setFilteredUsers(filtered);
   };
 
+  const countFor = (key: FilterType) =>
+    key === 'all' ? users.length : users.filter(u => u.type === key).length;
+
   const getUserIcon = (type: string) => {
     switch (type) {
       case 'parent':
@@ -155,27 +166,16 @@ export default function AdminUsersScreen() {
     }
   };
 
-  const getFilterLabel = () => {
-    switch (filterType) {
-      case 'all':
-        return `Tous les utilisateurs (${users.length})`;
-      case 'parent':
-        return `Parents (${users.filter(u => u.type === 'parent').length})`;
-      case 'school':
-        return `Écoles (${users.filter(u => u.type === 'school').length})`;
-      case 'provider':
-        return `Prestataires (${users.filter(u => u.type === 'provider').length})`;
-    }
-  };
-
-  const handleSelectFilter = (type: 'all' | 'parent' | 'school' | 'provider') => {
-    setFilterType(type);
-    setIsDropdownOpen(false);
-  };
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
+  const openAccount = (user: UserData) => {
+    router.push({
+      pathname: '/(admin)/account-detail',
+      params: { type: user.type, id: user.id },
+    });
   };
 
   if (loading) {
@@ -211,51 +211,31 @@ export default function AdminUsersScreen() {
         />
       </View>
 
-      <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={styles.dropdown}
-          onPress={() => setIsDropdownOpen(!isDropdownOpen)}
+      <View style={styles.pillsContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.pillsContent}
         >
-          <Text style={styles.dropdownText}>{getFilterLabel()}</Text>
-          <ChevronDown size={20} color="#6B7280" />
-        </TouchableOpacity>
-
-        {isDropdownOpen && (
-          <View style={styles.dropdownMenu}>
-            <TouchableOpacity
-              style={[styles.dropdownMenuItem, filterType === 'all' && styles.dropdownMenuItemActive]}
-              onPress={() => handleSelectFilter('all')}
-            >
-              <Text style={[styles.dropdownMenuItemText, filterType === 'all' && styles.dropdownMenuItemTextActive]}>
-                Tous les utilisateurs ({users.length})
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.dropdownMenuItem, filterType === 'parent' && styles.dropdownMenuItemActive]}
-              onPress={() => handleSelectFilter('parent')}
-            >
-              <Text style={[styles.dropdownMenuItemText, filterType === 'parent' && styles.dropdownMenuItemTextActive]}>
-                Parents ({users.filter(u => u.type === 'parent').length})
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.dropdownMenuItem, filterType === 'school' && styles.dropdownMenuItemActive]}
-              onPress={() => handleSelectFilter('school')}
-            >
-              <Text style={[styles.dropdownMenuItemText, filterType === 'school' && styles.dropdownMenuItemTextActive]}>
-                Écoles ({users.filter(u => u.type === 'school').length})
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.dropdownMenuItem, filterType === 'provider' && styles.dropdownMenuItemActive]}
-              onPress={() => handleSelectFilter('provider')}
-            >
-              <Text style={[styles.dropdownMenuItemText, filterType === 'provider' && styles.dropdownMenuItemTextActive]}>
-                Prestataires ({users.filter(u => u.type === 'provider').length})
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          {FILTERS.map((f) => {
+            const active = filterType === f.key;
+            return (
+              <TouchableOpacity
+                key={f.key}
+                style={[styles.pill, active && styles.pillActive]}
+                onPress={() => setFilterType(f.key)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.pillText, active && styles.pillTextActive]}>{f.label}</Text>
+                <View style={[styles.pillCount, active && styles.pillCountActive]}>
+                  <Text style={[styles.pillCountText, active && styles.pillCountTextActive]}>
+                    {countFor(f.key)}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
       <ScrollView
@@ -273,7 +253,12 @@ export default function AdminUsersScreen() {
           filteredUsers.map((user) => {
             const colors = getUserBadgeColor(user.type);
             return (
-              <View key={user.id} style={styles.userCard}>
+              <TouchableOpacity
+                key={user.id}
+                style={styles.userCard}
+                activeOpacity={0.7}
+                onPress={() => openAccount(user)}
+              >
                 <View style={[styles.userIconContainer, { backgroundColor: colors.bg }]}>
                   {getUserIcon(user.type)}
                 </View>
@@ -286,14 +271,14 @@ export default function AdminUsersScreen() {
                   {user.email && (
                     <Text style={styles.userEmail}>{user.email}</Text>
                   )}
-                  <Text style={styles.userDate}>Inscrit le {formatDate(user.created_at)}</Text>
+                  <View style={[styles.typeBadge, { backgroundColor: colors.bg }]}>
+                    <Text style={[styles.typeBadgeText, { color: colors.text }]}>
+                      {getUserTypeLabel(user.type)}
+                    </Text>
+                  </View>
                 </View>
-                <View style={[styles.typeBadge, { backgroundColor: colors.bg }]}>
-                  <Text style={[styles.typeBadgeText, { color: colors.text }]}>
-                    {getUserTypeLabel(user.type)}
-                  </Text>
-                </View>
-              </View>
+                <ChevronRight size={20} color="#9CA3AF" />
+              </TouchableOpacity>
             );
           })
         )}
@@ -347,7 +332,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     marginHorizontal: 16,
-    marginTop: 16,
     marginBottom: 12,
     paddingHorizontal: 12,
     borderRadius: 12,
@@ -363,62 +347,55 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#111827',
   },
-  filterContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 16,
-    position: 'relative',
-    zIndex: 1000,
+  pillsContainer: {
+    marginBottom: 12,
   },
-  dropdown: {
+  pillsContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  dropdownText: {
-    fontSize: 15,
+  pillActive: {
+    backgroundColor: '#4F46E5',
+    borderColor: '#4F46E5',
+  },
+  pillText: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
-    flex: 1,
-  },
-  dropdownMenu: {
-    position: 'absolute',
-    top: 52,
-    left: 16,
-    right: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    zIndex: 1001,
-  },
-  dropdownMenuItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  dropdownMenuItemActive: {
-    backgroundColor: '#EEF2FF',
-  },
-  dropdownMenuItemText: {
-    fontSize: 15,
     color: '#6B7280',
-    fontWeight: '500',
   },
-  dropdownMenuItemTextActive: {
-    color: '#4F46E5',
-    fontWeight: '600',
+  pillTextActive: {
+    color: '#FFFFFF',
+  },
+  pillCount: {
+    minWidth: 22,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  pillCountActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  pillCountText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  pillCountTextActive: {
+    color: '#FFFFFF',
   },
   content: {
     flex: 1,
@@ -457,15 +434,12 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 14,
     color: '#6B7280',
-    marginBottom: 2,
-  },
-  userDate: {
-    fontSize: 12,
-    color: '#9CA3AF',
+    marginBottom: 6,
   },
   typeBadge: {
+    alignSelf: 'flex-start',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 4,
     borderRadius: 12,
   },
   typeBadgeText: {

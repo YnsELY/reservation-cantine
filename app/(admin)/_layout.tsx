@@ -18,6 +18,7 @@ export default function AdminLayout() {
       <Stack.Screen name="statistics" />
       <Stack.Screen name="create-school" />
       <Stack.Screen name="create-provider" />
+      <Stack.Screen name="account-detail" />
     </Stack>
   );
 }
