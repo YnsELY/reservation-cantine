@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, SectionList, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
+import { View, Text, StyleSheet, SectionList, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
@@ -60,7 +60,8 @@ function Pill({ label, active, onPress, color = '#4F46E5' }: { label: string; ac
 export default function SchoolChildrenScreen() {
   const [school, setSchool] = useState<School | null>(null);
   const [children, setChildren] = useState<Child[]>([]);
-  const [lastOrders, setLastOrders] = useState<Record<string, number>>({});
+  const [lastMeals, setLastMeals] = useState<Record<string, number>>({});
+  const [todayRef, setTodayRef] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [gradeFilter, setGradeFilter] = useState<string>('all');
@@ -94,23 +95,48 @@ export default function SchoolChildrenScreen() {
       if (childrenError) throw childrenError;
       setChildren(childrenData || []);
 
-      // Commandes des 3 derniers mois (suffit pour tous les filtres d'activité)
-      const threeMonthsAgo = new Date();
+      // Repas réservés des 3 derniers mois (jusqu'à aujourd'hui), pour le filtre d'activité.
+      // On se base sur la date du repas (reservations.date), pas sur la date de commande.
+      const toDateStr = (d: Date) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+      };
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const threeMonthsAgo = new Date(startOfToday);
       threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-      const { data: reservations } = await supabase
-        .from('reservations')
-        .select('child_id, created_at, child:children!inner(school_id)')
-        .eq('child.school_id', currentSchool.id)
-        .gte('created_at', threeMonthsAgo.toISOString());
-
+      // Pagination COMPLÈTE : Supabase/PostgREST plafonne à 1000 lignes par réponse.
+      // Sans cela, lastMeals serait faux pour une école ayant > 1000 réservations
+      // sur la fenêtre de 3 mois (filtre d'activité et "dernier repas" erronés).
       const map: Record<string, number> = {};
-      (reservations || []).forEach((r: any) => {
-        if (!r.child_id || !r.created_at) return;
-        const t = new Date(r.created_at).getTime();
-        if (!map[r.child_id] || t > map[r.child_id]) map[r.child_id] = t;
-      });
-      setLastOrders(map);
+      const PAGE = 1000;
+      for (let from = 0; from < 100000; from += PAGE) {
+        const { data: page, error: resError } = await supabase
+          .from('reservations')
+          .select('child_id, date, child:children!inner(school_id)')
+          .eq('child.school_id', currentSchool.id)
+          .gte('date', toDateStr(threeMonthsAgo))
+          .lte('date', toDateStr(startOfToday))
+          .order('date', { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (resError) {
+          console.error('Error loading reservations:', resError);
+          break;
+        }
+        const rows = (page || []) as any[];
+        for (const r of rows) {
+          if (!r.child_id || !r.date) continue;
+          // Parse en minuit LOCAL (sinon 'YYYY-MM-DD' est interprété en UTC).
+          const t = new Date(`${r.date}T00:00:00`).getTime();
+          if (!map[r.child_id] || t > map[r.child_id]) map[r.child_id] = t;
+        }
+        if (rows.length < PAGE) break;
+      }
+      setLastMeals(map);
+      setTodayRef(startOfToday.getTime());
     } catch (err) {
       console.error('Error loading children:', err);
     } finally {
@@ -130,11 +156,13 @@ export default function SchoolChildrenScreen() {
     const q = searchQuery.trim().toLowerCase();
 
     let threshold: number | null = null;
-    if (activityFilter === '3d') threshold = Date.now() - 3 * 86400000;
-    else if (activityFilter === '7d') threshold = Date.now() - 7 * 86400000;
-    else if (activityFilter === '3m') {
-      const d = new Date();
-      d.setMonth(d.getMonth() - 3);
+    if (activityFilter !== 'all' && todayRef) {
+      // Même référence temporelle (minuit local du jour de chargement) que la
+      // fenêtre de données, pour éviter toute dérive si la session passe minuit.
+      const d = new Date(todayRef);
+      if (activityFilter === '3d') d.setDate(d.getDate() - 3);
+      else if (activityFilter === '7d') d.setDate(d.getDate() - 7);
+      else if (activityFilter === '3m') d.setMonth(d.getMonth() - 3);
       threshold = d.getTime();
     }
 
@@ -145,7 +173,7 @@ export default function SchoolChildrenScreen() {
       if (allergyFilter === 'with' && !hasAllergy) return false;
       if (allergyFilter === 'without' && hasAllergy) return false;
       if (threshold !== null) {
-        const last = lastOrders[c.id];
+        const last = lastMeals[c.id];
         if (!last || last < threshold) return false;
       }
       if (q) {
@@ -157,7 +185,7 @@ export default function SchoolChildrenScreen() {
       }
       return true;
     });
-  }, [children, lastOrders, searchQuery, gradeFilter, genreFilter, allergyFilter, activityFilter]);
+  }, [children, lastMeals, todayRef, searchQuery, gradeFilter, genreFilter, allergyFilter, activityFilter]);
 
   const sections = useMemo(() => groupChildrenByGrade(visibleChildren), [visibleChildren]);
 
@@ -183,7 +211,7 @@ export default function SchoolChildrenScreen() {
     setExporting(true);
     try {
       const genreText = (g: any) => (g === 'fille' ? 'Fille' : g === 'garcon' ? 'Garçon' : '');
-      const header = ['Nom', 'Prénom', 'Classe', 'Sexe', 'Allergies', 'Parent', 'Dernière commande'];
+      const header = ['Nom', 'Prénom', 'Classe', 'Sexe', 'Allergies', 'Parent', 'Dernier repas réservé'];
       const rows = visibleChildren.map((c: any) => [
         c.last_name || '',
         c.first_name || '',
@@ -191,7 +219,7 @@ export default function SchoolChildrenScreen() {
         genreText(c.genre),
         Array.isArray(c.allergies) && c.allergies.length > 0 ? c.allergies.join(', ') : '',
         c.parents ? `${c.parents.first_name || ''} ${c.parents.last_name || ''}`.trim() : '',
-        fmtDate(lastOrders[c.id]),
+        fmtDate(lastMeals[c.id]),
       ]);
       const activityName =
         activityFilter === '3d' ? '3j' : activityFilter === '7d' ? '7j' : activityFilter === '3m' ? '3mois' : null;
@@ -199,7 +227,7 @@ export default function SchoolChildrenScreen() {
         gradeFilter !== 'all' ? gradeFilter : null,
         genreFilter === 'fille' ? 'filles' : genreFilter === 'garcon' ? 'garcons' : null,
         allergyFilter === 'with' ? 'avec-allergie' : allergyFilter === 'without' ? 'sans-allergie' : null,
-        activityName ? `commande-${activityName}` : null,
+        activityName ? `repas-${activityName}` : null,
       ].filter(Boolean);
       await exportData('xlsx', {
         fileName: `eleves-${school?.name || 'ecole'}${parts.length ? '-' + parts.join('-') : ''}`,
@@ -231,7 +259,7 @@ export default function SchoolChildrenScreen() {
           </Text>
         )}
         <Text style={styles.childMeta}>
-          {lastOrders[item.id] ? `Dernière commande : ${fmtDate(lastOrders[item.id])}` : 'Aucune commande (3 mois)'}
+          {lastMeals[item.id] ? `Dernier repas réservé : ${fmtDate(lastMeals[item.id])}` : 'Aucun repas réservé (3 mois)'}
         </Text>
       </View>
       {Array.isArray(item.allergies) && item.allergies.length > 0 && (
@@ -306,7 +334,12 @@ export default function SchoolChildrenScreen() {
       </View>
 
       {filtersOpen && (
-        <View style={styles.filterPanel}>
+        <ScrollView
+          style={styles.filterPanel}
+          contentContainerStyle={styles.filterPanelContent}
+          nestedScrollEnabled
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.filterGroup}>
             <Text style={styles.filterGroupLabel}>Classe</Text>
             <View style={styles.pillsWrap}>
@@ -350,7 +383,7 @@ export default function SchoolChildrenScreen() {
               <Text style={styles.resetLinkText}>Réinitialiser les filtres</Text>
             </TouchableOpacity>
           )}
-        </View>
+        </ScrollView>
       )}
 
       <View style={styles.summaryLine}>
@@ -380,6 +413,7 @@ export default function SchoolChildrenScreen() {
             </View>
           )}
           stickySectionHeadersEnabled={false}
+          style={styles.list}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
@@ -510,11 +544,14 @@ const styles = StyleSheet.create({
   filterPanel: {
     marginHorizontal: 16,
     marginBottom: 12,
-    padding: 16,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    maxHeight: 340,
+  },
+  filterPanelContent: {
+    padding: 16,
     gap: 14,
   },
   filterGroup: {
@@ -569,6 +606,9 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: 16,
     paddingBottom: 16,
+  },
+  list: {
+    flex: 1,
   },
   sectionHeaderWrapper: {
     backgroundColor: '#F9FAFB',
