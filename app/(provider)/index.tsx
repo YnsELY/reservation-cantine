@@ -4,9 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
+import { showAlert } from '@/lib/alert';
 import { Calendar, Building2, UtensilsCrossed, BarChart3, ChefHat, Eye } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useNotifications } from '@/hooks/useNotifications';
+
+// Suggestion de 1ère connexion affichée une seule fois par session d'app
+let firstLoginPrompted = false;
 
 export default function ProviderHomeScreen() {
   const router = useRouter();
@@ -42,6 +46,18 @@ export default function ProviderHomeScreen() {
       }
 
       setProvider(currentProvider);
+
+      if (currentProvider.must_change_credentials && !firstLoginPrompted) {
+        firstLoginPrompted = true;
+        showAlert(
+          'Sécurisez votre compte',
+          "Pour cette première connexion, pensez à changer votre mot de passe et votre code PIN d'accès.",
+          [
+            { text: 'Plus tard', style: 'cancel' },
+            { text: 'Changer maintenant', onPress: () => router.push('/(provider)/account') },
+          ]
+        );
+      }
 
       const { data: schoolAccess } = await supabase
         .from('provider_school_access')

@@ -20,6 +20,11 @@ export default function AccountScreen() {
   const [editPhone, setEditPhone] = useState('');
   const [editAddress, setEditAddress] = useState('');
   const [savingInfo, setSavingInfo] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [newPin, setNewPin] = useState('');
+  const [savingCred, setSavingCred] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -88,6 +93,54 @@ export default function AccountScreen() {
       showAlert('Erreur', 'Erreur lors de la mise à jour');
     } finally {
       setSavingInfo(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 8) {
+      showAlert('Erreur', 'Le mot de passe doit contenir au moins 8 caractères');
+      return;
+    }
+    setSavingCred(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      if (provider) {
+        await supabase.from('providers').update({ must_change_credentials: false }).eq('id', provider.id);
+      }
+      setShowPasswordModal(false);
+      setNewPassword('');
+      showAlert('Succès', 'Mot de passe mis à jour');
+    } catch (err: any) {
+      console.error('Error changing password:', err);
+      showAlert('Erreur', err?.message || 'Impossible de changer le mot de passe');
+    } finally {
+      setSavingCred(false);
+    }
+  };
+
+  const handleChangePin = async () => {
+    if (!/^[0-9]{4}$/.test(newPin)) {
+      showAlert('Erreur', 'Le PIN doit contenir exactement 4 chiffres');
+      return;
+    }
+    if (!provider) return;
+    setSavingCred(true);
+    try {
+      const { error } = await supabase
+        .from('providers')
+        .update({ pin: newPin, must_change_credentials: false })
+        .eq('id', provider.id);
+      if (error) throw error;
+      setShowPinModal(false);
+      setNewPin('');
+      await loadData();
+      showAlert('Succès', 'Code PIN mis à jour');
+    } catch (err: any) {
+      console.error('Error changing pin:', err);
+      showAlert('Erreur', err?.message || 'Impossible de changer le PIN');
+    } finally {
+      setSavingCred(false);
     }
   };
 
@@ -196,6 +249,18 @@ export default function AccountScreen() {
               <Text style={styles.infoValue}>{provider?.address || 'Non renseignée'}</Text>
             </View>
           </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Sécurité</Text>
+          </View>
+          <TouchableOpacity style={styles.legalButton} onPress={() => { setNewPassword(''); setShowPasswordModal(true); }}>
+            <Text style={styles.legalButtonText}>Changer le mot de passe</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.legalButton} onPress={() => { setNewPin(''); setShowPinModal(true); }}>
+            <Text style={styles.legalButtonText}>Changer le code PIN</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.section}>
@@ -330,6 +395,76 @@ export default function AccountScreen() {
               ) : (
                 <Text style={styles.modalButtonText}>Enregistrer</Text>
               )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showPasswordModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPasswordModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.addSchoolModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Changer le mot de passe</Text>
+              <TouchableOpacity onPress={() => setShowPasswordModal(false)}>
+                <X size={24} color="#111827" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalLabel}>Nouveau mot de passe (8 caractères min.)</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder="Nouveau mot de passe"
+              placeholderTextColor="#9CA3AF"
+              secureTextEntry
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={[styles.modalButton, savingCred && styles.modalButtonDisabled]}
+              onPress={handleChangePassword}
+              disabled={savingCred}
+            >
+              {savingCred ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.modalButtonText}>Enregistrer</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showPinModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPinModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.addSchoolModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Changer le code PIN</Text>
+              <TouchableOpacity onPress={() => setShowPinModal(false)}>
+                <X size={24} color="#111827" />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalLabel}>Nouveau PIN (4 chiffres)</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={newPin}
+              onChangeText={(t) => setNewPin(t.replace(/[^0-9]/g, '').slice(0, 4))}
+              placeholder="Ex : 4821"
+              placeholderTextColor="#9CA3AF"
+              keyboardType="number-pad"
+              maxLength={4}
+            />
+            <TouchableOpacity
+              style={[styles.modalButton, savingCred && styles.modalButtonDisabled]}
+              onPress={handleChangePin}
+              disabled={savingCred}
+            >
+              {savingCred ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.modalButtonText}>Enregistrer</Text>}
             </TouchableOpacity>
           </View>
         </View>
