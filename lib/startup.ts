@@ -42,6 +42,17 @@ export async function resolveRouteForUser(
   }
 
   if (providerResult.data) {
+    // Prestataire désactivé : connexion bloquée.
+    // Requête séparée et tolérante : si la colonne is_active n'existe pas encore
+    // (migration non appliquée), providerStatus est null et on ne bloque pas.
+    const { data: providerStatus } = await supabase
+      .from('providers')
+      .select('is_active')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (providerStatus && providerStatus.is_active === false) {
+      return null;
+    }
     return '/(provider)';
   }
 

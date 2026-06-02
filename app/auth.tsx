@@ -90,7 +90,18 @@ export default function AuthScreen() {
             return;
           }
 
-          setError('Compte non trouvé');
+          // Pas de route : éventuellement un compte prestataire désactivé.
+          const { data: providerStatus } = await supabase
+            .from('providers')
+            .select('is_active')
+            .eq('user_id', authData.user.id)
+            .maybeSingle();
+          if (providerStatus && providerStatus.is_active === false) {
+            await supabase.auth.signOut();
+            setError('Votre compte prestataire a été désactivé. Contactez l\'administrateur.');
+          } else {
+            setError('Compte non trouvé');
+          }
           setLoading(false);
         }
       } else {

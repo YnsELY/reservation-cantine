@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
+import { showAlert } from '@/lib/alert';
 import {
   ArrowLeft, User, Building2, Store, Mail, Phone, MapPin, Key,
-  GraduationCap, School as SchoolIcon, ShoppingBag,
+  GraduationCap, School as SchoolIcon, ShoppingBag, Power, RotateCcw,
 } from 'lucide-react-native';
 
 type AccountType = 'parent' | 'school' | 'provider';
@@ -64,6 +65,9 @@ export default function AccountDetailScreen() {
 
   const [genreFilter, setGenreFilter] = useState<'all' | 'fille' | 'garcon'>('all');
   const [classFilter, setClassFilter] = useState<string>('all');
+  const [processing, setProcessing] = useState(false);
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
 
   useEffect(() => {
     loadData();
@@ -121,6 +125,62 @@ export default function AccountDetailScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const providerActive = account?.is_active !== false;
+
+  const performDeactivate = async () => {
+    if (!id) return;
+    setProcessing(true);
+    try {
+      const { error: upErr } = await supabase.from('providers').update({ is_active: false }).eq('id', id);
+      if (upErr) throw upErr;
+      // Disparition des affiliations : retire le prestataire de toutes les écoles.
+      await supabase.from('provider_school_access').delete().eq('provider_id', id);
+      setShowDeactivateModal(false);
+      setConfirmText('');
+      showAlert('Compte désactivé', 'Le prestataire ne peut plus se connecter et a été retiré des écoles partenaires.');
+      await loadData();
+    } catch (e: any) {
+      console.error('deactivate error', e);
+      showAlert('Erreur', e?.message || 'Impossible de désactiver le compte');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const askDeactivate = () => {
+    showAlert(
+      'Désactiver ce prestataire ?',
+      'Il ne pourra plus se connecter et sera retiré de toutes les écoles partenaires. Les menus et plannings déjà créés ne sont pas supprimés. Action sensible.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Continuer', style: 'destructive', onPress: () => { setConfirmText(''); setShowDeactivateModal(true); } },
+      ]
+    );
+  };
+
+  const reactivate = async () => {
+    if (!id) return;
+    setProcessing(true);
+    try {
+      const { error } = await supabase.from('providers').update({ is_active: true }).eq('id', id);
+      if (error) throw error;
+      showAlert('Compte réactivé', "Le prestataire peut de nouveau se connecter. Les écoles partenaires doivent être ré-associées via le code d'accès.");
+      await loadData();
+    } catch (e: any) {
+      console.error('reactivate error', e);
+      showAlert('Erreur', e?.message || 'Impossible de réactiver le compte');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const askReactivate = () => {
+    showAlert('Réactiver ce prestataire ?', 'Le prestataire pourra de nouveau se connecter.', [
+      { text: 'Annuler', style: 'cancel' },
+      { text: 'Réactiver', onPress: reactivate },
+    ]);
   };
 
   const classOptions = useMemo(() => {
@@ -317,6 +377,33 @@ export default function AccountDetailScreen() {
           </View>
         )}
 
+        {/* ---------- PROVIDER : statut / désactivation ---------- */}
+        {type === 'provider' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Statut du compte</Text>
+            <View style={styles.statusCard}>
+              <View style={styles.rowCenter}>
+                <View style={[styles.statusDot, { backgroundColor: providerActive ? '#10B981' : '#EF4444' }]} />
+                <Text style={styles.statusText}>{providerActive ? 'Compte actif' : 'Compte désactivé'}</Text>
+              </View>
+              {providerActive ? (
+                <TouchableOpacity style={styles.dangerButton} onPress={askDeactivate} disabled={processing} activeOpacity={0.8}>
+                  <Power size={18} color="#FFFFFF" />
+                  <Text style={styles.dangerButtonText}>Désactiver</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.successButton} onPress={askReactivate} disabled={processing} activeOpacity={0.8}>
+                  <RotateCcw size={18} color="#FFFFFF" />
+                  <Text style={styles.dangerButtonText}>Réactiver</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <Text style={styles.statusHint}>
+              Désactiver bloque la connexion du prestataire et le retire de toutes les écoles partenaires.
+            </Text>
+          </View>
+        )}
+
         {/* ---------- SCHOOL : prestataires liés ---------- */}
         {type === 'school' && (
           <View style={styles.section}>
@@ -384,6 +471,53 @@ export default function AccountDetailScreen() {
           </View>
         )}
       </ScrollView>
+
+      <Modal
+        visible={showDeactivateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDeactivateModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Confirmer la désactivation</Text>
+            <Text style={styles.modalText}>
+              Cette action désactive « {title} », bloque sa connexion et le retire de toutes les écoles partenaires.
+              {'\n\n'}Pour confirmer, tapez <Text style={styles.modalKeyword}>DESACTIVER</Text> ci-dessous.
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              value={confirmText}
+              onChangeText={setConfirmText}
+              placeholder="DESACTIVER"
+              placeholderTextColor="#9CA3AF"
+              autoCapitalize="characters"
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={() => { setShowDeactivateModal(false); setConfirmText(''); }}
+              >
+                <Text style={styles.modalCancelText}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.modalConfirm,
+                  (confirmText.trim().toUpperCase() !== 'DESACTIVER' || processing) && styles.modalConfirmDisabled,
+                ]}
+                onPress={performDeactivate}
+                disabled={confirmText.trim().toUpperCase() !== 'DESACTIVER' || processing}
+              >
+                {processing ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Désactiver définitivement</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -662,5 +796,127 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#6B7280',
+  },
+  statusCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  statusText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  dangerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#EF4444',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  dangerButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  successButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#10B981',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+  },
+  statusHint: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 440,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  modalText: {
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  modalKeyword: {
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+  modalInput: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#111827',
+    marginBottom: 20,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalCancel: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  modalCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  modalConfirm: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: '#EF4444',
+  },
+  modalConfirmDisabled: {
+    opacity: 0.5,
+  },
+  modalConfirmText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

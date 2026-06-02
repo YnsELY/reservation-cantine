@@ -190,6 +190,7 @@ export interface Provider {
   email: string | null;
   company_name: string | null;
   phone: string | null;
+  is_active: boolean;
   created_at: string;
 }
 
