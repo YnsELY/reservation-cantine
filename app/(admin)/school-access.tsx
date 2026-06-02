@@ -7,7 +7,7 @@ import { safeBack } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { copyToClipboard } from '@/lib/clipboard';
-import { ArrowLeft, Key, Plus, Copy, Edit, X, School } from 'lucide-react-native';
+import { ArrowLeft, Key, Copy, Edit, X, School } from 'lucide-react-native';
 
 interface School {
   id: string;
@@ -22,9 +22,6 @@ export default function SchoolAccessScreen() {
   const [editingSchool, setEditingSchool] = useState<School | null>(null);
   const [newCode, setNewCode] = useState('CreateSchool2025');
   const [isUpdating, setIsUpdating] = useState(false);
-  const [createCode, setCreateCode] = useState('');
-  const [createDescription, setCreateDescription] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
 
   useEffect(() => {
     loadSchools();
@@ -116,50 +113,6 @@ export default function SchoolAccessScreen() {
     }
   };
 
-  const handleCreateCode = async () => {
-    if (!createCode.trim()) {
-      showAlert('Erreur', 'Veuillez entrer un code');
-      return;
-    }
-
-    setIsCreating(true);
-    try {
-      const currentParent = await authService.getCurrentParentFromAuth();
-      if (!currentParent || !currentParent.is_admin) {
-        router.replace('/auth');
-        return;
-      }
-
-      const codeUpper = createCode.trim().toUpperCase();
-
-      const { error } = await supabase
-        .from('school_registration_codes')
-        .insert({
-          code: codeUpper,
-          description: createDescription.trim() || null,
-          is_active: true,
-        });
-
-      if (error) {
-        if (error.code === '23505') {
-          showAlert('Erreur', 'Ce code existe déjà');
-        } else {
-          throw error;
-        }
-        return;
-      }
-
-      showAlert('Succès', 'Code créé avec succès');
-      setCreateCode('');
-      setCreateDescription('');
-    } catch (err) {
-      console.error('Error creating code:', err);
-      showAlert('Erreur', 'Impossible de créer le code');
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
   const handleCopyCode = async (code: string) => {
     try {
       await copyToClipboard(code);
@@ -195,62 +148,10 @@ export default function SchoolAccessScreen() {
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <View style={styles.infoCard}>
           <Key size={48} color="#F59E0B" />
-          <Text style={styles.infoTitle}>Gérer les codes d'accès des écoles</Text>
+          <Text style={styles.infoTitle}>Codes d'accès des écoles</Text>
           <Text style={styles.infoText}>
-            Chaque école dispose d'un code unique pour accéder à la plateforme
+            Chaque école possède un code unique. Partagez-le avec les parents d'élèves et les prestataires pour qu'ils s'affilient à l'école.
           </Text>
-        </View>
-
-        <View style={styles.createCard}>
-          <Text style={styles.createTitle}>Créer un nouveau code d'accès</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Code d'accès</Text>
-            <View style={styles.inputRow}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                value={createCode}
-                onChangeText={setCreateCode}
-                placeholder="Ex: CreateSchool2025"
-                placeholderTextColor="#9CA3AF"
-                autoCapitalize="characters"
-                maxLength={50}
-              />
-              <TouchableOpacity
-                style={styles.generateButton}
-                onPress={() => setCreateCode(generateRandomCode())}
-              >
-                <Text style={styles.generateButtonText}>Générer</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Description (optionnel)</Text>
-            <TextInput
-              style={styles.input}
-              value={createDescription}
-              onChangeText={setCreateDescription}
-              placeholder="Ex: Code pour École ABC"
-              placeholderTextColor="#9CA3AF"
-              maxLength={200}
-            />
-          </View>
-
-          <TouchableOpacity
-            style={[styles.createButton, isCreating && styles.createButtonDisabled]}
-            onPress={handleCreateCode}
-            disabled={isCreating}
-          >
-            {isCreating ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <>
-                <Plus size={20} color="#FFFFFF" />
-                <Text style={styles.createButtonText}>Créer le code</Text>
-              </>
-            )}
-          </TouchableOpacity>
         </View>
 
         <View style={styles.codesSection}>
@@ -303,19 +204,19 @@ export default function SchoolAccessScreen() {
         <View style={styles.instructionsCard}>
           <Text style={styles.instructionsTitle}>Comment ça marche ?</Text>
           <Text style={styles.instructionsText}>
-            1. Créez un nouveau code d'accès pour permettre à une école de s'inscrire
+            1. Créez l'école depuis "Créer une école" : son code d'accès est généré automatiquement
           </Text>
           <Text style={styles.instructionsText}>
-            2. Partagez ce code avec l'école pour qu'elle puisse créer son compte
+            2. Copiez le code de l'école concernée ci-dessus
           </Text>
           <Text style={styles.instructionsText}>
-            3. Une fois inscrite, l'école apparaîtra dans la liste ci-dessus
+            3. Partagez-le avec les parents d'élèves et les prestataires concernés
           </Text>
           <Text style={styles.instructionsText}>
-            4. Vous pouvez modifier le code d'accès d'une école en cliquant sur "Modifier"
+            4. Ils saisissent ce code dans leur application pour s'affilier à l'école
           </Text>
           <Text style={styles.instructionsText}>
-            5. Le code par défaut est "CreateSchool2025"
+            5. Besoin de renouveler un code ? Cliquez sur "Modifier"
           </Text>
         </View>
       </ScrollView>
@@ -463,38 +364,6 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     lineHeight: 20,
-  },
-  createCard: {
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginBottom: 24,
-  },
-  createTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 20,
-  },
-  createButton: {
-    backgroundColor: '#F59E0B',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
-    marginTop: 8,
-  },
-  createButtonDisabled: {
-    opacity: 0.6,
-  },
-  createButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   codesSection: {
     marginBottom: 24,

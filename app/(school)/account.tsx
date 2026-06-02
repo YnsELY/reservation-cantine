@@ -88,10 +88,6 @@ export default function AccountScreen() {
               <Text style={styles.infoLabel}>Adresse</Text>
               <Text style={styles.infoValue}>{school?.address || 'Non renseignée'}</Text>
             </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Code d'accès</Text>
-              <Text style={styles.infoValue}>{school?.access_code}</Text>
-            </View>
           </View>
         </View>
 
