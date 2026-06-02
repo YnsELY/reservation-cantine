@@ -182,15 +182,17 @@ export default function ProfileScreen() {
   };
 
   const handleLogout = async () => {
+    // scope 'local' : vide la session locale sans appel réseau global (qui peut
+    // rester bloqué sur web et empêcher la navigation de déconnexion).
     try {
-      await supabase.auth.signOut();
-      if (router.canGoBack()) {
-        router.dismissAll();
-      }
-      router.replace('/auth');
+      await supabase.auth.signOut({ scope: 'local' });
     } catch (error) {
       console.error('Logout error:', error);
     }
+    if (router.canGoBack()) {
+      router.dismissAll();
+    }
+    router.replace('/auth');
   };
 
   if (loading) {

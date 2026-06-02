@@ -339,7 +339,11 @@ export default function AccountScreen() {
         <TouchableOpacity
           style={styles.logoutButton}
           onPress={async () => {
-            await supabase.auth.signOut();
+            try {
+              await supabase.auth.signOut({ scope: 'local' });
+            } catch (err) {
+              console.error('Logout error:', err);
+            }
             router.replace('/auth');
           }}
         >

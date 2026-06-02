@@ -106,7 +106,7 @@ export const authService = {
       console.error('Error unregistering push token on logout:', e);
     }
 
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'local' });
     await AsyncStorage.removeItem(ACCESS_CODE_KEY);
     await AsyncStorage.removeItem(PARENT_DATA_KEY);
     await AsyncStorage.removeItem(SCHOOL_DATA_KEY);
