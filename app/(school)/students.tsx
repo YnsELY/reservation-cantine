@@ -5,7 +5,9 @@ import { router } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase, Child, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { Search, ArrowLeft, ChevronDown, Check } from 'lucide-react-native';
+import { exportData } from '@/lib/exports';
+import { showAlert } from '@/lib/alert';
+import { Search, ArrowLeft, ChevronDown, Check, Download } from 'lucide-react-native';
 
 const formatDateToLocal = (date: Date): string => {
   const year = date.getFullYear();
@@ -56,14 +58,28 @@ const groupChildrenByGrade = (list: any[]): { title: string; data: any[] }[] => 
   return sortedKeys.map(title => ({ title, data: groups.get(title)! }));
 };
 
+function Pill({ label, active, onPress, color = '#4F46E5' }: { label: string; active: boolean; onPress: () => void; color?: string }) {
+  return (
+    <TouchableOpacity
+      style={[styles.pill, active && { backgroundColor: color, borderColor: color }]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      <Text style={[styles.pillText, active && styles.pillTextActive]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
 export default function SchoolChildrenScreen() {
   const [school, setSchool] = useState<School | null>(null);
   const [children, setChildren] = useState<Child[]>([]);
-  const [filteredChildren, setFilteredChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [gradeFilter, setGradeFilter] = useState<string>('all');
+  const [genreFilter, setGenreFilter] = useState<'all' | 'fille' | 'garcon'>('all');
+  const [allergyFilter, setAllergyFilter] = useState<'all' | 'with' | 'without'>('all');
   const [showGradeMenu, setShowGradeMenu] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const availableGrades = useMemo(() => {
     const set = new Set<string>();
@@ -80,30 +96,30 @@ export default function SchoolChildrenScreen() {
     });
   }, [children]);
 
-  const sections = useMemo(() => {
-    const list = gradeFilter === 'all'
-      ? filteredChildren
-      : filteredChildren.filter(c => (c.grade || '') === gradeFilter);
-    return groupChildrenByGrade(list);
-  }, [filteredChildren, gradeFilter]);
+  const visibleChildren = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return children.filter((c: any) => {
+      if (gradeFilter !== 'all' && (c.grade || '') !== gradeFilter) return false;
+      if (genreFilter !== 'all' && c.genre !== genreFilter) return false;
+      const hasAllergy = Array.isArray(c.allergies) && c.allergies.length > 0;
+      if (allergyFilter === 'with' && !hasAllergy) return false;
+      if (allergyFilter === 'without' && hasAllergy) return false;
+      if (q) {
+        const match =
+          c.first_name.toLowerCase().includes(q) ||
+          c.last_name.toLowerCase().includes(q) ||
+          (c.grade && c.grade.toLowerCase().includes(q));
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [children, searchQuery, gradeFilter, genreFilter, allergyFilter]);
+
+  const sections = useMemo(() => groupChildrenByGrade(visibleChildren), [visibleChildren]);
 
   useEffect(() => {
     loadData();
   }, []);
-
-  useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredChildren(children);
-    } else {
-      const query = searchQuery.toLowerCase();
-      const filtered = children.filter(child =>
-        child.first_name.toLowerCase().includes(query) ||
-        child.last_name.toLowerCase().includes(query) ||
-        (child.grade && child.grade.toLowerCase().includes(query))
-      );
-      setFilteredChildren(filtered);
-    }
-  }, [searchQuery, children]);
 
   const loadData = async () => {
     try {
@@ -138,7 +154,6 @@ export default function SchoolChildrenScreen() {
 
       if (activeChildIds.length === 0) {
         setChildren([]);
-        setFilteredChildren([]);
         return;
       }
 
@@ -157,11 +172,46 @@ export default function SchoolChildrenScreen() {
         .order('first_name');
 
       setChildren(childrenData || []);
-      setFilteredChildren(childrenData || []);
     } catch (err) {
       console.error('Error loading children:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    if (visibleChildren.length === 0) {
+      showAlert('Export', 'Aucun élève à exporter avec ces filtres.');
+      return;
+    }
+    setExporting(true);
+    try {
+      const genreText = (g: any) => (g === 'fille' ? 'Fille' : g === 'garcon' ? 'Garçon' : '');
+      const header = ['Nom', 'Prénom', 'Classe', 'Sexe', 'Allergies', 'Parent'];
+      const rows = visibleChildren.map((c: any) => [
+        c.last_name || '',
+        c.first_name || '',
+        c.grade || '',
+        genreText(c.genre),
+        Array.isArray(c.allergies) && c.allergies.length > 0 ? c.allergies.join(', ') : '',
+        c.parents ? `${c.parents.first_name || ''} ${c.parents.last_name || ''}`.trim() : '',
+      ]);
+      const parts = [
+        gradeFilter !== 'all' ? gradeFilter : 'toutes-classes',
+        genreFilter === 'fille' ? 'filles' : genreFilter === 'garcon' ? 'garcons' : null,
+        allergyFilter === 'with' ? 'avec-allergie' : allergyFilter === 'without' ? 'sans-allergie' : null,
+      ].filter(Boolean);
+      await exportData('xlsx', {
+        fileName: `eleves-${school?.name || 'ecole'}-${parts.join('-')}`,
+        sheetName: 'Élèves',
+        header,
+        rows,
+      });
+    } catch (e: any) {
+      console.error('export error', e);
+      showAlert('Erreur', e?.message || "Impossible d'exporter la liste");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -268,6 +318,40 @@ export default function SchoolChildrenScreen() {
         />
       </View>
 
+      <View style={styles.filtersBlock}>
+        <View style={styles.filterRow}>
+          <Text style={styles.filterRowLabel}>Sexe</Text>
+          <View style={styles.pillsWrap}>
+            <Pill label="Tous" active={genreFilter === 'all'} onPress={() => setGenreFilter('all')} />
+            <Pill label="Filles" active={genreFilter === 'fille'} onPress={() => setGenreFilter('fille')} color="#EC4899" />
+            <Pill label="Garçons" active={genreFilter === 'garcon'} onPress={() => setGenreFilter('garcon')} color="#3B82F6" />
+          </View>
+        </View>
+        <View style={styles.filterRow}>
+          <Text style={styles.filterRowLabel}>Allergie</Text>
+          <View style={styles.pillsWrap}>
+            <Pill label="Tous" active={allergyFilter === 'all'} onPress={() => setAllergyFilter('all')} />
+            <Pill label="Avec" active={allergyFilter === 'with'} onPress={() => setAllergyFilter('with')} color="#F59E0B" />
+            <Pill label="Sans" active={allergyFilter === 'without'} onPress={() => setAllergyFilter('without')} color="#10B981" />
+          </View>
+        </View>
+        <TouchableOpacity
+          style={[styles.exportButton, (exporting || visibleChildren.length === 0) && styles.exportButtonDisabled]}
+          onPress={handleExport}
+          disabled={exporting || visibleChildren.length === 0}
+          activeOpacity={0.85}
+        >
+          {exporting ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <>
+              <Download size={18} color="#FFFFFF" />
+              <Text style={styles.exportButtonText}>Exporter en Excel ({visibleChildren.length})</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{children.length}</Text>
@@ -281,10 +365,10 @@ export default function SchoolChildrenScreen() {
         </View>
       </View>
 
-      {filteredChildren.length === 0 ? (
+      {visibleChildren.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>
-            {searchQuery ? 'Aucun élève trouvé' : 'Aucun élève actif'}
+            {children.length === 0 ? 'Aucun élève actif' : 'Aucun élève pour ces filtres'}
           </Text>
         </View>
       ) : (
@@ -536,5 +620,61 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#6B7280',
     textAlign: 'center',
+  },
+  filtersBlock: {
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    gap: 10,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  filterRowLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+    width: 56,
+  },
+  pillsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    flex: 1,
+  },
+  pill: {
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  pillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  pillTextActive: {
+    color: '#FFFFFF',
+  },
+  exportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#10B981',
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginTop: 2,
+  },
+  exportButtonDisabled: {
+    opacity: 0.5,
+  },
+  exportButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
