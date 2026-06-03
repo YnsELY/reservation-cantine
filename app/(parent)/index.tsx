@@ -4,10 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Parent, Reservation } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { Calendar, UserPlus, History, UtensilsCrossed, User, ShoppingCart, Clock, Check } from 'lucide-react-native';
+import { Calendar, UserPlus, History, UtensilsCrossed, User, ShoppingCart, Clock, Check, Wallet } from 'lucide-react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { LineChart } from 'react-native-chart-kit';
 import { useNotifications } from '@/hooks/useNotifications';
+import { showAlert } from '@/lib/alert';
+import { getBalance } from '@/lib/credits';
+import { consumeCreditAdded } from '@/lib/credit-events';
 
 interface WeekReservation {
   id: string;
@@ -15,6 +18,7 @@ interface WeekReservation {
   child_id: string;
   menu_id: string;
   total_price: number;
+  payment_status: string;
   children: {
     first_name: string;
     last_name: string;
@@ -111,6 +115,7 @@ export default function ParentHomeScreen() {
   const [childrenCount, setChildrenCount] = useState(0);
   const [children, setChildren] = useState<ChildWithStatus[]>([]);
   const [cartCount, setCartCount] = useState(0);
+  const [balance, setBalance] = useState(0);
   const [countdown, setCountdown] = useState<{
     deadlineMs: number;
     label: string;
@@ -288,6 +293,7 @@ export default function ParentHomeScreen() {
           child_id,
           menu_id,
           total_price,
+          payment_status,
           children (first_name, last_name),
           menus (meal_name, description)
         `)
@@ -297,6 +303,16 @@ export default function ParentHomeScreen() {
         .limit(100);
 
       setUpcomingReservations(upcomingData || []);
+
+      // Solde cagnotte + popup éventuel après une annulation
+      const bal = await getBalance(parentData.id);
+      setBalance(bal);
+      if (consumeCreditAdded()) {
+        showAlert(
+          'Cagnotte créditée 💰',
+          `Vous avez ${bal.toFixed(2)} DH dans votre cagnotte. Utilisable quand vous voulez sur vos prochaines commandes.`
+        );
+      }
 
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -566,6 +582,24 @@ export default function ParentHomeScreen() {
           )}
         </View>
 
+        {balance > 0 && (
+          <TouchableOpacity
+            style={styles.cagnotteCard}
+            onPress={() => router.push('/(parent)/reservation')}
+          >
+            <View style={styles.cagnotteIcon}>
+              <Wallet size={24} color="#FFFFFF" />
+            </View>
+            <View style={styles.cagnotteInfo}>
+              <Text style={styles.cagnotteLabel}>Ma cagnotte</Text>
+              <Text style={styles.cagnotteAmount}>{balance.toFixed(2)} DH</Text>
+              <Text style={styles.cagnotteHint}>
+                Utilisable quand vous voulez sur vos prochaines commandes
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           style={styles.orderButton}
           onPress={() => router.push('/(parent)/reservation')}
@@ -690,28 +724,38 @@ export default function ParentHomeScreen() {
                   <View key={childId} style={styles.childGroup}>
                     <Text style={styles.childGroupName}>{group.childName}</Text>
                     <View style={styles.childGroupUnderline} />
-                    {group.items.map((reservation) => (
-                      <View key={reservation.id} style={styles.menuCard}>
-                        <View style={styles.menuDatePill}>
-                          <Text style={styles.menuDatePillText}>
-                            {formatDate(reservation.date)}
-                          </Text>
+                    {group.items.map((reservation) => {
+                      const cancelled = reservation.payment_status === 'cancelled';
+                      return (
+                        <View key={reservation.id} style={[styles.menuCard, cancelled && styles.menuCardCancelled]}>
+                          <View style={styles.menuTopRow}>
+                            <View style={styles.menuDatePill}>
+                              <Text style={styles.menuDatePillText}>
+                                {formatDate(reservation.date)}
+                              </Text>
+                            </View>
+                            {cancelled && (
+                              <View style={styles.cancelledPill}>
+                                <Text style={styles.cancelledPillText}>Annulé</Text>
+                              </View>
+                            )}
+                          </View>
+                          <View style={styles.menuRow}>
+                            <Text style={[styles.menuName, cancelled && styles.menuNameCancelled]} numberOfLines={1}>
+                              {reservation.menus?.meal_name || 'Menu'}
+                            </Text>
+                            <Text style={[styles.menuPrice, cancelled && styles.menuNameCancelled]}>
+                              {Number(reservation.total_price).toFixed(2)} DH
+                            </Text>
+                          </View>
+                          {reservation.menus?.description ? (
+                            <Text style={styles.menuDescription} numberOfLines={2}>
+                              {reservation.menus.description}
+                            </Text>
+                          ) : null}
                         </View>
-                        <View style={styles.menuRow}>
-                          <Text style={styles.menuName} numberOfLines={1}>
-                            {reservation.menus?.meal_name || 'Menu'}
-                          </Text>
-                          <Text style={styles.menuPrice}>
-                            {Number(reservation.total_price).toFixed(2)} DH
-                          </Text>
-                        </View>
-                        {reservation.menus?.description ? (
-                          <Text style={styles.menuDescription} numberOfLines={2}>
-                            {reservation.menus.description}
-                          </Text>
-                        ) : null}
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
                 ));
               })()}
@@ -1171,7 +1215,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 12,
+  },
+  menuTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
     marginBottom: 10,
+  },
+  menuCardCancelled: {
+    opacity: 0.6,
+  },
+  menuNameCancelled: {
+    textDecorationLine: 'line-through',
+    color: '#9CA3AF',
+  },
+  cancelledPill: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  cancelledPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#B91C1C',
+    letterSpacing: 0.3,
   },
   menuDatePillText: {
     fontSize: 12,
@@ -1199,6 +1268,45 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 13,
     color: '#6B7280',
+  },
+  cagnotteCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: '#EAF4FC',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#CFE4F7',
+    padding: 18,
+    marginBottom: 24,
+  },
+  cagnotteIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#0E5FC0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cagnotteInfo: {
+    flex: 1,
+  },
+  cagnotteLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0B3D91',
+  },
+  cagnotteAmount: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0B3D91',
+    marginTop: 2,
+  },
+  cagnotteHint: {
+    fontSize: 12,
+    color: '#1E5FA8',
+    marginTop: 2,
+    lineHeight: 17,
   },
   emptyReservations: {
     alignItems: 'center',

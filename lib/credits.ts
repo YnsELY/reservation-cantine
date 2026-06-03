@@ -24,12 +24,11 @@ export interface CreditApplicationResult {
 const remaining = (c: ParentCredit) => Number(c.amount) - Number(c.used_amount);
 
 export async function getAvailableCredits(parentId: string): Promise<ParentCredit[]> {
-  const nowIso = new Date().toISOString();
+  // Crédits sans deadline : disponibles tant qu'il reste un solde, quelle que soit la semaine.
   const { data, error } = await supabase
     .from('parent_credits')
     .select('*')
     .eq('parent_id', parentId)
-    .gt('expires_at', nowIso)
     .order('created_at', { ascending: true });
   if (error) {
     console.error('getAvailableCredits error:', error);
@@ -101,21 +100,21 @@ export function getCreditWindow(
 
 export async function createCreditForCancellation(
   input: CreateCreditInput
-): Promise<{ ok: boolean; error?: string; expiresAt?: Date }> {
-  const { mealWeekStart, usableWeekStart, expiresAt } = getCreditWindow(input.mealDate);
+): Promise<{ ok: boolean; error?: string }> {
+  // Crédit sans deadline ni couplage semaine. On conserve meal_week_start_date
+  // uniquement pour la limite MAX_CANCELLATIONS_PER_WEEK (calée sur la semaine du repas).
+  const mealWeekStart = getWeekStart(input.mealDate);
   const { error } = await supabase.from('parent_credits').insert({
     parent_id: input.parentId,
     amount: input.amount,
     used_amount: 0,
     source_reservation_id: input.reservationId,
-    week_start_date: formatYmd(usableWeekStart),
     meal_week_start_date: formatYmd(mealWeekStart),
-    expires_at: expiresAt.toISOString(),
   });
   if (error) {
     return { ok: false, error: error.message };
   }
-  return { ok: true, expiresAt };
+  return { ok: true };
 }
 
 export function applyCreditsToCart(
@@ -130,30 +129,19 @@ export function applyCreditsToCart(
   const perItemDiscount: Record<string, number> = {};
   const usedByCredit = new Map<string, number>();
 
-  const itemsByWeek = new Map<string, CartItemLike[]>();
+  // Sans deadline ni semaine : on applique les crédits (du plus ancien au plus récent)
+  // sur n'importe quel article du panier, jusqu'à épuisement.
   items.forEach(item => {
-    const wk = getWeekStartYmd(item.date);
-    const list = itemsByWeek.get(wk) || [];
-    list.push(item);
-    itemsByWeek.set(wk, list);
-  });
-
-  itemsByWeek.forEach((weekItems, weekKey) => {
-    const weekCredits = sortedCredits.filter(c => c.week_start_date === weekKey);
-    if (weekCredits.length === 0) return;
-
-    weekItems.forEach(item => {
-      let remainingPrice = Number(item.total_price);
-      for (const credit of weekCredits) {
-        if (remainingPrice <= 0.005) break;
-        if (credit._remaining <= 0.005) continue;
-        const take = Math.min(credit._remaining, remainingPrice);
-        credit._remaining -= take;
-        remainingPrice -= take;
-        usedByCredit.set(credit.id, (usedByCredit.get(credit.id) || 0) + take);
-        perItemDiscount[item.id] = (perItemDiscount[item.id] || 0) + take;
-      }
-    });
+    let remainingPrice = Number(item.total_price);
+    for (const credit of sortedCredits) {
+      if (remainingPrice <= 0.005) break;
+      if (credit._remaining <= 0.005) continue;
+      const take = Math.min(credit._remaining, remainingPrice);
+      credit._remaining -= take;
+      remainingPrice -= take;
+      usedByCredit.set(credit.id, (usedByCredit.get(credit.id) || 0) + take);
+      perItemDiscount[item.id] = (perItemDiscount[item.id] || 0) + take;
+    }
   });
 
   const creditsUsed: AppliedCredit[] = Array.from(usedByCredit.entries())

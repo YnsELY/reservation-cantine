@@ -218,9 +218,9 @@ export interface ParentCredit {
   amount: number;
   used_amount: number;
   source_reservation_id: string;
-  week_start_date: string;
-  meal_week_start_date: string;
-  expires_at: string;
+  week_start_date?: string | null;
+  meal_week_start_date?: string | null;
+  expires_at?: string | null;
   created_at: string;
 }
 

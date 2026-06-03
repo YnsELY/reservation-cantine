@@ -9,10 +9,10 @@ import { authService } from '@/lib/auth';
 import {
   countCancellationsThisWeek,
   createCreditForCancellation,
-  getCreditWindow,
   MAX_CANCELLATIONS_PER_WEEK,
   CANCELLATION_CUTOFF_HOUR,
 } from '@/lib/credits';
+import { flagCreditAdded } from '@/lib/credit-events';
 import { getWeekStartYmd } from '@/lib/dates';
 import { Receipt, AlertCircle, History, ArrowLeft, ChevronLeft, ChevronRight, XCircle } from 'lucide-react-native';
 import { NativeSelect } from '@/components/NativeSelect';
@@ -143,14 +143,9 @@ export default function HistoryScreen() {
   };
 
   const handleCancelReservation = (reservation: ReservationWithDetails) => {
-    const previewWindow = getCreditWindow(reservation.date);
-    const previewExpiry = previewWindow.expiresAt.toLocaleDateString('fr-FR', {
-      weekday: 'long', day: 'numeric', month: 'long',
-    });
-
     showAlert(
       'Annuler la commande',
-      `Voulez-vous vraiment annuler la commande "${reservation.menu.meal_name}" du ${new Date(reservation.date).toLocaleDateString('fr-FR')} ? Un crédit de ${reservation.total_price.toFixed(2)} DH sera ajouté à votre cagnotte, utilisable jusqu'au ${previewExpiry} sur un autre repas.`,
+      `Voulez-vous vraiment annuler la commande "${reservation.menu.meal_name}" du ${new Date(reservation.date).toLocaleDateString('fr-FR')} ? Un crédit de ${reservation.total_price.toFixed(2)} DH sera ajouté à votre cagnotte, utilisable quand vous voulez sur un autre repas.`,
       [
         { text: 'Non', style: 'cancel' },
         {
@@ -180,23 +175,30 @@ export default function HistoryScreen() {
 
               if (updateError) throw updateError;
 
-              const { ok, error: creditError, expiresAt } = await createCreditForCancellation({
+              const { ok, error: creditError } = await createCreditForCancellation({
                 parentId: parent.id,
                 reservationId: reservation.id,
                 amount: Number(reservation.total_price),
                 mealDate: reservation.date,
               });
+
               if (!ok) {
+                // Crédit non créé : on annule l'annulation pour éviter une commande
+                // annulée sans contrepartie en cagnotte.
+                await supabase
+                  .from('reservations')
+                  .update({ payment_status: 'paid', cancelled_at: null })
+                  .eq('id', reservation.id);
                 console.error('Credit creation failed:', creditError);
+                showAlert('Erreur', "L'annulation n'a pas pu être finalisée (crédit non créé). Réessayez.");
+                return;
               }
 
+              flagCreditAdded();
               await loadData();
-              const expiryLabel = (expiresAt || previewWindow.expiresAt).toLocaleDateString('fr-FR', {
-                weekday: 'long', day: 'numeric', month: 'long',
-              });
               showAlert(
                 'Commande annulée',
-                `Un crédit de ${Number(reservation.total_price).toFixed(2)} DH est disponible dans votre cagnotte jusqu'au ${expiryLabel}.`
+                `Un crédit de ${Number(reservation.total_price).toFixed(2)} DH a été ajouté à votre cagnotte. Vous pourrez l'utiliser quand vous voulez, sur n'importe quel repas.`
               );
             } catch (err: any) {
               console.error('Error cancelling reservation:', err);
