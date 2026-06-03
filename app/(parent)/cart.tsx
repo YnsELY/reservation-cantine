@@ -474,7 +474,7 @@ export default function CartScreen() {
                         −{application.totalDiscount.toFixed(2)} DH appliqués
                       </Text>
                     ) : useCredits && application.totalDiscount === 0 ? (
-                      <Text style={styles.cagnotteHint}>Aucun repas de la même semaine</Text>
+                      <Text style={styles.cagnotteHint}>Ajoutez un repas pour l'utiliser</Text>
                     ) : null}
                   </View>
                 </View>

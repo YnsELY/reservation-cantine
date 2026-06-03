@@ -416,18 +416,11 @@ function CagnotteCard({ credits }: { credits: ParentCredit[] }) {
       <View style={styles.cagnotteEmpty}>
         <Text style={styles.cagnotteEmptyText}>Aucun crédit en cours.</Text>
         <Text style={styles.cagnotteEmptyHint}>
-          Annulez un repas avant 7h le jour J pour recevoir un crédit utilisable sur un autre repas de la semaine.
+          Annulez un repas avant 7h le jour J pour recevoir un crédit, utilisable quand vous voulez sur n'importe quel repas.
         </Text>
       </View>
     );
   }
-
-  const earliestExpiry = credits
-    .map(c => new Date(c.expires_at).getTime())
-    .reduce((min, t) => (t < min ? t : min), Number.POSITIVE_INFINITY);
-  const expiryLabel = earliestExpiry !== Number.POSITIVE_INFINITY
-    ? new Date(earliestExpiry).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
-    : null;
 
   return (
     <View style={styles.cagnotteCard}>
@@ -440,11 +433,9 @@ function CagnotteCard({ credits }: { credits: ParentCredit[] }) {
           </Text>
         </View>
       </View>
-      {expiryLabel && (
-        <Text style={styles.cagnotteExpiry}>
-          Valable jusqu'au {expiryLabel} — utilisable sur les repas de la même semaine.
-        </Text>
-      )}
+      <Text style={styles.cagnotteExpiry}>
+        Utilisable quand vous voulez, sur n'importe quel repas.
+      </Text>
     </View>
   );
 }
