@@ -507,14 +507,6 @@ export default function CartScreen() {
             </View>
 
             <TouchableOpacity
-              style={[styles.testButton, processingPayment && styles.payButtonDisabled]}
-              onPress={handleTestOrder}
-              disabled={processingPayment}
-            >
-              <FlaskConical size={18} color="#FFFFFF" />
-              <Text style={styles.payButtonText}>Commande test (sans paiement)</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
               style={[styles.payButton, processingPayment && styles.payButtonDisabled]}
               onPress={handlePayment}
               disabled={processingPayment}
