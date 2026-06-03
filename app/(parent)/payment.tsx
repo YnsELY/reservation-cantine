@@ -133,7 +133,7 @@ export default function PaymentScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#4F46E5" />
+          <ActivityIndicator size="large" color="#0E5FC0" />
           <Text style={styles.loadingText}>Préparation du paiement...</Text>
         </View>
       </SafeAreaView>
@@ -291,7 +291,7 @@ export default function PaymentScreen() {
           startInLoadingState={true}
           renderLoading={() => (
             <View style={styles.webViewLoading}>
-              <ActivityIndicator size="large" color="#4F46E5" />
+              <ActivityIndicator size="large" color="#0E5FC0" />
               <Text style={styles.loadingText}>Chargement...</Text>
             </View>
           )}
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#0E5FC0',
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 12,

@@ -59,7 +59,7 @@ export default function OrderSummaryScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4F46E5" />
+          <ActivityIndicator size="large" color="#0E5FC0" />
           <Text style={styles.loadingText}>Chargement de votre commande...</Text>
         </View>
       </SafeAreaView>
@@ -130,7 +130,7 @@ export default function OrderSummaryScreen() {
             <View key={index} style={styles.reservationCard}>
               <View style={styles.reservationHeader}>
                 <View style={styles.iconCircle}>
-                  <UtensilsCrossed size={20} color="#4F46E5" />
+                  <UtensilsCrossed size={20} color="#0E5FC0" />
                 </View>
                 <View style={styles.reservationHeaderText}>
                   <Text style={styles.menuName}>{item.menu.meal_name}</Text>
@@ -200,7 +200,7 @@ export default function OrderSummaryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   loadingContainer: {
     flex: 1,
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#EAF4FC',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   itemPrice: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#4F46E5',
+    color: '#0E5FC0',
   },
   reservationDetails: {
     paddingTop: 12,
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
   supplementsContainer: {
     marginTop: 8,
     padding: 12,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
     borderRadius: 8,
   },
   supplementsLabel: {
@@ -418,14 +418,14 @@ const styles = StyleSheet.create({
     color: '#10B981',
   },
   confirmationMessage: {
-    backgroundColor: '#DBEAFE',
+    backgroundColor: '#EAF4FC',
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
   },
   confirmationText: {
     fontSize: 14,
-    color: '#1E40AF',
+    color: '#0B3D91',
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#0E5FC0',
     paddingVertical: 16,
     paddingHorizontal: 32,
     borderRadius: 12,

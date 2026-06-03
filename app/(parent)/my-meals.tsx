@@ -183,7 +183,7 @@ export default function MyMealsScreen() {
 
   return (
     <LinearGradient
-      colors={['#F9FAFB', '#FFFBEB']}
+      colors={['#F4F6FB', '#EAF4FC']}
       style={styles.gradientBackground}
     >
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -221,12 +221,12 @@ export default function MyMealsScreen() {
             ) : (
               reservations.map((reservation, index) => {
                 const pastelColors = [
-                  '#FFE5E5',
-                  '#E5F5FF',
-                  '#FFF4E5',
-                  '#F0E5FF',
-                  '#E5FFE5',
-                  '#FFE5F5',
+                  '#EAF4FC',
+                  '#E3EEFB',
+                  '#DCEBFA',
+                  '#EFF6FE',
+                  '#E7F1FC',
+                  '#D6EAF8',
                 ];
                 const cardColor = pastelColors[index % pastelColors.length];
 

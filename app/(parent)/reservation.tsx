@@ -266,10 +266,10 @@ export default function ParentDashboard() {
 
   const getCardColor = (index: number) => {
     const colors = [
-      '#BAE6FD',
-      '#A7F3D0',
-      '#FEF3C7',
-      '#DDD6FE',
+      '#EAF4FC',
+      '#D6EAF8',
+      '#E3EEFB',
+      '#CFE4F7',
     ];
     return colors[index % colors.length];
   };
@@ -285,13 +285,13 @@ export default function ParentDashboard() {
 
   const getTextColor = (index: number) => {
     const colors = [
-      '#4338CA',
-      '#991B1B',
-      '#065F46',
-      '#9A3412',
-      '#5B21B6',
-      '#9F1239',
-      '#075985',
+      '#0B3D91',
+      '#0E5FC0',
+      '#1565C0',
+      '#0F4C81',
+      '#1E6FB8',
+      '#0B5FA5',
+      '#2E7BB8',
     ];
     return colors[index % colors.length];
   };
@@ -305,7 +305,7 @@ export default function ParentDashboard() {
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4F46E5" />
+        <ActivityIndicator size="large" color="#0E5FC0" />
       </SafeAreaView>
     );
   }
@@ -579,13 +579,13 @@ export default function ParentDashboard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   topHeader: {
     flexDirection: 'row',
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 8,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
     zIndex: 100,
   },
   headerButton: {
@@ -627,7 +627,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   fixedDaySelector: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
     paddingBottom: 8,
     zIndex: 1,
   },
@@ -680,7 +680,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   dayTabSelected: {
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     paddingHorizontal: 24,
     paddingVertical: 16,
     minWidth: 120,
@@ -886,7 +886,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     paddingVertical: 10,
     paddingHorizontal: 14,
     borderRadius: 20,
@@ -940,7 +940,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 16,
@@ -966,13 +966,13 @@ const styles = StyleSheet.create({
   selectedChildBanner: {
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
     alignItems: 'flex-start',
   },
   selectedChildPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     paddingVertical: 8,
     paddingLeft: 8,
     paddingRight: 16,

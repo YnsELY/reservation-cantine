@@ -198,7 +198,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4F46E5" />
+        <ActivityIndicator size="large" color="#0E5FC0" />
       </SafeAreaView>
     );
   }
@@ -210,7 +210,7 @@ export default function ProfileScreen() {
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
         <View style={styles.avatarContainer}>
-          <User size={32} color="#4F46E5" />
+          <User size={32} color="#0E5FC0" />
         </View>
         <Text style={styles.profileName}>
           {parent?.first_name} {parent?.last_name}
@@ -432,7 +432,7 @@ function CagnotteCard({ credits }: { credits: ParentCredit[] }) {
   return (
     <View style={styles.cagnotteCard}>
       <View style={styles.cagnotteRow}>
-        <Wallet size={28} color="#4F46E5" />
+        <Wallet size={28} color="#0E5FC0" />
         <View style={{ flex: 1 }}>
           <Text style={styles.cagnotteBalance}>{balance.toFixed(2)} DH</Text>
           <Text style={styles.cagnotteSub}>
@@ -452,13 +452,13 @@ function CagnotteCard({ credits }: { credits: ParentCredit[] }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   scrollView: {
     flex: 1,
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 24,
     paddingHorizontal: 16,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   backButton: {
     position: 'absolute',
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#EAF4FC',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 20,
@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 20,
@@ -550,16 +550,16 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   cagnotteCard: {
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#EAF4FC',
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderColor: '#CFE4F7',
   },
   cagnotteRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  cagnotteBalance: { fontSize: 24, fontWeight: '700', color: '#4F46E5' },
-  cagnotteSub: { fontSize: 13, color: '#6366F1', marginTop: 2 },
-  cagnotteExpiry: { fontSize: 12, color: '#4338CA', marginTop: 10, lineHeight: 16 },
+  cagnotteBalance: { fontSize: 24, fontWeight: '700', color: '#0E5FC0' },
+  cagnotteSub: { fontSize: 13, color: '#2E97DD', marginTop: 2 },
+  cagnotteExpiry: { fontSize: 12, color: '#0B3D91', marginTop: 10, lineHeight: 16 },
   cagnotteEmpty: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
     color: '#92400E',
   },
   dietContainer: {
-    backgroundColor: '#DBEAFE',
+    backgroundColor: '#EAF4FC',
     padding: 8,
     borderRadius: 6,
     marginTop: 8,
@@ -644,12 +644,12 @@ const styles = StyleSheet.create({
   dietLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1E40AF',
+    color: '#0B3D91',
     marginBottom: 2,
   },
   dietText: {
     fontSize: 12,
-    color: '#1E40AF',
+    color: '#0B3D91',
   },
   emptyChildren: {
     backgroundColor: '#FFFFFF',
@@ -771,11 +771,11 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16,
     color: '#111827',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
     marginBottom: 20,
   },
   modalButton: {
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',

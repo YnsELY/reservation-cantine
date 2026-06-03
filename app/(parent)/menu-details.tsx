@@ -321,9 +321,9 @@ export default function MenuDetailsScreen() {
                     >
                       <View style={styles.supplementLeft}>
                         {isSelected ? (
-                          <CheckSquare size={24} color="#3B82F6" />
+                          <CheckSquare size={24} color="#2E97DD" />
                         ) : (
-                          <Square size={24} color="#93C5FD" />
+                          <Square size={24} color="#CFE4F7" />
                         )}
                         <View style={styles.supplementInfo}>
                           <Text style={styles.supplementName}>{supplement.name}</Text>
@@ -382,20 +382,20 @@ export default function MenuDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   backButton: {
     width: 40,
@@ -478,7 +478,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -612,13 +612,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   supplementItemSpecific: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: '#EAF4FC',
     borderRadius: 8,
     paddingHorizontal: 12,
     marginHorizontal: -12,
   },
   supplementPriceSpecific: {
-    color: '#3B82F6',
+    color: '#2E97DD',
   },
   inputCard: {
     backgroundColor: '#FFFFFF',
@@ -638,7 +638,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   textInput: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
     borderWidth: 1,
     borderColor: '#E5E7EB',
     borderRadius: 12,
@@ -683,7 +683,7 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   addToCartButton: {
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

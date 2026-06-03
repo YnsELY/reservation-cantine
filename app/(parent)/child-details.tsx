@@ -327,13 +327,13 @@ export default function ChildDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   errorContainer: {
     flex: 1,
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   orderButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 50,

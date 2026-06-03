@@ -144,20 +144,20 @@ export default function SchoolsListScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   backButton: {
     padding: 8,
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   searchContainer: {
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   searchInputContainer: {
     flexDirection: 'row',
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
@@ -284,8 +284,8 @@ const styles = StyleSheet.create({
   codeValue: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#4F46E5',
-    backgroundColor: '#EEF2FF',
+    color: '#0E5FC0',
+    backgroundColor: '#EAF4FC',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,

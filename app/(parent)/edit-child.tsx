@@ -800,20 +800,20 @@ export default function EditChildScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
     gap: 12,
   },
   backButton: {
@@ -868,8 +868,8 @@ const styles = StyleSheet.create({
     borderColor: '#EC4899',
   },
   genrePillGarcon: {
-    backgroundColor: '#DBEAFE',
-    borderColor: '#3B82F6',
+    backgroundColor: '#EAF4FC',
+    borderColor: '#2E97DD',
   },
   genrePillText: {
     fontSize: 15,
@@ -909,14 +909,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#EAF4FC',
     borderRadius: 6,
     alignItems: 'center',
   },
   ageText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#4F46E5',
+    color: '#0E5FC0',
   },
   errorDisplay: {
     marginTop: 8,
@@ -966,7 +966,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   allergyChipSelected: {
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     borderColor: '#111827',
   },
   allergyChipDisabled: {
@@ -997,7 +997,7 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   customAllergyRowAdd: {
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     paddingHorizontal: 14,
     borderRadius: 8,
     justifyContent: 'center',
@@ -1069,7 +1069,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
     borderRadius: 8,
     marginBottom: 8,
     borderWidth: 1,
@@ -1106,7 +1106,7 @@ const styles = StyleSheet.create({
   },
   customAllergyInput: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -1116,7 +1116,7 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   customAllergyAddButton: {
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 8,
@@ -1127,7 +1127,7 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   modalCloseButton: {
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
@@ -1174,7 +1174,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
     borderRadius: 8,
     marginBottom: 8,
     borderWidth: 1,
@@ -1211,7 +1211,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
     borderRadius: 8,
     marginBottom: 8,
     borderWidth: 1,
@@ -1251,7 +1251,7 @@ const styles = StyleSheet.create({
     right: 0,
   },
   saveButton: {
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     borderRadius: 0,
     paddingVertical: 20,
     alignItems: 'center',

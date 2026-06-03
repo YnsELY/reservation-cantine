@@ -96,7 +96,7 @@ function OrderCountdown({ deadlineMs, onExpire }: { deadlineMs: number; onExpire
 
   return (
     <View style={styles.countdownTimer}>
-      <Clock size={20} color="#EA580C" />
+      <Clock size={20} color="#0E5FC0" />
       <Text style={styles.countdownValue}>{pad(h)}h {pad(m)}m {pad(s)}s</Text>
     </View>
   );
@@ -413,7 +413,7 @@ export default function ParentHomeScreen() {
               cx={center}
               cy={center}
               r={radius}
-              stroke="#F97316"
+              stroke="#2E97DD"
               strokeWidth={strokeWidth}
               fill="none"
               strokeDasharray={`${dash} ${circumference}`}
@@ -890,7 +890,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     alignSelf: 'center',
-    backgroundColor: '#FFF1E7',
+    backgroundColor: '#EAF4FC',
     borderRadius: 14,
     paddingHorizontal: 18,
     paddingVertical: 11,
@@ -899,7 +899,7 @@ const styles = StyleSheet.create({
   countdownValue: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#C2410C',
+    color: '#0B3D91',
     fontVariant: ['tabular-nums'],
   },
   missingLabel: {
@@ -1010,7 +1010,7 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#EEF2FB',
+    backgroundColor: '#EAF4FC',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -1034,7 +1034,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#0E5FC0',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 12,
@@ -1045,7 +1045,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   largeButton: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#0E5FC0',
     borderRadius: 16,
     paddingVertical: 20,
     paddingHorizontal: 24,
@@ -1090,7 +1090,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#0E5FC0',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 14,
@@ -1154,7 +1154,7 @@ const styles = StyleSheet.create({
   },
   childGroupUnderline: {
     height: 1.5,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#0E5FC0',
     marginBottom: 12,
   },
   menuCard: {
@@ -1167,7 +1167,7 @@ const styles = StyleSheet.create({
   },
   menuDatePill: {
     alignSelf: 'flex-start',
-    backgroundColor: '#EEF2FB',
+    backgroundColor: '#EAF4FC',
     paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: 12,
@@ -1212,7 +1212,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   emptyReservationsButton: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#0E5FC0',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 12,

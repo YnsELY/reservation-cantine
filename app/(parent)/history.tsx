@@ -316,7 +316,7 @@ export default function HistoryScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4F46E5" />
+        <ActivityIndicator size="large" color="#0E5FC0" />
       </SafeAreaView>
     );
   }
@@ -504,19 +504,19 @@ export default function HistoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   topSection: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 20,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   backButton: {
     padding: 8,
@@ -526,7 +526,7 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 24,
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 8,
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   navButton: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
     padding: 8,
     borderRadius: 8,
     borderWidth: 1,
@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     gap: 12,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   statCard: {
     flex: 1,
@@ -773,10 +773,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     marginBottom: 8,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   modalOptionSelected: {
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
   },
   modalOptionText: {
     fontSize: 15,

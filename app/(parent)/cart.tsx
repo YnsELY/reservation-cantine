@@ -349,7 +349,7 @@ export default function CartScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4F46E5" />
+        <ActivityIndicator size="large" color="#0E5FC0" />
       </SafeAreaView>
     );
   }
@@ -395,7 +395,7 @@ export default function CartScreen() {
                 <View key={childId} style={styles.childSection}>
                   <View style={styles.childSectionHeader}>
                     <View style={styles.childAvatar}>
-                      <User size={20} color="#4F46E5" />
+                      <User size={20} color="#0E5FC0" />
                     </View>
                     <View style={styles.childSectionInfo}>
                       <Text style={styles.childSectionName}>
@@ -464,7 +464,7 @@ export default function CartScreen() {
               <View style={styles.cagnotteCard}>
                 <View style={styles.cagnotteLeft}>
                   <View style={styles.cagnotteIconWrap}>
-                    <Wallet size={20} color="#4F46E5" />
+                    <Wallet size={20} color="#0E5FC0" />
                   </View>
                   <View style={styles.cagnotteInfo}>
                     <Text style={styles.cagnotteTitle}>Ma cagnotte</Text>
@@ -481,8 +481,8 @@ export default function CartScreen() {
                 <Switch
                   value={useCredits}
                   onValueChange={setUseCredits}
-                  trackColor={{ false: '#E5E7EB', true: '#C7D2FE' }}
-                  thumbColor={useCredits ? '#4F46E5' : '#F9FAFB'}
+                  trackColor={{ false: '#E5E7EB', true: '#CFE4F7' }}
+                  thumbColor={useCredits ? '#0E5FC0' : '#F4F6FB'}
                 />
               </View>
             )}
@@ -550,19 +550,19 @@ export default function CartScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   topSection: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 20,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F4F6FB',
   },
   backButton: {
     padding: 8,
@@ -572,7 +572,7 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 24,
@@ -611,7 +611,7 @@ const styles = StyleSheet.create({
   },
   browseButton: {
     marginTop: 24,
-    backgroundColor: '#111827',
+    backgroundColor: '#0E5FC0',
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
@@ -631,13 +631,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingBottom: 12,
     borderBottomWidth: 2,
-    borderBottomColor: '#4F46E5',
+    borderBottomColor: '#0E5FC0',
   },
   childAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#EAF4FC',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -761,8 +761,8 @@ const styles = StyleSheet.create({
   },
   subtotalLabel: { fontSize: 14, color: '#6B7280' },
   subtotalValue: { fontSize: 14, color: '#6B7280', fontWeight: '600' },
-  discountLabel: { fontSize: 14, color: '#4F46E5', fontWeight: '600' },
-  discountValue: { fontSize: 14, color: '#4F46E5', fontWeight: '700' },
+  discountLabel: { fontSize: 14, color: '#0E5FC0', fontWeight: '600' },
+  discountValue: { fontSize: 14, color: '#0E5FC0', fontWeight: '700' },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -791,10 +791,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: '#EAF4FC',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#C7D2FE',
+    borderColor: '#CFE4F7',
   },
   cagnotteLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   cagnotteIconWrap: {
@@ -802,7 +802,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center',
   },
   cagnotteInfo: { flex: 1 },
-  cagnotteTitle: { fontSize: 13, fontWeight: '700', color: '#4F46E5' },
+  cagnotteTitle: { fontSize: 13, fontWeight: '700', color: '#0E5FC0' },
   cagnotteAmount: { fontSize: 12, color: '#6B7280', marginTop: 2 },
   cagnotteApplied: { fontSize: 12, color: '#10B981', fontWeight: '700', marginTop: 2 },
   cagnotteHint: { fontSize: 11, color: '#9CA3AF', marginTop: 2, fontStyle: 'italic' },
@@ -817,7 +817,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   payButton: {
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#0E5FC0',
     borderRadius: 0,
     paddingVertical: 20,
     alignItems: 'center',
