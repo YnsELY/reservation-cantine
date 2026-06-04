@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { showAlert } from '@/lib/alert';
 import { exportData, ExportFormat } from '@/lib/exports';
 import { ExportSheet } from '@/components/ExportSheet';
-import { ArrowLeft, Search, X, FileDown, Check, User } from 'lucide-react-native';
+import { ArrowLeft, Search, X, FileDown, Check, User, FileText, ChevronDown, ChevronUp } from 'lucide-react-native';
 
 interface OrderDetail {
   id: string;
@@ -18,6 +18,7 @@ interface OrderDetail {
   child_allergies: string[];
   child_genre: 'fille' | 'garcon' | null;
   parent_name: string;
+  annotations: string | null;
 }
 
 const GRADE_ORDER: string[] = [
@@ -74,6 +75,7 @@ export default function OrdersPage() {
   const [exportFormat, setExportFormat] = useState<ExportFormat>('xlsx');
   const [exportClass, setExportClass] = useState<string>('all');
   const [exportGenre, setExportGenre] = useState<'all' | 'fille' | 'garcon'>('all');
+  const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     void loadOrders();
@@ -96,7 +98,7 @@ export default function OrdersPage() {
       const { data: reservationsRaw, error } = await supabase
         .from('reservations')
         .select(`
-          id, parent_id,
+          id, parent_id, annotations,
           child:children!child_id(id, first_name, last_name, grade, allergies, genre)
         `)
         .eq('menu_id', menuId)
@@ -128,6 +130,7 @@ export default function OrdersPage() {
           child_allergies: Array.isArray(r.child?.allergies) ? r.child.allergies : [],
           child_genre: r.child?.genre || null,
           parent_name: parent ? `${parent.first_name || ''} ${parent.last_name || ''}`.trim() : 'Parent',
+          annotations: (r.annotations || '').trim() || null,
         };
       });
 
@@ -201,13 +204,14 @@ export default function OrdersPage() {
         return;
       }
 
-      const header = ['Classe', 'Élève', 'Sexe', 'Parent', 'Allergies'];
+      const header = ['Classe', 'Élève', 'Sexe', 'Parent', 'Allergies', 'Instructions'];
       const rows = toExport.map(o => [
         o.child_grade || '',
         `${o.child_first_name} ${o.child_last_name}`.trim(),
         genreLabel(o.child_genre),
         o.parent_name,
         o.child_allergies.join(', ') || 'Aucune',
+        o.annotations || '',
       ] as (string | number)[]);
 
       const classeLabel = exportClass === 'all' ? 'Toutes' : exportClass;
@@ -332,6 +336,24 @@ export default function OrdersPage() {
                     <Text style={styles.orderCardParent} numberOfLines={1}>
                       Parent: {order.parent_name}
                     </Text>
+                    {order.annotations ? (
+                      <View style={styles.noteWrap}>
+                        <TouchableOpacity
+                          style={styles.notePill}
+                          activeOpacity={0.7}
+                          onPress={() => setExpandedNotes(prev => ({ ...prev, [order.id]: !prev[order.id] }))}
+                        >
+                          <FileText size={13} color="#92400E" />
+                          <Text style={styles.notePillText}>Instruction</Text>
+                          {expandedNotes[order.id]
+                            ? <ChevronUp size={14} color="#92400E" />
+                            : <ChevronDown size={14} color="#92400E" />}
+                        </TouchableOpacity>
+                        {expandedNotes[order.id] && (
+                          <Text style={styles.noteText}>{order.annotations}</Text>
+                        )}
+                      </View>
+                    ) : null}
                   </View>
                   {order.child_allergies.length > 0 && (
                     <View style={styles.orderCardAllergyBadge}>
@@ -453,6 +475,17 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   orderCardAllergyText: { fontSize: 12, fontWeight: '700', color: '#92400E' },
+  noteWrap: { marginTop: 8, alignSelf: 'flex-start', maxWidth: '100%' },
+  notePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FDE68A',
+    borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5,
+  },
+  notePillText: { fontSize: 12, fontWeight: '700', color: '#92400E' },
+  noteText: {
+    marginTop: 6, fontSize: 13, color: '#111827',
+    backgroundColor: '#FFFBEB', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8,
+  },
   modalOverlay: {
     flex: 1, backgroundColor: 'rgba(17, 24, 39, 0.45)',
     justifyContent: 'center', paddingHorizontal: 24,
