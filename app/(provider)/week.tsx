@@ -59,6 +59,7 @@ export default function ProviderWeekScreen() {
   const [menus, setMenus] = useState<MenuRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [schoolClosedDays, setSchoolClosedDays] = useState<Record<string, number[]>>({});
 
   const weekDates = useMemo(() => getCurrentWeekDates(), []);
 
@@ -72,13 +73,18 @@ export default function ProviderWeekScreen() {
 
       const { data: schoolAccess } = await supabase
         .from('provider_school_access')
-        .select('school_id, schools(name)')
+        .select('school_id, schools(name, closed_weekdays)')
         .eq('provider_id', currentProvider.id);
 
       const schoolsList = (schoolAccess || []).map(sa => ({
         school_id: (sa as any).school_id,
         school_name: (sa as any).schools?.name || 'École',
       }));
+      const closedMap: Record<string, number[]> = {};
+      (schoolAccess || []).forEach((sa: any) => {
+        closedMap[sa.school_id] = (sa.schools?.closed_weekdays || []) as number[];
+      });
+      setSchoolClosedDays(closedMap);
       setSchools(schoolsList);
 
       if (schoolsList.length === 0) {
@@ -120,8 +126,16 @@ export default function ProviderWeekScreen() {
   const getMenusForSchoolDate = (schoolId: string, date: string) =>
     menus.filter(menu => menu.school_id === schoolId && menu.date === date);
 
+  const isClosedForSchool = (schoolId: string, date: string) => {
+    const [yy, mm, dd] = date.split('-').map(Number);
+    const wd = new Date(yy, mm - 1, dd).getDay();
+    return (schoolClosedDays[schoolId] || []).includes(wd);
+  };
+
   const getSchoolComplete = (schoolId: string) =>
-    weekDates.every(date => getMenusForSchoolDate(schoolId, date).length > 0);
+    weekDates.every(date =>
+      isClosedForSchool(schoolId, date) || getMenusForSchoolDate(schoolId, date).length > 0
+    );
 
   const hasAnyCompleteSchool = schools.some(school => getSchoolComplete(school.school_id));
 
@@ -193,10 +207,15 @@ export default function ProviderWeekScreen() {
 
             {schools.map(school => {
               const schoolMenus = getMenusForSchoolDate(school.school_id, date);
+              const closed = isClosedForSchool(school.school_id, date);
               return (
                 <View key={`${date}-${school.school_id}`} style={styles.schoolBlock}>
                   <Text style={styles.schoolTitle}>{school.school_name.toUpperCase()}</Text>
-                  {schoolMenus.length === 0 ? (
+                  {closed ? (
+                    <View style={styles.emptyMenuRow}>
+                      <Text style={styles.closedMenuText}>Fermé ce jour</Text>
+                    </View>
+                  ) : schoolMenus.length === 0 ? (
                     <View style={styles.emptyMenuRow}>
                       <Text style={styles.emptyMenuText}>Aucun menu assigné</Text>
                     </View>
@@ -418,5 +437,11 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     fontSize: 13,
     fontWeight: '700',
+  },
+  closedMenuText: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    fontWeight: '700',
+    fontStyle: 'italic',
   },
 });

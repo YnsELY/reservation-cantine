@@ -100,6 +100,7 @@ export default function CreateWeekScreen() {
   const [provider, setProvider] = useState<Provider | null>(null);
   const [schools, setSchools] = useState<SchoolAccess[]>([]);
   const [selectedSchools, setSelectedSchools] = useState<string[]>([]);
+  const [schoolClosedDays, setSchoolClosedDays] = useState<Record<string, number[]>>({});
   const [libraryMenus, setLibraryMenus] = useState<ProviderMenuLibrary[]>([]);
   const [rawSupplements, setRawSupplements] = useState<RawSupplement[]>([]);
   const [selectedDates, setSelectedDates] = useState<string[]>(params.editDate ? [params.editDate] : []);
@@ -127,13 +128,18 @@ export default function CreateWeekScreen() {
 
       const { data: schoolAccess } = await supabase
         .from('provider_school_access')
-        .select('school_id, schools(name)')
+        .select('school_id, schools(name, closed_weekdays)')
         .eq('provider_id', currentProvider.id);
 
       const schoolsList = (schoolAccess || []).map(sa => ({
         school_id: (sa as any).school_id,
         school_name: (sa as any).schools?.name || 'École',
       }));
+      const closedMap: Record<string, number[]> = {};
+      (schoolAccess || []).forEach((sa: any) => {
+        closedMap[sa.school_id] = (sa.schools?.closed_weekdays || []) as number[];
+      });
+      setSchoolClosedDays(closedMap);
       setSchools(schoolsList);
       setSelectedSchools(schoolsList.map(school => school.school_id));
 
@@ -229,6 +235,11 @@ export default function CreateWeekScreen() {
 
     return days;
   };
+
+  // Un jour est fermé s'il l'est pour au moins une école sélectionnée
+  // (évite de publier un menu un jour de fermeture). Convention Date.getDay().
+  const isClosedWeekday = (date: Date) =>
+    selectedSchools.some(sid => (schoolClosedDays[sid] || []).includes(date.getDay()));
 
   const toggleSchool = (schoolId: string) => {
     setSelectedSchools(prev =>
@@ -497,7 +508,10 @@ export default function CreateWeekScreen() {
       }
 
       for (const schoolId of selectedSchools) {
+        const closed = schoolClosedDays[schoolId] || [];
         for (const date of selectedDates) {
+          const [yy, mm, dd] = date.split('-').map(Number);
+          if (closed.includes(new Date(yy, mm - 1, dd).getDay())) continue;
           await publishMenusForSchoolDay(schoolId, dayConfigs[date], getWeekStart(date));
         }
       }
@@ -583,6 +597,13 @@ export default function CreateWeekScreen() {
                   if (!date) return <View key={`empty-${index}`} style={styles.dayCell} />;
                   const dateString = formatDate(date);
                   const selected = selectedDates.includes(dateString);
+                  if (isClosedWeekday(date)) {
+                    return (
+                      <View key={dateString} style={[styles.dayCell, styles.dayCellClosed]}>
+                        <Text style={[styles.dayCellText, styles.dayCellTextClosed]}>{date.getDate()}</Text>
+                      </View>
+                    );
+                  }
                   return (
                     <TouchableOpacity
                       key={dateString}
@@ -853,6 +874,14 @@ const styles = StyleSheet.create({
   },
   dayCellSelected: {
     backgroundColor: '#111827',
+  },
+  dayCellClosed: {
+    backgroundColor: '#F3F4F6',
+    opacity: 0.55,
+  },
+  dayCellTextClosed: {
+    color: '#9CA3AF',
+    textDecorationLine: 'line-through',
   },
   dayCellText: {
     color: '#374151',

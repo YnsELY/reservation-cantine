@@ -51,6 +51,7 @@ export interface School {
   contact_phone: string | null;
   access_code: string | null;
   is_school_user: boolean;
+  closed_weekdays?: number[] | null;
   created_at: string;
 }
 
