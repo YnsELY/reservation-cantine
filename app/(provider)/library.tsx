@@ -197,21 +197,64 @@ export default function ProviderLibraryScreen() {
   };
 
   const handleDeleteMenu = (menu: LibraryMenu) => {
-    showAlert('Supprimer le menu', 'Ce menu sera supprimé de la bibliothèque. Les semaines déjà publiées ne seront pas modifiées.', [
-      { text: 'Annuler', style: 'cancel' },
-      {
-        text: 'Supprimer',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await supabase.from('provider_menu_library').delete().eq('id', menu.id);
-            await loadData();
-          } catch (err) {
-            console.error('Error deleting library menu:', err);
-          }
+    showAlert(
+      'Supprimer le menu',
+      'Ce menu sera supprimé de la bibliothèque ET retiré des jours déjà publiés (« Voir ma semaine »), donc plus visible par les parents. Les jours déjà réservés restent valables mais ne seront plus proposés.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const currentProvider = await authService.getCurrentProviderFromAuth();
+              if (!currentProvider) return;
+
+              // Retirer les menus PUBLIÉS issus de ce menu-bibliothèque AVANT de supprimer
+              // le menu-biblio : la FK menus.library_menu_id est ON DELETE SET NULL, donc
+              // sinon le lien serait perdu et les copies resteraient visibles côté parent.
+              const { data: publishedMenus } = await supabase
+                .from('menus')
+                .select('id')
+                .eq('library_menu_id', menu.id)
+                .eq('provider_id', currentProvider.id);
+              const publishedIds = (publishedMenus || []).map((m: any) => m.id);
+
+              if (publishedIds.length > 0) {
+                const { data: reservedRows } = await supabase
+                  .from('reservations')
+                  .select('menu_id')
+                  .in('menu_id', publishedIds)
+                  .neq('payment_status', 'cancelled');
+                const reservedIds = new Set((reservedRows || []).map((r: any) => r.menu_id));
+                const deletableIds = publishedIds.filter((id) => !reservedIds.has(id));
+                const reservedPublishedIds = publishedIds.filter((id) => reservedIds.has(id));
+
+                if (deletableIds.length > 0) {
+                  // suppléments spécifiques rattachés à ces menus publiés
+                  await supabase
+                    .from('provider_supplements')
+                    .delete()
+                    .eq('provider_id', currentProvider.id)
+                    .in('menu_id', deletableIds)
+                    .not('source_library_supplement_id', 'is', null);
+                  await supabase.from('menus').delete().in('id', deletableIds);
+                }
+                if (reservedPublishedIds.length > 0) {
+                  await supabase.from('menus').update({ available: false }).in('id', reservedPublishedIds);
+                }
+              }
+
+              await supabase.from('provider_menu_library').delete().eq('id', menu.id);
+              await loadData();
+            } catch (err) {
+              console.error('Error deleting library menu:', err);
+              showAlert('Erreur', "Impossible de supprimer le menu.");
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   const handleDeleteSupplement = (supplement: LibrarySupplement) => {
