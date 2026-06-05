@@ -13,6 +13,7 @@ import {
   waitForDuration,
 } from '@/lib/startup';
 import { supabase } from '@/lib/supabase';
+import { Eye, EyeOff } from 'lucide-react-native';
 
 type AuthMode = 'login' | 'signup';
 
@@ -24,6 +25,8 @@ export default function AuthScreen() {
   const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [resetMessage, setResetMessage] = useState('');
   const [checkingSession, setCheckingSession] = useState(() => !consumeSkippedAuthStartupCheck());
   const router = useRouter();
 
@@ -69,6 +72,7 @@ export default function AuthScreen() {
 
     setLoading(true);
     setError('');
+    setResetMessage('');
 
     try {
       if (mode === 'login') {
@@ -154,6 +158,29 @@ export default function AuthScreen() {
     }
   };
 
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setResetMessage('');
+      setError("Entrez d'abord votre email ci-dessus, puis cliquez sur « Mot de passe oublié ? ».");
+      return;
+    }
+    setError('');
+    setResetMessage('');
+    setLoading(true);
+    try {
+      const redirectTo = Platform.OS === 'web' && typeof window !== 'undefined'
+        ? `${window.location.origin}/reset-password`
+        : 'https://childrens-kitchen.com/reset-password';
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo });
+      if (resetError) throw resetError;
+      setResetMessage(`Si un compte existe pour ${email.trim()}, un email de réinitialisation vient d'être envoyé. Pensez à vérifier vos spams.`);
+    } catch (err: any) {
+      setError(err.message || "Impossible d'envoyer l'email de réinitialisation");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderLegalLinks = () => (
     <View style={styles.legalSection}>
       <Text style={styles.legalTitle}>Documents légaux</Text>
@@ -227,25 +254,35 @@ export default function AuthScreen() {
             onChangeText={(text) => {
               setEmail(text);
               setError('');
+              setResetMessage('');
             }}
             keyboardType="email-address"
             autoCapitalize="none"
             editable={!loading}
           />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Mot de passe"
-            placeholderTextColor="#6B7280"
-            value={password}
-            onChangeText={(text) => {
-              setPassword(text);
-              setError('');
-            }}
-            secureTextEntry
-            autoCapitalize="none"
-            editable={!loading}
-          />
+          <View style={styles.passwordRow}>
+            <TextInput
+              style={[styles.input, styles.passwordInput]}
+              placeholder="Mot de passe"
+              placeholderTextColor="#6B7280"
+              value={password}
+              onChangeText={(text) => {
+                setPassword(text);
+                setError('');
+              }}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              editable={!loading}
+            />
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setShowPassword((s) => !s)}
+              accessibilityLabel={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+            >
+              {showPassword ? <EyeOff size={20} color="#6B7280" /> : <Eye size={20} color="#6B7280" />}
+            </TouchableOpacity>
+          </View>
 
           {mode === 'signup' && (
             <>
@@ -292,6 +329,20 @@ export default function AuthScreen() {
               </Text>
             )}
           </TouchableOpacity>
+
+          {mode === 'login' && (
+            <TouchableOpacity
+              style={styles.forgotLink}
+              onPress={handleForgotPassword}
+              disabled={loading}
+            >
+              <Text style={styles.forgotLinkText}>Mot de passe oublié ?</Text>
+            </TouchableOpacity>
+          )}
+
+          {resetMessage ? (
+            <Text style={styles.successText}>{resetMessage}</Text>
+          ) : null}
 
           {mode === 'login' && (
             <Text style={styles.helperText}>
@@ -374,6 +425,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 12,
     color: '#000000',
+  },
+  passwordRow: {
+    position: 'relative',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  passwordInput: {
+    marginBottom: 0,
+    paddingRight: 48,
+  },
+  eyeButton: {
+    position: 'absolute',
+    right: 12,
+    height: '100%',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  forgotLink: {
+    marginTop: 14,
+    alignItems: 'center',
+  },
+  forgotLinkText: {
+    fontSize: 14,
+    color: '#111827',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  successText: {
+    color: '#059669',
+    fontSize: 14,
+    marginTop: 14,
+    textAlign: 'center',
+    paddingHorizontal: 8,
+    lineHeight: 19,
   },
   helperText: {
     fontSize: 13,

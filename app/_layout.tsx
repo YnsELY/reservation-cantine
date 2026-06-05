@@ -13,6 +13,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="auth" options={{ headerShown: false }} />
+        <Stack.Screen name="reset-password" options={{ headerShown: false }} />
         <Stack.Screen name="legal/cgv" options={{ headerShown: false }} />
         <Stack.Screen name="legal/privacy" options={{ headerShown: false }} />
         <Stack.Screen name="(parent)" options={{ headerShown: false }} />
