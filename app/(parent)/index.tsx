@@ -259,6 +259,18 @@ export default function ParentHomeScreen() {
           (targetMenus || []).map((m: any) => m.school_id)
         );
 
+        // Jours de fermeture par école : un jour fermé = pas de service (donc pas de
+        // compte à rebours), même s'il reste d'anciens menus publiés ce jour-là.
+        const { data: schoolRows } = await supabase
+          .from('schools')
+          .select('id, closed_weekdays')
+          .in('id', childSchoolIds);
+        const closedBySchool: Record<string, number[]> = {};
+        (schoolRows || []).forEach((s: any) => {
+          closedBySchool[s.id] = (s.closed_weekdays || []) as number[];
+        });
+        const targetWeekday = targetDate.getDay();
+
         const { data: targetReservations } = await supabase
           .from('reservations')
           .select('child_id')
@@ -270,7 +282,8 @@ export default function ParentHomeScreen() {
         );
 
         const servableChildren = childrenWithStatus.filter((c) =>
-          schoolsWithService.has(c.school_id)
+          schoolsWithService.has(c.school_id) &&
+          !(closedBySchool[c.school_id] || []).includes(targetWeekday)
         );
         hasService = servableChildren.length > 0;
         missing = servableChildren.filter((c) => !orderedChildIds.has(c.id));
