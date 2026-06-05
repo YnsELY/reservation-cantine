@@ -126,6 +126,15 @@ export default function CreateSchoolScreen() {
         throw insertError;
       }
 
+      // Mémorise le mot de passe initial (table admin-only) pour la fiche admin.
+      const { error: credError } = await supabase.from('managed_account_passwords').upsert({
+        user_id: authData.user.id,
+        account_type: 'school',
+        email: email.trim().toLowerCase(),
+        temp_password: password,
+      });
+      if (credError) console.error('store temp password (school) error:', credError);
+
       const capturedPassword = password;
       const capturedEmail = email.trim().toLowerCase();
       const capturedName = schoolName.trim();

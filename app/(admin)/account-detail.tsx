@@ -9,7 +9,9 @@ import { showAlert } from '@/lib/alert';
 import {
   ArrowLeft, User, Building2, Store, Mail, Phone, MapPin, Key,
   GraduationCap, School as SchoolIcon, ShoppingBag, Power, RotateCcw,
+  Eye, EyeOff, Copy,
 } from 'lucide-react-native';
+import { copyToClipboard } from '@/lib/clipboard';
 
 type AccountType = 'parent' | 'school' | 'provider';
 
@@ -62,6 +64,8 @@ export default function AccountDetailScreen() {
   const [schools, setSchools] = useState<any[]>([]);
   const [providers, setProviders] = useState<any[]>([]);
   const [reservations, setReservations] = useState<any[]>([]);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [genreFilter, setGenreFilter] = useState<'all' | 'fille' | 'garcon'>('all');
   const [classFilter, setClassFilter] = useState<string>('all');
@@ -72,6 +76,17 @@ export default function AccountDetailScreen() {
   useEffect(() => {
     loadData();
   }, [type, id]);
+
+  // Mot de passe initial (comptes prestataire/école), table admin-only.
+  const loadTempPassword = async (userId: string | null | undefined) => {
+    if (!userId) { setTempPassword(null); return; }
+    const { data } = await supabase
+      .from('managed_account_passwords')
+      .select('temp_password')
+      .eq('user_id', userId)
+      .maybeSingle();
+    setTempPassword(data?.temp_password || null);
+  };
 
   const loadData = async () => {
     try {
@@ -105,6 +120,7 @@ export default function AccountDetailScreen() {
       } else if (type === 'provider') {
         const { data: pr } = await supabase.from('providers').select('*').eq('id', id).maybeSingle();
         setAccount(pr);
+        await loadTempPassword(pr?.user_id);
         const { data: acc } = await supabase
           .from('provider_school_access')
           .select('granted_at, schools(*)').eq('provider_id', id);
@@ -112,6 +128,7 @@ export default function AccountDetailScreen() {
       } else if (type === 'school') {
         const { data: s } = await supabase.from('schools').select('*').eq('id', id).maybeSingle();
         setAccount(s);
+        await loadTempPassword(s?.user_id);
         const { data: ch } = await supabase
           .from('children').select('*').eq('school_id', id).order('last_name');
         setChildren(ch || []);
@@ -290,6 +307,52 @@ export default function AccountDetailScreen() {
             )}
           </View>
         </View>
+
+        {/* ---------- Identifiants de connexion (prestataire & école) ---------- */}
+        {(type === 'provider' || type === 'school') && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Identifiants de connexion</Text>
+            <View style={styles.infoCard}>
+              <InfoRow
+                icon={<Mail size={18} color="#6B7280" />}
+                label="Email"
+                value={type === 'provider' ? (account.email || account.contact_email) : account.contact_email}
+              />
+              <View style={[styles.infoRow, styles.infoRowLast]}>
+                <View style={styles.rowCenter}>
+                  <Key size={18} color="#6B7280" />
+                  <Text style={styles.infoLabel}>Mot de passe</Text>
+                </View>
+                {tempPassword ? (
+                  <View style={styles.pwdRight}>
+                    <Text style={styles.pwdValue} numberOfLines={1}>
+                      {showPassword ? tempPassword : '••••••••'}
+                    </Text>
+                    <TouchableOpacity onPress={() => setShowPassword((v) => !v)} style={styles.pwdBtn}>
+                      {showPassword ? <EyeOff size={18} color="#6B7280" /> : <Eye size={18} color="#6B7280" />}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={async () => {
+                        await copyToClipboard(tempPassword);
+                        showAlert('Copié', 'Mot de passe copié dans le presse-papier.');
+                      }}
+                      style={styles.pwdBtn}
+                    >
+                      <Copy size={18} color="#6B7280" />
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <Text style={styles.infoValue}>Non disponible</Text>
+                )}
+              </View>
+            </View>
+            <Text style={styles.pwdCaveat}>
+              {tempPassword
+                ? "Mot de passe initial (défini à la création). S'il a été modifié par le compte, il n'est plus à jour."
+                : 'Mot de passe non enregistré (compte créé avant cette fonctionnalité).'}
+            </Text>
+          </View>
+        )}
 
         {/* ---------- PARENT : enfants ---------- */}
         {type === 'parent' && (
@@ -672,6 +735,27 @@ const styles = StyleSheet.create({
     color: '#111827',
     flex: 1,
     textAlign: 'right',
+  },
+  pwdRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexShrink: 1,
+  },
+  pwdValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    maxWidth: 150,
+  },
+  pwdBtn: {
+    padding: 4,
+  },
+  pwdCaveat: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 8,
+    lineHeight: 16,
   },
   itemCard: {
     backgroundColor: '#FFFFFF',

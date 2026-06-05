@@ -129,6 +129,16 @@ export default function CreateProviderScreen() {
         throw insertError;
       }
 
+      // Mémorise le mot de passe initial (table admin-only) pour la fiche admin.
+      // Best-effort : si ça échoue, la création reste valide.
+      const { error: credError } = await supabase.from('managed_account_passwords').upsert({
+        user_id: authData.user.id,
+        account_type: 'provider',
+        email: email.trim().toLowerCase(),
+        temp_password: password,
+      });
+      if (credError) console.error('store temp password (provider) error:', credError);
+
       const capturedPassword = password;
       const capturedEmail = email.trim().toLowerCase();
       const capturedName = companyName.trim();
