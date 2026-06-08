@@ -8,7 +8,7 @@ import { supabase, CartItem, Child, Menu, Parent, ParentCredit } from '@/lib/sup
 import { authService } from '@/lib/auth';
 import { sendOrderConfirmationEmail } from '@/lib/emails';
 import { payzoneService, CartItemForPayment } from '@/lib/payzone';
-import { applyCreditsToCart, consumeCredits, getAvailableCredits } from '@/lib/credits';
+import { applyCreditsToCart, consumeCredits, getAvailableCredits, CANCELLATION_CUTOFF_HOUR } from '@/lib/credits';
 import { ArrowLeft, Trash2, ShoppingCart, Lock, User, FlaskConical, Wallet, Check } from 'lucide-react-native';
 
 interface CartItemWithDetails extends CartItem {
@@ -34,6 +34,11 @@ export default function CartScreen() {
       loadCartData();
     }, [])
   );
+
+  // Cutoff 7h : un repas du jour J n'est plus commandable à partir de J 7h00,
+  // donc il doit aussi sortir du panier.
+  const isPastCutoff = (date: string) =>
+    new Date() >= new Date(`${date}T${String(CANCELLATION_CUTOFF_HOUR).padStart(2, '0')}:00:00`);
 
   const loadCartData = async () => {
     try {
@@ -69,7 +74,20 @@ export default function CartScreen() {
           })
         );
 
-        setCartItems(itemsWithDetails.filter(item => item.child && item.menu));
+        const valid = itemsWithDetails.filter(item => item.child && item.menu);
+        const expired = valid.filter(item => isPastCutoff(item.date));
+        const current = valid.filter(item => !isPastCutoff(item.date));
+
+        if (expired.length > 0) {
+          await supabase.from('cart_items').delete().in('id', expired.map(i => i.id));
+          showAlert(
+            'Panier mis à jour',
+            `${expired.length} repas retiré${expired.length > 1 ? 's' : ''} du panier : la commande n'est plus possible après 7h le jour du repas.`
+          );
+        }
+        setCartItems(current);
+      } else {
+        setCartItems([]);
       }
 
       const availableCredits = await getAvailableCredits(currentParent.id);
@@ -120,6 +138,19 @@ export default function CartScreen() {
 
   const handlePayment = async () => {
     if (cartItems.length === 0 || !parent) return;
+
+    // Garde-fou : si 7h est passé pour certains repas pendant que le panier était ouvert,
+    // on les retire et on demande de reconfirmer (le total et les crédits changent).
+    const expiredNow = cartItems.filter(item => isPastCutoff(item.date));
+    if (expiredNow.length > 0) {
+      await supabase.from('cart_items').delete().in('id', expiredNow.map(i => i.id));
+      setCartItems(prev => prev.filter(item => !isPastCutoff(item.date)));
+      showAlert(
+        'Panier mis à jour',
+        `${expiredNow.length} repas retiré${expiredNow.length > 1 ? 's' : ''} : la commande n'est plus possible après 7h le jour du repas. Vérifiez votre panier puis relancez le paiement.`
+      );
+      return;
+    }
 
     setProcessingPayment(true);
     try {
