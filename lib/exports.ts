@@ -166,20 +166,15 @@ const buildHtml = (payload: ExportPayload): string => {
 };
 
 const exportPdf = async (baseName: string, payload: ExportPayload) => {
-  const html = buildHtml(payload);
-  const fileName = `${baseName}.pdf`;
-
+  // Web : vrai fichier PDF téléchargeable (jsPDF). Évite le window.open('about:blank')
+  // + window.print() qui ne marche pas sur Android et ne produit aucun fichier partageable.
   if (Platform.OS === 'web') {
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(html);
-      win.document.close();
-      win.focus();
-      setTimeout(() => win.print(), 250);
-    }
-    return;
+    return exportPdfWeb(baseName, payload);
   }
 
+  // Natif : expo-print -> vrai fichier + feuille de partage.
+  const html = buildHtml(payload);
+  const fileName = `${baseName}.pdf`;
   const { uri } = await Print.printToFileAsync({ html, base64: false });
   const target = `${FileSystem.documentDirectory}${fileName}`;
   try {
@@ -195,6 +190,71 @@ const exportPdf = async (baseName: string, payload: ExportPayload) => {
       UTI: 'com.adobe.pdf',
     });
   }
+};
+
+const exportPdfWeb = async (baseName: string, payload: ExportPayload) => {
+  // Imports dynamiques : jsPDF n'est chargé que sur le web (jamais évalué côté natif).
+  const { jsPDF } = await import('jspdf');
+  const autoTable = (await import('jspdf-autotable')).default;
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const marginX = 40;
+  let y = 50;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(17, 24, 39);
+  doc.text(payload.title || payload.fileName, marginX, y);
+  y += 18;
+
+  if (payload.subtitle) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(107, 114, 128);
+    doc.text(payload.subtitle, marginX, y);
+    y += 16;
+  }
+
+  if (payload.meta && payload.meta.length) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(55, 65, 81);
+    const metaText = payload.meta.map((m) => `${m.label} : ${m.value}`).join('      ');
+    const lines = doc.splitTextToSize(metaText, pageWidth - marginX * 2);
+    doc.text(lines, marginX, y);
+    y += 13 * lines.length + 4;
+  }
+
+  if (payload.totals && payload.totals.length) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(17, 24, 39);
+    const totalsText = payload.totals.map((t) => `${t.label} : ${t.value}`).join('      ');
+    const lines = doc.splitTextToSize(totalsText, pageWidth - marginX * 2);
+    doc.text(lines, marginX, y);
+    y += 13 * lines.length + 4;
+  }
+
+  autoTable(doc, {
+    head: [payload.header],
+    body: payload.rows.map((r) => r.map((c) => (c == null ? '' : String(c)))),
+    startY: y + 6,
+    margin: { left: marginX, right: marginX, bottom: 46 },
+    styles: { fontSize: 9, cellPadding: 5, textColor: [17, 24, 39], overflow: 'linebreak' },
+    headStyles: { fillColor: [17, 24, 39], textColor: [255, 255, 255], fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [249, 250, 251] },
+    didDrawPage: () => {
+      const pageHeight = doc.internal.pageSize.getHeight();
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(156, 163, 175);
+      doc.text("Children's Kitchen", marginX, pageHeight - 20);
+      doc.text(new Date().toLocaleString('fr-FR'), pageWidth - marginX, pageHeight - 20, { align: 'right' });
+    },
+  });
+
+  doc.save(`${baseName}.pdf`);
 };
 
 export const GRADE_ORDER: string[] = [
