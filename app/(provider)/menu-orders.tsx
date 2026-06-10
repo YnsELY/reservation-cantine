@@ -31,6 +31,7 @@ interface OrderDetail {
   allergies: string[];
   dietary_restrictions: string[];
   supplements: OrderSupplement[];
+  annotations: string | null;
 }
 
 interface SchoolFilter {
@@ -159,7 +160,7 @@ export default function MenuOrdersScreen() {
 
       let reservationsQuery = supabase
         .from('reservations')
-        .select('id, child_id, parent_id, supplements')
+        .select('id, child_id, parent_id, supplements, annotations')
         .eq('date', date)
         .neq('payment_status', 'cancelled')
         .order('created_at', { ascending: true });
@@ -241,6 +242,7 @@ export default function MenuOrdersScreen() {
           allergies: Array.isArray(child?.allergies) ? child.allergies : [],
           dietary_restrictions: Array.isArray(child?.dietary_restrictions) ? child.dietary_restrictions : [],
           supplements: parseOrderSupplements(reservation.supplements),
+          annotations: (reservation.annotations || '').trim() || null,
         };
       });
 
@@ -293,9 +295,6 @@ export default function MenuOrdersScreen() {
           ? supplementAggregates.map(formatSupplementAggregate).join(' | ')
           : 'Aucun';
         const allergies = order.allergies.length > 0 ? order.allergies.join(', ') : 'Aucune';
-        const dietaryRestrictions = order.dietary_restrictions.length > 0
-          ? order.dietary_restrictions.join(', ')
-          : 'Aucune';
 
         return [
           order.school_name,
@@ -304,8 +303,8 @@ export default function MenuOrdersScreen() {
           order.grade || '',
           order.parent_name,
           allergies,
-          dietaryRestrictions,
           supplementSummary,
+          order.annotations || '',
         ] as (string | number)[];
       });
   };
@@ -319,7 +318,7 @@ export default function MenuOrdersScreen() {
 
     setExporting(true);
     try {
-      const header = ['École', 'Élève', 'Sexe', 'Classe', 'Parent', 'Allergies', 'Restrictions alimentaires', 'Suppléments'];
+      const header = ['École', 'Élève', 'Sexe', 'Classe', 'Parent', 'Allergies', 'Suppléments', 'Instructions spécifiques'];
       const rows = buildExportRows(ordersToExport);
 
       const scopeLabel = exportSchoolId === 'all'

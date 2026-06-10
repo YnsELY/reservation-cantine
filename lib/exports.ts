@@ -244,6 +244,19 @@ const exportPdfWeb = async (baseName: string, payload: ExportPayload) => {
     styles: { fontSize: 9, cellPadding: 5, textColor: [17, 24, 39], overflow: 'linebreak' },
     headStyles: { fillColor: [17, 24, 39], textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [249, 250, 251] },
+    // Met en évidence (fond rouge) les cellules de la colonne "Allergies" qui en contiennent.
+    didParseCell: (data: any) => {
+      if (data.section !== 'body') return;
+      const colName = (payload.header[data.column.index] || '').toLowerCase();
+      if (colName.includes('allerg')) {
+        const v = String(data.cell.raw ?? '').trim().toLowerCase();
+        if (v && v !== 'aucune' && v !== 'aucun' && v !== '-' && v !== 'néant') {
+          data.cell.styles.fillColor = [254, 226, 226];
+          data.cell.styles.textColor = [185, 28, 28];
+          data.cell.styles.fontStyle = 'bold';
+        }
+      }
+    },
     didDrawPage: () => {
       const pageHeight = doc.internal.pageSize.getHeight();
       doc.setFont('helvetica', 'normal');
