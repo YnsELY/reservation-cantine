@@ -34,7 +34,10 @@ export async function getAvailableCredits(parentId: string): Promise<ParentCredi
     console.error('getAvailableCredits error:', error);
     return [];
   }
-  return ((data || []) as ParentCredit[]).filter(c => remaining(c) > 0.005);
+  // Une cagnotte désactivée par l'admin (is_active === false) n'est plus utilisable.
+  return ((data || []) as ParentCredit[]).filter(
+    c => c.is_active !== false && remaining(c) > 0.005
+  );
 }
 
 export async function getBalance(parentId: string): Promise<number> {

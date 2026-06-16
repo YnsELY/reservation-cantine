@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { MenuIcon, User, LogOut, Users as UsersIcon, ShoppingBag, BarChart3, School, Building2, Key } from 'lucide-react-native';
+import { MenuIcon, User, LogOut, Users as UsersIcon, ShoppingBag, BarChart3, School, Building2, Key, Wallet } from 'lucide-react-native';
 import Svg, { Path, Rect, Defs, LinearGradient, Stop, Text as SvgText, Polyline, Circle, Line } from 'react-native-svg';
 
 const WhatsAppIcon = ({ size = 22, color = '#25D366' }) => (
@@ -182,6 +182,17 @@ export default function AdminDashboard() {
               >
                 <BarChart3 size={22} color="#4B5563" />
                 <Text style={styles.dropdownItemText}>Statistiques</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.dropdownItem}
+                onPress={() => {
+                  setIsMenuCardOpen(false);
+                  router.push('/(admin)/cagnottes');
+                }}
+              >
+                <Wallet size={22} color="#4F46E5" />
+                <Text style={styles.dropdownItemText}>Gérer les cagnottes</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
