@@ -1,9 +1,10 @@
-import { ReactNode, useCallback, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useFocusEffect } from 'expo-router';
+import { usePathname } from 'expo-router';
 import { Lock, ArrowLeft } from 'lucide-react-native';
 import { authService } from '@/lib/auth';
+import { safeBack } from '@/lib/navigation';
 
 interface Props {
   /** Libellé de la page protégée (affiché sous le titre) */
@@ -13,10 +14,12 @@ interface Props {
 
 /**
  * Verrou PIN : protège une page prestataire par un code à 4 chiffres.
- * Le PIN est demandé À CHAQUE FOIS que la page reprend le focus.
+ * Le PIN est demandé à chaque entrée dans une rubrique protégée.
  * Si le prestataire n'a aucun PIN défini, la page n'est pas verrouillée.
  */
 export function PinGate({ title, children }: Props) {
+  const pathname = usePathname();
+  const previousPathname = useRef(pathname);
   const [pin, setPin] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [locked, setLocked] = useState(true);
@@ -41,14 +44,17 @@ export function PinGate({ title, children }: Props) {
     };
   }, []);
 
-  // Re-verrouille à chaque fois que la page reprend le focus.
-  useFocusEffect(
-    useCallback(() => {
+  // Re-verrouille uniquement lors d'un vrai changement de rubrique.
+  // L'ouverture ou la fermeture d'une modale ne change pas le chemin et ne
+  // doit donc pas redemander le PIN au milieu d'une même tâche.
+  useEffect(() => {
+    if (previousPathname.current !== pathname) {
+      previousPathname.current = pathname;
       setCode('');
       setError(false);
       if (pin) setLocked(true);
-    }, [pin])
-  );
+    }
+  }, [pathname, pin]);
 
   const verify = (value: string) => {
     if (value === pin) {
@@ -83,7 +89,7 @@ export function PinGate({ title, children }: Props) {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.topBar}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => safeBack('/(provider)')}>
           <ArrowLeft size={22} color="#111827" />
         </TouchableOpacity>
       </View>

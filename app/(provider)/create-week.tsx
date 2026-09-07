@@ -5,7 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PinGate } from '@/components/PinGate';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Package, Plus, X } from 'lucide-react-native';
+import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, Package, Plus, X } from 'lucide-react-native';
 import { authService } from '@/lib/auth';
 import { Provider, ProviderMenuLibrary, supabase } from '@/lib/supabase';
 
@@ -682,25 +682,40 @@ export default function CreateWeekScreen() {
               </TouchableOpacity>
             </View>
 
-            {libraryMenus.map(menu => {
-              const selected = !!pickerConfig?.menuIds.includes(menu.id);
-              return (
-                <TouchableOpacity
-                  key={menu.id}
-                  style={styles.menuChoiceRow}
-                  onPress={() => pickerDate && toggleMenuForDate(pickerDate, menu.id)}
-                >
-                  <View style={[styles.colorDot, { backgroundColor: menu.card_color || '#FFE4E1' }]} />
-                  <View style={styles.menuChoiceText}>
-                    <Text style={styles.menuChoiceName}>{menu.meal_name}</Text>
-                    <Text style={styles.menuChoicePrice}>{Number(menu.price).toFixed(2)} DH</Text>
-                  </View>
-                  <View style={[styles.radioCircle, selected && styles.radioCircleSelected]}>
-                    {selected && <Check size={20} color="#FFFFFF" />}
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+            <View style={styles.scrollHint}>
+              <Text style={styles.scrollHintText}>Faites défiler pour voir tous les menus</Text>
+              <ChevronDown size={18} color="#4F46E5" />
+            </View>
+
+            <ScrollView
+              style={styles.menuList}
+              contentContainerStyle={styles.menuListContent}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
+              persistentScrollbar
+              accessibilityLabel="Liste des menus disponibles"
+              accessibilityHint="Faites défiler verticalement pour parcourir tous les menus"
+            >
+              {libraryMenus.map(menu => {
+                const selected = !!pickerConfig?.menuIds.includes(menu.id);
+                return (
+                  <TouchableOpacity
+                    key={menu.id}
+                    style={styles.menuChoiceRow}
+                    onPress={() => pickerDate && toggleMenuForDate(pickerDate, menu.id)}
+                  >
+                    <View style={[styles.colorDot, { backgroundColor: menu.card_color || '#FFE4E1' }]} />
+                    <View style={styles.menuChoiceText}>
+                      <Text style={styles.menuChoiceName}>{menu.meal_name}</Text>
+                      <Text style={styles.menuChoicePrice}>{Number(menu.price).toFixed(2)} DH</Text>
+                    </View>
+                    <View style={[styles.radioCircle, selected && styles.radioCircleSelected]}>
+                      {selected && <Check size={20} color="#FFFFFF" />}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
 
             <TouchableOpacity style={styles.confirmButton} onPress={() => setPickerDate(null)}>
               <Text style={styles.confirmButtonText}>Confirmer</Text>
@@ -984,6 +999,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     overflow: 'hidden',
     paddingBottom: 18,
+    height: '50%',
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -998,6 +1014,28 @@ const styles = StyleSheet.create({
     color: '#111827',
     fontSize: 18,
     fontWeight: '800',
+  },
+  scrollHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    backgroundColor: '#F5F3FF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDE9FE',
+  },
+  scrollHintText: {
+    color: '#4F46E5',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  menuList: {
+    flex: 1,
+  },
+  menuListContent: {
+    paddingBottom: 4,
   },
   menuChoiceRow: {
     flexDirection: 'row',
@@ -1043,7 +1081,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#111827',
     borderRadius: 12,
     marginHorizontal: 24,
-    marginTop: 26,
+    marginTop: 18,
     height: 74,
     alignItems: 'center',
     justifyContent: 'center',
