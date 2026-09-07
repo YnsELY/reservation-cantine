@@ -447,12 +447,6 @@ export default function CreateWeekScreen() {
       return;
     }
 
-    const emptyDay = selectedDates.find(date => (dayConfigs[date]?.menuIds || []).length === 0);
-    if (emptyDay) {
-      showAlert('Erreur', `Ajoutez au moins un menu pour ${formatDayTitle(emptyDay)}`);
-      return;
-    }
-
     setSaving(true);
     try {
       const weekStartDates = Array.from(new Set(selectedDates.map(getWeekStart)));
