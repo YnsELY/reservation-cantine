@@ -6,7 +6,7 @@ import { supabase, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { showAlert } from '@/lib/alert';
 import { parseOrderSupplements, SupplementAggregate } from '@/lib/order-supplements';
-import { Calendar, Building2, UtensilsCrossed, BarChart3, ChefHat, Eye } from 'lucide-react-native';
+import { Calendar, Building2, UtensilsCrossed, BarChart3, ChefHat, Eye, Wallet } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useNotifications } from '@/hooks/useNotifications';
 
@@ -358,6 +358,18 @@ export default function ProviderHomeScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={[styles.schoolsButton, styles.walletButton]}
+          onPress={() => router.push('/(provider)/cagnottes' as any)}
+        >
+          <View style={styles.schoolsButtonContent}>
+            <Wallet size={24} color="#1E40AF" />
+            <Text style={[styles.schoolsButtonText, styles.walletButtonText]}>
+              Gérer les cagnottes
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[styles.secondaryActionCard, { backgroundColor: '#BFDBFE' }]}
           onPress={() => router.push('/(provider)/statistics')}
         >
@@ -639,6 +651,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#065F46',
+  },
+  walletButton: {
+    backgroundColor: '#DBEAFE',
+  },
+  walletButtonText: {
+    color: '#1E40AF',
   },
   schoolsBadge: {
     backgroundColor: '#FFFFFF',
