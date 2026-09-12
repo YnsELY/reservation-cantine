@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PinGate } from '@/components/PinGate';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
-import { ArrowLeft, Check, ChefHat, Edit, XCircle } from 'lucide-react-native';
+import { ArrowLeft, Check, ChefHat, ChevronLeft, ChevronRight, Edit, XCircle } from 'lucide-react-native';
 import { authService } from '@/lib/auth';
 import { Menu, supabase } from '@/lib/supabase';
 
@@ -35,13 +35,38 @@ const addDays = (date: Date, days: number) => {
   return next;
 };
 
-const getCurrentWeekDates = () => {
+const getCurrentWeekStart = () => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const day = today.getDay();
   const diff = day === 0 ? -6 : 1 - day;
-  const monday = addDays(today, diff);
-  return Array.from({ length: 6 }, (_, index) => formatDate(addDays(monday, index)));
+  return addDays(today, diff);
+};
+
+const getWeekDates = (weekStart: Date) =>
+  Array.from({ length: 6 }, (_, index) => formatDate(addDays(weekStart, index)));
+
+const formatWeekRange = (weekDates: string[]) => {
+  const start = parseLocalDate(weekDates[0]);
+  const end = parseLocalDate(weekDates[weekDates.length - 1]);
+  const sameMonth = start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+
+  if (sameMonth) {
+    return `Du ${start.getDate()} au ${end.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    })}`;
+  }
+
+  return `Du ${start.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+  })} au ${end.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })}`;
 };
 
 const formatDayTitle = (dateString: string) => {
@@ -59,9 +84,12 @@ export default function ProviderWeekScreen() {
   const [menus, setMenus] = useState<MenuRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [changingWeek, setChangingWeek] = useState(false);
   const [schoolClosedDays, setSchoolClosedDays] = useState<Record<string, number[]>>({});
+  const [selectedWeekStart, setSelectedWeekStart] = useState(getCurrentWeekStart);
 
-  const weekDates = useMemo(() => getCurrentWeekDates(), []);
+  const weekDates = useMemo(() => getWeekDates(selectedWeekStart), [selectedWeekStart]);
+  const isCurrentWeek = formatDate(selectedWeekStart) === formatDate(getCurrentWeekStart());
 
   const loadData = useCallback(async () => {
     try {
@@ -109,6 +137,7 @@ export default function ProviderWeekScreen() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setChangingWeek(false);
     }
   }, [router, weekDates]);
 
@@ -121,6 +150,12 @@ export default function ProviderWeekScreen() {
   const onRefresh = () => {
     setRefreshing(true);
     loadData();
+  };
+
+  const changeWeek = (direction: -1 | 1) => {
+    if (changingWeek) return;
+    setChangingWeek(true);
+    setSelectedWeekStart(current => addDays(current, direction * 7));
   };
 
   const getMenusForSchoolDate = (schoolId: string, date: string) =>
@@ -165,6 +200,45 @@ export default function ProviderWeekScreen() {
         contentContainerStyle={styles.contentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        <View style={styles.weekNavigator}>
+          <TouchableOpacity
+            style={styles.weekArrowButton}
+            onPress={() => changeWeek(-1)}
+            disabled={changingWeek}
+            accessibilityRole="button"
+            accessibilityLabel="Voir la semaine précédente"
+          >
+            <ChevronLeft size={26} color="#111827" />
+          </TouchableOpacity>
+
+          <View style={styles.weekNavigatorLabel}>
+            {changingWeek ? (
+              <ActivityIndicator size="small" color="#4F46E5" />
+            ) : (
+              <>
+                <Text style={styles.weekRange}>{formatWeekRange(weekDates)}</Text>
+                <Text style={styles.weekPosition}>
+                  {isCurrentWeek
+                    ? 'Semaine actuelle'
+                    : selectedWeekStart < getCurrentWeekStart()
+                      ? 'Semaine passée'
+                      : 'Semaine à venir'}
+                </Text>
+              </>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={styles.weekArrowButton}
+            onPress={() => changeWeek(1)}
+            disabled={changingWeek}
+            accessibilityRole="button"
+            accessibilityLabel="Voir la semaine suivante"
+          >
+            <ChevronRight size={26} color="#111827" />
+          </TouchableOpacity>
+        </View>
+
         <View style={[styles.statusHero, hasAnyCompleteSchool ? styles.statusHeroComplete : styles.statusHeroIncomplete]}>
           {hasAnyCompleteSchool ? (
             <Check size={30} color="#047857" />
@@ -281,6 +355,49 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 22,
     paddingBottom: 42,
+  },
+  weekNavigator: {
+    minHeight: 76,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    paddingHorizontal: 10,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  weekArrowButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3F4F6',
+  },
+  weekNavigatorLabel: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  weekRange: {
+    color: '#111827',
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  weekPosition: {
+    color: '#6B7280',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 4,
   },
   statusHero: {
     flexDirection: 'row',
