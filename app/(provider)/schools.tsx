@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase, Provider, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { ArrowLeft, Building2, MapPin, Mail, Phone, Search } from 'lucide-react-native';
+import { ArrowLeft, Building2, ChevronRight, MapPin, Mail, Phone, Search } from 'lucide-react-native';
 
 interface SchoolWithAccess extends School {
   granted_at?: string;
@@ -123,7 +123,17 @@ export default function ProviderSchools() {
         ) : (
           <View style={styles.schoolsList}>
             {filteredSchools.map(school => (
-              <View key={school.id} style={styles.schoolCard}>
+              <TouchableOpacity
+                key={school.id}
+                style={styles.schoolCard}
+                onPress={() => router.push({
+                  pathname: '/(provider)/students',
+                  params: { schoolId: school.id },
+                } as any)}
+                activeOpacity={0.82}
+                accessibilityRole="button"
+                accessibilityLabel={`Voir les élèves de ${school.name}`}
+              >
                 <View style={styles.schoolHeader}>
                   <View style={styles.schoolIcon}>
                     <Building2 size={24} color="#3B82F6" />
@@ -136,6 +146,7 @@ export default function ProviderSchools() {
                       </Text>
                     )}
                   </View>
+                  <ChevronRight size={21} color="#94A3B8" />
                 </View>
 
                 {school.address && (
@@ -158,7 +169,7 @@ export default function ProviderSchools() {
                     <Text style={styles.schoolDetailText}>{school.contact_phone}</Text>
                   </View>
                 )}
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         )}

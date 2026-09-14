@@ -6,7 +6,7 @@ import { supabase, Provider } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { showAlert } from '@/lib/alert';
 import { parseOrderSupplements, SupplementAggregate } from '@/lib/order-supplements';
-import { Calendar, Building2, UtensilsCrossed, BarChart3, ChefHat, Eye, Wallet } from 'lucide-react-native';
+import { Calendar, Building2, UtensilsCrossed, BarChart3, ChefHat, Eye, Wallet, Users } from 'lucide-react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useNotifications } from '@/hooks/useNotifications';
 
@@ -26,6 +26,7 @@ export default function ProviderHomeScreen() {
   const [todayGenericSupplements, setTodayGenericSupplements] = useState<SupplementAggregate[]>([]);
   const [todaySpecificOrders, setTodaySpecificOrders] = useState<MenuBreakdownItem[]>([]);
   const [schoolsCount, setSchoolsCount] = useState(0);
+  const [studentsCount, setStudentsCount] = useState(0);
   const [monthlyOrders, setMonthlyOrders] = useState<number[]>([0, 0, 0, 0, 0]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -75,6 +76,13 @@ export default function ProviderHomeScreen() {
 
       const schoolIds = schoolAccess?.map(sa => sa.school_id) || [];
       setSchoolsCount(schoolIds.length);
+
+      if (schoolIds.length > 0) {
+        const { data: count } = await supabase.rpc('get_provider_school_student_count');
+        setStudentsCount(Number(count) || 0);
+      } else {
+        setStudentsCount(0);
+      }
 
       const today = new Date();
       const year = today.getFullYear();
@@ -345,7 +353,7 @@ export default function ProviderHomeScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.schoolsButton}
+          style={[styles.schoolsButton, styles.schoolsListButton]}
           onPress={() => router.push('/(provider)/schools')}
         >
           <View style={styles.schoolsButtonContent}>
@@ -353,6 +361,21 @@ export default function ProviderHomeScreen() {
             <Text style={styles.schoolsButtonText}>Liste des écoles</Text>
             <View style={styles.schoolsBadge}>
               <Text style={styles.schoolsBadgeText}>{schoolsCount}</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.schoolsButton, styles.studentsButton]}
+          onPress={() => router.push('/(provider)/students' as any)}
+        >
+          <View style={styles.schoolsButtonContent}>
+            <Users size={24} color="#3730A3" />
+            <Text style={[styles.schoolsButtonText, styles.studentsButtonText]}>
+              Liste des élèves
+            </Text>
+            <View style={styles.schoolsBadge}>
+              <Text style={[styles.schoolsBadgeText, styles.studentsBadgeText]}>{studentsCount}</Text>
             </View>
           </View>
         </TouchableOpacity>
@@ -640,6 +663,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+  },
+  schoolsListButton: {
+    marginBottom: 12,
+  },
+  studentsButton: {
+    backgroundColor: '#E0E7FF',
+  },
+  studentsButtonText: {
+    color: '#3730A3',
+  },
+  studentsBadgeText: {
+    color: '#3730A3',
   },
   schoolsButtonContent: {
     flexDirection: 'row',

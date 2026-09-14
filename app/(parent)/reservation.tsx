@@ -4,7 +4,58 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase, Child, Menu, Parent, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { AlertCircle, ChevronLeft, ChevronRight, ShoppingCart, UserPlus, School as SchoolIcon, ArrowLeft, UtensilsCrossed } from 'lucide-react-native';
+import { AlertCircle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ShoppingCart, UserPlus, School as SchoolIcon, ArrowLeft, UtensilsCrossed } from 'lucide-react-native';
+
+const DESCRIPTION_PREVIEW_LENGTH = 115;
+
+function ExpandableMenuDescription({
+  description,
+  color,
+}: {
+  description: string;
+  color: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [wrapsBeyondPreview, setWrapsBeyondPreview] = useState(false);
+  const isLong =
+    description.trim().length > DESCRIPTION_PREVIEW_LENGTH ||
+    description.split(/\r?\n/).length > 3 ||
+    wrapsBeyondPreview;
+
+  return (
+    <>
+      <Text
+        style={[styles.menuCardDescription, { color }]}
+        numberOfLines={!expanded && isLong ? 3 : undefined}
+        onTextLayout={event => {
+          if (!wrapsBeyondPreview && event.nativeEvent.lines.length > 3) {
+            setWrapsBeyondPreview(true);
+          }
+        }}
+      >
+        {description}
+      </Text>
+      {isLong && (
+        <TouchableOpacity
+          style={[styles.descriptionToggle, { borderColor: `${color}40` }]}
+          onPress={() => setExpanded(value => !value)}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={expanded ? 'Réduire la description' : 'Afficher toute la description'}
+        >
+          <Text style={[styles.descriptionToggleText, { color }]}>
+            {expanded ? 'Voir moins' : 'Voir plus'}
+          </Text>
+          {expanded ? (
+            <ChevronUp size={15} strokeWidth={3} color={color} />
+          ) : (
+            <ChevronDown size={15} strokeWidth={3} color={color} />
+          )}
+        </TouchableOpacity>
+      )}
+    </>
+  );
+}
 
 const formatDateToLocal = (date: Date): string => {
   const year = date.getFullYear();
@@ -529,9 +580,10 @@ export default function ParentDashboard() {
                           <View style={[styles.menuCardDivider, { backgroundColor: textColor, opacity: 0.2 }]} />
                           <View style={styles.menuCardSection}>
                             <Text style={[styles.menuCardSectionLabel, { color: textColor }]}>Description</Text>
-                            <Text style={[styles.menuCardDescription, { color: textColor }]} numberOfLines={3}>
-                              {menu.description}
-                            </Text>
+                            <ExpandableMenuDescription
+                              description={menu.description}
+                              color={textColor}
+                            />
                           </View>
                         </>
                       )}
@@ -774,6 +826,21 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     opacity: 0.85,
+  },
+  descriptionToggle: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderRadius: 999,
+  },
+  descriptionToggleText: {
+    fontSize: 13,
+    fontWeight: '800',
   },
   menuCardFooter: {
     flexDirection: 'row',

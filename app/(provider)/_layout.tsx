@@ -14,6 +14,7 @@ export default function ProviderLayout() {
       <Stack.Screen name="add-menu" />
       <Stack.Screen name="add-supplement" />
       <Stack.Screen name="schools" />
+      <Stack.Screen name="students" />
       <Stack.Screen name="cagnottes" />
       <Stack.Screen name="statistics" />
       <Stack.Screen name="account" />
