@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -89,9 +89,9 @@ export default function SchoolStatistics() {
         .select(`
           date,
           total_price,
-          child:children!inner(school_id)
+          menu:menus!inner(school_id)
         `)
-        .eq('child.school_id', currentSchool.id)
+        .eq('menu.school_id', currentSchool.id)
         .gte('date', start)
         .lte('date', end);
 

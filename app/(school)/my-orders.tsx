@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -57,10 +57,10 @@ export default function SchoolMyOrdersScreen() {
         .from('reservations')
         .select(`
           *,
-          child:children!inner(*),
-          menu:menus(*)
+          child:children(*),
+          menu:menus!inner(*)
         `)
-        .eq('child.school_id', currentSchool.id)
+        .eq('menu.school_id', currentSchool.id)
         .neq('payment_status', 'cancelled')
         .order('created_at', { ascending: false });
 

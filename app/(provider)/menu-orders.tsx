@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as XLSX from 'xlsx';
@@ -160,7 +160,7 @@ export default function MenuOrdersScreen() {
 
       let reservationsQuery = supabase
         .from('reservations')
-        .select('id, child_id, parent_id, supplements, annotations')
+        .select('id, child_id, parent_id, supplements, annotations, menu:menus(school_id)')
         .eq('date', date)
         .neq('payment_status', 'cancelled')
         .order('created_at', { ascending: true });
@@ -206,7 +206,7 @@ export default function MenuOrdersScreen() {
       const childrenList = (childrenResult.data || []) as any[];
       const parentsList = (parentsResult.data || []) as any[];
 
-      const schoolIds = Array.from(new Set(childrenList.map((c: any) => c.school_id).filter(Boolean)));
+      const schoolIds = Array.from(new Set(reservations.map((r: any) => r.menu?.school_id).filter(Boolean)));
       let schoolsList: any[] = [];
       if (schoolIds.length > 0) {
         const { data: schoolsData, error: schoolsError } = await supabase
@@ -224,11 +224,11 @@ export default function MenuOrdersScreen() {
       const formattedOrders: OrderDetail[] = reservations.map((reservation: any) => {
         const child = childrenById.get(reservation.child_id);
         const parent = parentsById.get(reservation.parent_id);
-        const school = child ? schoolsById.get(child.school_id) : null;
+        const school = schoolsById.get(reservation.menu?.school_id);
 
         const childName = `${child?.first_name || ''} ${child?.last_name || ''}`.trim() || 'Élève';
         const parentName = `${parent?.first_name || ''} ${parent?.last_name || ''}`.trim() || 'Parent non renseigné';
-        const schoolId = child?.school_id || 'unknown';
+        const schoolId = reservation.menu?.school_id || 'unknown';
 
         return {
           id: reservation.id,

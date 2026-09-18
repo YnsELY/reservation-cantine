@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,13 +8,9 @@ import { supabase, Parent, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { ArrowLeft, Plus, X, CircleCheck as CheckCircle } from 'lucide-react-native';
 import { NativeSelect } from '@/components/NativeSelect';
+import { getGradeOptions, isGradeAllowed, isPrimaryOnlySchool } from '@/lib/school-grades';
 
-const GRADE_OPTIONS = [
-  { section: 'Maternelle', grades: ['Petite Section', 'Moyenne Section', 'Grande Section'] },
-  { section: 'Élémentaire', grades: ['CP', 'CE1', 'CE2', 'CM1', 'CM2'] },
-  { section: 'Collège', grades: ['6ème', '5ème', '4ème', '3ème'] },
-  { section: 'Lycée', grades: ['2nde', '1ère', 'Terminale'] },
-];
+
 
 const KNOWN_ALLERGIES = [
   'Arachide',
@@ -116,6 +112,10 @@ export default function AddChildScreen() {
       }
     }
   }, [birthMonth, birthYear]);
+
+  useEffect(() => {
+    if (selectedSchool && !isGradeAllowed(selectedSchool, grade)) setGrade('');
+  }, [selectedSchool, grade]);
 
   const loadData = async () => {
     try {
@@ -320,6 +320,11 @@ export default function AddChildScreen() {
       return;
     }
 
+    if (!isGradeAllowed(selectedSchool, grade)) {
+      showAlert('Erreur', 'Veuillez sélectionner une classe autorisée pour cette école (jusqu’au CM2 pour La Vertu).');
+      return;
+    }
+
     if (!isAgeCompatibleWithGrade()) {
       showAlert('Erreur', 'La date de naissance ne correspond pas à la classe sélectionnée');
       return;
@@ -462,12 +467,14 @@ export default function AddChildScreen() {
 
         <View style={styles.section}>
           <Text style={styles.label}>Classe</Text>
+          {isPrimaryOnlySchool(selectedSchool) && <Text style={{ color: '#6B7280', marginBottom: 8 }}>La Vertu : maternelle et élémentaire, jusqu’au CM2.</Text>}
+          {!isGradeAllowed(selectedSchool, grade) && <Text style={styles.errorText}>Veuillez choisir une classe autorisée pour cette école.</Text>}
           <NativeSelect
             value={grade}
             onValueChange={setGrade}
             placeholder="Sélectionner une classe"
             title="Sélectionner une classe"
-            options={GRADE_OPTIONS.flatMap((s) => s.grades).map((g) => ({ value: g, label: g }))}
+            options={getGradeOptions(selectedSchool).flatMap((s) => s.grades).map((g) => ({ value: g, label: g }))}
           />
         </View>
 
@@ -608,7 +615,7 @@ export default function AddChildScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.gradeList} showsVerticalScrollIndicator={false}>
-              {GRADE_OPTIONS.map((section, sectionIndex) => (
+              {getGradeOptions(selectedSchool).map((section, sectionIndex) => (
                 <View key={sectionIndex} style={styles.gradeSection}>
                   <Text style={styles.gradeSectionTitle}>{section.section}</Text>
                   {section.grades.map((gradeOption, gradeIndex) => (

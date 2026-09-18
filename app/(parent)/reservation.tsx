@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { supabase, Child, Menu, Parent, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { AlertCircle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ShoppingCart, UserPlus, School as SchoolIcon, ArrowLeft, UtensilsCrossed } from 'lucide-react-native';
@@ -81,6 +81,8 @@ export default function ParentDashboard() {
   const [parent, setParent] = useState<Parent | null>(null);
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
+  const selectedChildRef = useRef<Child | null>(null);
+  selectedChildRef.current = selectedChild;
   const [schools, setSchools] = useState<School[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,9 +111,9 @@ export default function ParentDashboard() {
     }
   };
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     loadData();
-  }, []);
+  }, [preselectedChildId]));
 
   useEffect(() => {
     if (parent?.id) {
@@ -151,13 +153,20 @@ export default function ParentDashboard() {
 
       setChildren(childrenData || []);
 
-      // Auto-select child when arriving from child-details
-      if (preselectedChildId && childrenData) {
-        const match = childrenData.find(c => c.id === preselectedChildId);
+      // Refresh the selected child too: its school may have changed while away.
+      const activeChildId = preselectedChildId || selectedChildRef.current?.id;
+      if (activeChildId && childrenData) {
+        const match = childrenData.find(c => c.id === activeChildId);
         if (match) {
           setSelectedChild(match);
+          setMenus([]);
+          setWeekMenus({});
           // loadMenusForChild is defined below — call it after state settles
           setTimeout(() => loadMenusForChild(match), 0);
+        } else {
+          setSelectedChild(null);
+          setMenus([]);
+          setWeekMenus({});
         }
       }
 
@@ -436,9 +445,9 @@ export default function ParentDashboard() {
                 <Text style={styles.childCardName}>
                   {child.first_name} {child.last_name}
                 </Text>
-                {child.class_name && (
+                {child.grade && (
                   <Text style={styles.childCardClass}>
-                    {child.class_name}
+                    {child.grade}
                   </Text>
                 )}
               </View>

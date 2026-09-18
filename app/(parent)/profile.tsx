@@ -1,8 +1,8 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { useFocusEffect, router } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase, Parent, Child, School, ParentCredit } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
@@ -19,9 +19,9 @@ export default function ProfileScreen() {
   const [schoolIdentifier, setSchoolIdentifier] = useState('');
   const [addingSchool, setAddingSchool] = useState(false);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     loadData();
-  }, []);
+  }, []));
 
   const calculateAge = (dateOfBirth: string | null): number | null => {
     if (!dateOfBirth) return null;
@@ -276,6 +276,10 @@ export default function ProfileScreen() {
                     <Text style={styles.childName}>
                       {child.first_name} {child.last_name}
                     </Text>
+                    <Text style={styles.childDetail}>{schools.find(school => school.id === child.school_id)?.name || 'École'}</Text>
+                    <TouchableOpacity onPress={() => router.push({ pathname: '/(parent)/edit-child', params: { childId: child.id } })}>
+                      <Text style={[styles.childDetail, { color: '#0E5FC0', paddingVertical: 8 }]}>Modifier le profil / changer d’école</Text>
+                    </TouchableOpacity>
                     {child.grade && (
                       <Text style={styles.childDetail}>Classe: {child.grade}</Text>
                     )}

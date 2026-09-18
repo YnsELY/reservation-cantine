@@ -70,10 +70,10 @@ export default function SchoolHomeScreen() {
           id,
           supplements,
           menu:menus!menu_id(meal_name),
-          child:children!inner(school_id)
+          menu:menus!inner(school_id)
         `)
         .eq('date', todayStr)
-        .eq('child.school_id', currentSchool.id)
+        .eq('menu.school_id', currentSchool.id)
         .neq('payment_status', 'cancelled');
 
       const todayOrders = (todayOrdersData || []) as any[];

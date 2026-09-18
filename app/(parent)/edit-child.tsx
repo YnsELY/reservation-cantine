@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,14 +15,11 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { ArrowLeft, Save, X, CircleCheck as CheckCircle, Plus } from 'lucide-react-native';
 import { NativeSelect } from '@/components/NativeSelect';
-import { supabase } from '@/lib/supabase';
+import { getGradeOptions, isGradeAllowed, isPrimaryOnlySchool } from '@/lib/school-grades';
+import { supabase, School } from '@/lib/supabase';
+import { authService } from '@/lib/auth';
 
-const GRADE_OPTIONS = [
-  { section: 'Maternelle', grades: ['Petite Section', 'Moyenne Section', 'Grande Section'] },
-  { section: 'Élémentaire', grades: ['CP', 'CE1', 'CE2', 'CM1', 'CM2'] },
-  { section: 'Collège', grades: ['6ème', '5ème', '4ème', '3ème'] },
-  { section: 'Lycée', grades: ['2nde', '1ère', 'Terminale'] },
-];
+
 
 const KNOWN_ALLERGIES = [
   'Arachide',
@@ -85,20 +82,17 @@ const generateYears = (): number[] => {
   return years;
 };
 
-interface Child {
-  id: string;
-  first_name: string;
-  last_name: string;
-  date_of_birth: string | null;
-  grade: string | null;
-  allergies: string[];
-  school_id: string;
-}
 
 export default function EditChildScreen() {
   const { childId } = useLocalSearchParams();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [parentId, setParentId] = useState('');
+  const [schools, setSchools] = useState<School[]>([]);
+  const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
+  const [originalSchoolId, setOriginalSchoolId] = useState('');
+  const [schoolCode, setSchoolCode] = useState('');
+  const [addingSchool, setAddingSchool] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [grade, setGrade] = useState('');
@@ -134,9 +128,16 @@ export default function EditChildScreen() {
   const loadChildData = async () => {
     try {
       setLoading(true);
+      const parent = await authService.getCurrentParentFromAuth();
+      if (!parent) {
+        router.replace('/auth');
+        return;
+      }
+      setParentId(parent.id);
       const { data, error } = await supabase
         .from('children')
-        .select('*')
+        .select('*, schools(*)')
+        .eq('parent_id', parent.id)
         .eq('id', childId)
         .maybeSingle();
 
@@ -147,6 +148,20 @@ export default function EditChildScreen() {
         return;
       }
 
+      const { data: affiliations, error: affiliationsError } = await supabase
+        .from('parent_school_affiliations')
+        .select('schools(*)')
+        .eq('parent_id', parent.id)
+        .eq('status', 'active');
+      if (affiliationsError) throw affiliationsError;
+      const availableSchools: School[] = (affiliations || []).flatMap((aff: any) => aff.schools ? [aff.schools] : []);
+      // Keep an existing school visible even if its affiliation was deactivated.
+      if (data.schools && !availableSchools.some(school => school.id === data.school_id)) {
+        availableSchools.push(data.schools);
+      }
+      setSchools(availableSchools);
+      setSelectedSchool(data.schools || null);
+      setOriginalSchoolId(data.school_id);
       setFirstName(data.first_name);
       setLastName(data.last_name);
       setGrade(data.grade || '');
@@ -269,9 +284,55 @@ export default function EditChildScreen() {
     return `${year}-${paddedMonth}-${paddedDay}`;
   };
 
+  const selectSchool = (school: School) => {
+    setSelectedSchool(school);
+    if (!isGradeAllowed(school, grade)) setGrade('');
+  };
+
+  const handleAddSchool = async () => {
+    if (!schoolCode.trim() || !parentId || addingSchool) return;
+    setAddingSchool(true);
+    try {
+      const { data: school, error } = await supabase.from('schools').select('*')
+        .eq('access_code', schoolCode.trim().toUpperCase()).maybeSingle();
+      if (error) throw error;
+      if (!school) {
+        showAlert('Erreur', 'École non trouvée avec ce code d’accès');
+        return;
+      }
+      const { data: affiliation, error: lookupError } = await supabase.from('parent_school_affiliations')
+        .select('id, status').eq('parent_id', parentId).eq('school_id', school.id).maybeSingle();
+      if (lookupError) throw lookupError;
+      if (affiliation?.status !== 'active') {
+        const { error: affiliationError } = affiliation
+          ? await supabase.from('parent_school_affiliations').update({ status: 'active' }).eq('id', affiliation.id).eq('parent_id', parentId).select('id').single()
+          : await supabase.from('parent_school_affiliations').insert({ parent_id: parentId, school_id: school.id, status: 'active' });
+        if (affiliationError) throw affiliationError;
+      }
+      setSchools(current => current.some(item => item.id === school.id) ? current : [...current, school]);
+      selectSchool(school);
+      setSchoolCode('');
+    } catch (error) {
+      console.error('Error adding school:', error);
+      showAlert('Erreur', 'Impossible d’ajouter cette école. Veuillez réessayer.');
+    } finally {
+      setAddingSchool(false);
+    }
+  };
+
   const handleSave = async () => {
+    if (saving || addingSchool) return;
+    if (!selectedSchool || !parentId) {
+      showAlert('Erreur', 'Veuillez sélectionner une école');
+      return;
+    }
     if (!firstName.trim() || !lastName.trim()) {
       showAlert('Erreur', 'Veuillez renseigner le prénom et le nom');
+      return;
+    }
+
+    if (!isGradeAllowed(selectedSchool, grade)) {
+      showAlert('Erreur', 'Veuillez sélectionner une classe autorisée pour cette école (jusqu’au CM2 pour La Vertu).');
       return;
     }
 
@@ -287,6 +348,7 @@ export default function EditChildScreen() {
       const { error } = await supabase
         .from('children')
         .update({
+          school_id: selectedSchool.id,
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           genre: genre || null,
@@ -294,7 +356,10 @@ export default function EditChildScreen() {
           date_of_birth: dateOfBirth,
           allergies: allergies,
         })
-        .eq('id', childId);
+        .eq('id', childId)
+        .eq('parent_id', parentId)
+        .select('id')
+        .single();
 
       if (error) throw error;
 
@@ -416,13 +481,39 @@ export default function EditChildScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.label}>École *</Text>
+          <NativeSelect
+            value={selectedSchool?.id || ''}
+            onValueChange={id => {
+              const school = schools.find(item => item.id === id);
+              if (school) selectSchool(school);
+            }}
+            options={schools.map(school => ({ value: school.id, label: school.name }))}
+            title="Sélectionner une école"
+            placeholder="Sélectionner une école"
+            disabled={saving || addingSchool}
+          />
+          <Text style={styles.schoolHelp}>Pour une nouvelle école, saisissez le code d’accès fourni par son administration.</Text>
+          <TextInput style={styles.input} value={schoolCode} onChangeText={setSchoolCode}
+            placeholder="Code d’accès de la nouvelle école" autoCapitalize="characters" editable={!saving && !addingSchool} />
+          <TouchableOpacity onPress={handleAddSchool} disabled={saving || addingSchool || !schoolCode.trim()}>
+            <Text style={styles.schoolLink}>{addingSchool ? 'Ajout en cours…' : 'Ajouter cette école'}</Text>
+          </TouchableOpacity>
+          {selectedSchool && selectedSchool.id !== originalSchoolId && (
+            <Text style={styles.schoolHelp}>Le changement sera effectif après enregistrement. Le panier de cet enfant sera vidé. Les repas déjà réservés restent rattachés à leur école d’origine ; annulez-les si nécessaire depuis vos repas.</Text>
+          )}
+        </View>
+
+        <View style={styles.section}>
           <Text style={styles.label}>Classe</Text>
+          {isPrimaryOnlySchool(selectedSchool) && <Text style={{ color: '#6B7280', marginBottom: 8 }}>La Vertu : maternelle et élémentaire, jusqu’au CM2.</Text>}
+          {!isGradeAllowed(selectedSchool, grade) && <Text style={styles.errorText}>Veuillez choisir une classe autorisée pour cette école.</Text>}
           <NativeSelect
             value={grade}
             onValueChange={setGrade}
             placeholder="Sélectionner une classe"
             title="Sélectionner une classe"
-            options={GRADE_OPTIONS.flatMap((s) => s.grades).map((g) => ({ value: g, label: g }))}
+            options={getGradeOptions(selectedSchool).flatMap((s) => s.grades).map((g) => ({ value: g, label: g }))}
           />
         </View>
 
@@ -479,7 +570,7 @@ export default function EditChildScreen() {
         <TouchableOpacity
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSave}
-          disabled={saving}
+          disabled={saving || addingSchool || !selectedSchool}
         >
           {saving ? (
             <ActivityIndicator color="#FFFFFF" />
@@ -507,7 +598,7 @@ export default function EditChildScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.gradeList} showsVerticalScrollIndicator={false}>
-              {GRADE_OPTIONS.map((section, sectionIndex) => (
+              {getGradeOptions(selectedSchool).map((section, sectionIndex) => (
                 <View key={sectionIndex} style={styles.gradeSection}>
                   <Text style={styles.gradeSectionTitle}>{section.section}</Text>
                   {section.grades.map((gradeOption, gradeIndex) => (
@@ -798,6 +889,8 @@ export default function EditChildScreen() {
 }
 
 const styles = StyleSheet.create({
+  schoolHelp: { color: '#6B7280', fontSize: 14, lineHeight: 20, marginVertical: 10 },
+  schoolLink: { color: '#0E5FC0', fontSize: 14, fontWeight: '600', paddingVertical: 12 },
   container: {
     flex: 1,
     backgroundColor: '#F4F6FB',

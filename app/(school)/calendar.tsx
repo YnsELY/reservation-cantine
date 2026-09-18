@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -109,10 +109,10 @@ export default function SchoolDashboard() {
         .from('reservations')
         .select(`
           id,
-          child:children!inner(school_id)
+          menu:menus!inner(school_id)
         `)
         .eq('date', firstDate)
-        .eq('child.school_id', currentSchool.id)
+        .eq('menu.school_id', currentSchool.id)
         .neq('payment_status', 'cancelled');
 
       if (!ordersError) {
@@ -162,10 +162,10 @@ export default function SchoolDashboard() {
         .from('reservations')
         .select(`
           id,
-          child:children!inner(school_id)
+          menu:menus!inner(school_id)
         `)
         .eq('date', dateString)
-        .eq('child.school_id', school.id)
+        .eq('menu.school_id', school.id)
         .neq('payment_status', 'cancelled');
 
       if (error) throw error;

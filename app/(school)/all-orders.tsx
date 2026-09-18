@@ -119,7 +119,7 @@ export default function AllOrders() {
       .select(`
         id, parent_id, annotations,
         child:children!child_id(id, first_name, last_name, grade, allergies, school_id, genre),
-        menu:menus!menu_id(id, meal_name)
+        menu:menus!menu_id(id, meal_name, school_id)
       `)
       .eq('date', dateStr)
       .neq('payment_status', 'cancelled');
@@ -127,7 +127,7 @@ export default function AllOrders() {
     if (resError) throw resError;
 
     const filtered = (reservationsRaw || []).filter(
-      (r: any) => r.child?.school_id === school.id
+      (r: any) => r.menu?.school_id === school.id
     );
 
     const parentIds = Array.from(new Set(filtered.map((r: any) => r.parent_id).filter(Boolean)));

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, router, useLocalSearchParams } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { ArrowLeft, Edit, Calendar, Clock, AlertCircle, User, ShoppingBag } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
@@ -46,11 +46,9 @@ export default function ChildDetailsScreen() {
   const [weekReservations, setWeekReservations] = useState<Reservation[]>([]);
   const [historyReservations, setHistoryReservations] = useState<Reservation[]>([]);
 
-  useEffect(() => {
-    if (childId) {
-      loadChildData();
-    }
-  }, [childId]);
+  useFocusEffect(useCallback(() => {
+    if (childId) loadChildData();
+  }, [childId]));
 
   const loadChildData = async () => {
     try {
