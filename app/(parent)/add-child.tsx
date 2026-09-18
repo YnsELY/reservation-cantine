@@ -299,36 +299,8 @@ export default function AddChildScreen() {
     }
   };
 
-  const handleSubmit = async () => {
-    if (!firstName.trim() || !lastName.trim()) {
-      showAlert('Erreur', 'Veuillez renseigner le prénom et le nom');
-      return;
-    }
-
-    if (!genre) {
-      showAlert('Erreur', "Veuillez indiquer le sexe de l'enfant");
-      return;
-    }
-
-    if (!selectedSchool) {
-      showAlert('Erreur', 'Veuillez sélectionner une école');
-      return;
-    }
-
-    if (!parent) {
-      showAlert('Erreur', 'Parent non trouvé');
-      return;
-    }
-
-    if (!isGradeAllowed(selectedSchool, grade)) {
-      showAlert('Erreur', 'Veuillez sélectionner une classe autorisée pour cette école (jusqu’au CM2 pour La Vertu).');
-      return;
-    }
-
-    if (!isAgeCompatibleWithGrade()) {
-      showAlert('Erreur', 'La date de naissance ne correspond pas à la classe sélectionnée');
-      return;
-    }
+  const saveChild = async () => {
+    if (!parent || !selectedSchool) return;
 
     setSubmitting(true);
     try {
@@ -359,6 +331,52 @@ export default function AddChildScreen() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSubmit = () => {
+    if (!firstName.trim() || !lastName.trim()) {
+      showAlert('Erreur', 'Veuillez renseigner le prénom et le nom');
+      return;
+    }
+
+    if (!genre) {
+      showAlert('Erreur', "Veuillez indiquer le sexe de l'enfant");
+      return;
+    }
+
+    if (!selectedSchool) {
+      showAlert('Erreur', 'Veuillez sélectionner une école');
+      return;
+    }
+
+    if (!parent) {
+      showAlert('Erreur', 'Parent non trouvé');
+      return;
+    }
+
+    if (!isGradeAllowed(selectedSchool, grade)) {
+      showAlert('Erreur', 'Veuillez sélectionner une classe autorisée pour cette école (jusqu’au CM2 pour La Vertu).');
+      return;
+    }
+
+    if (!isAgeCompatibleWithGrade()) {
+      showAlert('Erreur', 'La date de naissance ne correspond pas à la classe sélectionnée');
+      return;
+    }
+
+    if (!grade.trim()) {
+      void saveChild();
+      return;
+    }
+
+    showAlert(
+      'Confirmer la classe',
+      `Vous avez indiqué que ${firstName.trim()} est en ${grade.trim()} à l’école ${selectedSchool.name}. Est-ce bien sa classe actuelle ?`,
+      [
+        { text: 'Vérifier', style: 'cancel' },
+        { text: 'Oui, confirmer', onPress: () => void saveChild() },
+      ]
+    );
   };
 
   if (loading) {
