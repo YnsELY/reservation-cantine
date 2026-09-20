@@ -8,6 +8,7 @@ import { supabase, CartItem, Child, Menu, Parent, ParentCredit } from '@/lib/sup
 import { authService } from '@/lib/auth';
 import { sendOrderConfirmationEmail } from '@/lib/emails';
 import { payzoneService, CartItemForPayment } from '@/lib/payzone';
+import { getPaymentErrorMessage } from '@/lib/payment-errors';
 import { applyCreditsToCart, consumeCredits, getAvailableCredits, CANCELLATION_CUTOFF_HOUR } from '@/lib/credits';
 import { ArrowLeft, Trash2, ShoppingCart, Lock, User, FlaskConical, Wallet, Check } from 'lucide-react-native';
 
@@ -203,7 +204,7 @@ export default function CartScreen() {
       console.error('Error processing payment:', err);
       showAlert(
         'Erreur',
-        err instanceof Error ? err.message : 'Erreur lors de l\'initialisation du paiement'
+        getPaymentErrorMessage(err, totalAfterCredit <= 0.005 && application.creditsUsed.length > 0)
       );
     } finally {
       setProcessingPayment(false);
