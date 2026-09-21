@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, RefreshControl, Modal } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,7 +6,8 @@ import { useRouter } from 'expo-router';
 import { supabase, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { copyToClipboard as copyToClipboardUtil } from '@/lib/clipboard';
-import { UserPlus, Copy, AlertCircle, X } from 'lucide-react-native';
+import { comparePeopleByLastName, normalizeSearchText } from '@/lib/people';
+import { UserPlus, Copy, AlertCircle, Search, X } from 'lucide-react-native';
 
 export default function ParentsManagement() {
   const [currentAdmin, setCurrentAdmin] = useState<Parent | null>(null);
@@ -14,6 +15,7 @@ export default function ParentsManagement() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [creating, setCreating] = useState(false);
   const router = useRouter();
@@ -44,7 +46,8 @@ export default function ParentsManagement() {
         .select('*')
         .eq('school_id', admin.school_id)
         .eq('is_admin', false)
-        .order('created_at', { ascending: false });
+        .order('last_name')
+        .order('first_name');
 
       if (parentsError) throw parentsError;
 
@@ -63,6 +66,27 @@ export default function ParentsManagement() {
     setRefreshing(true);
     loadData();
   };
+
+  const visibleParents = useMemo(() => {
+    const query = normalizeSearchText(searchQuery);
+    const filtered = query
+      ? parents.filter((parent) => {
+          const firstName = parent.first_name || '';
+          const lastName = parent.last_name || '';
+          return [
+            firstName,
+            lastName,
+            `${firstName} ${lastName}`,
+            `${lastName} ${firstName}`,
+            parent.email,
+            parent.phone,
+            parent.access_code,
+          ].some((value) => normalizeSearchText(value).includes(query));
+        })
+      : parents;
+
+    return [...filtered].sort(comparePeopleByLastName);
+  }, [parents, searchQuery]);
 
   const handleCreateParent = async () => {
     if (!newParent.first_name || !newParent.last_name) {
@@ -163,17 +187,35 @@ export default function ParentsManagement() {
           </View>
         ) : null}
 
-        {parents.length === 0 ? (
+        <View style={styles.searchContainer}>
+          <Search size={20} color="#6B7280" />
+          <TextInput
+            style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Rechercher un parent…"
+            placeholderTextColor="#9CA3AF"
+            autoCapitalize="none"
+            returnKeyType="search"
+            accessibilityLabel="Rechercher un parent"
+          />
+        </View>
+
+        {visibleParents.length === 0 ? (
           <View style={styles.emptyState}>
             <UserPlus size={48} color="#9CA3AF" />
-            <Text style={styles.emptyStateTitle}>Aucun parent</Text>
+            <Text style={styles.emptyStateTitle}>
+              {parents.length === 0 ? 'Aucun parent' : 'Aucun résultat'}
+            </Text>
             <Text style={styles.emptyStateText}>
-              Créez votre premier parent pour commencer
+              {parents.length === 0
+                ? 'Créez votre premier parent pour commencer'
+                : 'Essayez un autre nom, e-mail ou numéro de téléphone.'}
             </Text>
           </View>
         ) : (
           <View style={styles.parentsList}>
-            {parents.map((parent) => (
+            {visibleParents.map((parent) => (
               <View key={parent.id} style={styles.parentCard}>
                 <View style={styles.parentInfo}>
                   <Text style={styles.parentName}>
@@ -344,6 +386,25 @@ const styles = StyleSheet.create({
     color: '#EF4444',
     fontSize: 14,
     flex: 1,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 16,
+    marginTop: 16,
+    paddingHorizontal: 14,
+    minHeight: 48,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#111827',
   },
   emptyState: {
     alignItems: 'center',

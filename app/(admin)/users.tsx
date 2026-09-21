@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
+import { compareLabels, normalizeSearchText } from '@/lib/people';
 import { Search, ArrowLeft, Users as UsersIcon, Building2, Store, ChevronRight } from 'lucide-react-native';
 
 type FilterType = 'all' | 'parent' | 'school' | 'provider';
@@ -26,6 +27,14 @@ const FILTERS: { key: FilterType; label: string }[] = [
   { key: 'school', label: 'Écoles' },
   { key: 'provider', label: 'Prestataires' },
 ];
+
+const userSortLabel = (user: UserData) =>
+  user.type === 'parent'
+    ? `${user.last_name || ''} ${user.first_name || ''}`.trim()
+    : user.name || user.company_name || user.email || '';
+
+const compareUsersAlphabetically = (left: UserData, right: UserData) =>
+  compareLabels(userSortLabel(left), userSortLabel(right));
 
 export default function AdminUsersScreen() {
   const [users, setUsers] = useState<UserData[]>([]);
@@ -86,7 +95,7 @@ export default function AdminUsersScreen() {
         }))
       ];
 
-      allUsers.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      allUsers.sort(compareUsersAlphabetically);
 
       setUsers(allUsers);
       setFilteredUsers(allUsers);
@@ -105,23 +114,27 @@ export default function AdminUsersScreen() {
     }
 
     if (searchQuery.trim() !== '') {
-      const query = searchQuery.toLowerCase();
+      const query = normalizeSearchText(searchQuery);
       filtered = filtered.filter(u => {
-        const email = u.email?.toLowerCase() || '';
-        const firstName = u.first_name?.toLowerCase() || '';
-        const lastName = u.last_name?.toLowerCase() || '';
-        const name = u.name?.toLowerCase() || '';
-        const companyName = u.company_name?.toLowerCase() || '';
+        const email = normalizeSearchText(u.email);
+        const firstName = normalizeSearchText(u.first_name);
+        const lastName = normalizeSearchText(u.last_name);
+        const fullName = `${firstName} ${lastName}`.trim();
+        const reverseFullName = `${lastName} ${firstName}`.trim();
+        const name = normalizeSearchText(u.name);
+        const companyName = normalizeSearchText(u.company_name);
 
         return email.includes(query) ||
                firstName.includes(query) ||
                lastName.includes(query) ||
+               fullName.includes(query) ||
+               reverseFullName.includes(query) ||
                name.includes(query) ||
                companyName.includes(query);
       });
     }
 
-    setFilteredUsers(filtered);
+    setFilteredUsers([...filtered].sort(compareUsersAlphabetically));
   };
 
   const countFor = (key: FilterType) =>

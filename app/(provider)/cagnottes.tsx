@@ -27,6 +27,7 @@ import {
 import { authService } from '@/lib/auth';
 import { showAlert } from '@/lib/alert';
 import { safeBack } from '@/lib/navigation';
+import { comparePeopleByLastName, normalizeSearchText } from '@/lib/people';
 import { ParentCredit, supabase } from '@/lib/supabase';
 
 const ACCENT = '#065F46';
@@ -136,24 +137,21 @@ export default function ProviderCagnottesScreen() {
   );
 
   const filteredParents = useMemo(() => {
-    const query = searchQuery.trim().toLocaleLowerCase('fr-FR');
+    const query = normalizeSearchText(searchQuery);
     const filtered = query
       ? parents.filter((parent) =>
           [
             parentName(parent),
+            `${parent.last_name || ''} ${parent.first_name || ''}`.trim(),
             parent.email || '',
             ...(parent.children_names || []),
             ...(parent.school_names || []),
-          ].some((value) => value.toLocaleLowerCase('fr-FR').includes(query))
+          ].some((value) => normalizeSearchText(value).includes(query))
         )
       : parents;
 
-    return [...filtered].sort(
-      (a, b) =>
-        balanceOf(b.id) - balanceOf(a.id) ||
-        parentName(a).localeCompare(parentName(b), 'fr-FR')
-    );
-  }, [balanceOf, parents, searchQuery]);
+    return [...filtered].sort(comparePeopleByLastName);
+  }, [parents, searchQuery]);
 
   const selectedParent = useMemo(
     () => parents.find((parent) => parent.id === selectedParentId) || null,

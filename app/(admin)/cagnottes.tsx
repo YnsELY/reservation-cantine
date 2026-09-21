@@ -9,6 +9,7 @@ import { safeBack } from '@/lib/navigation';
 import { supabase, ParentCredit } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { showAlert } from '@/lib/alert';
+import { comparePeopleByLastName, normalizeSearchText } from '@/lib/people';
 import {
   ArrowLeft, Search, Wallet, ChevronRight, Plus, Pencil, Trash2,
   Power, X,
@@ -107,22 +108,22 @@ export default function AdminCagnottesScreen() {
   );
 
   const filteredParents = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    const withBalance = (p: ParentRow) => (creditsByParent[p.id]?.length ?? 0) > 0;
+    const q = normalizeSearchText(searchQuery);
     const list = q
       ? parents.filter((p) => {
-          const name = `${p.first_name || ''} ${p.last_name || ''}`.toLowerCase();
-          return name.includes(q) || (p.email || '').toLowerCase().includes(q);
+          const firstName = p.first_name || '';
+          const lastName = p.last_name || '';
+          return [
+            firstName,
+            lastName,
+            `${firstName} ${lastName}`,
+            `${lastName} ${firstName}`,
+            p.email,
+          ].some((value) => normalizeSearchText(value).includes(q));
         })
       : parents;
-    // Les parents avec au moins une cagnotte d'abord, puis tri par solde décroissant.
-    return [...list].sort((a, b) => {
-      const aw = withBalance(a) ? 1 : 0;
-      const bw = withBalance(b) ? 1 : 0;
-      if (aw !== bw) return bw - aw;
-      return balanceOf(b.id) - balanceOf(a.id);
-    });
-  }, [parents, creditsByParent, searchQuery, balanceOf]);
+    return [...list].sort(comparePeopleByLastName);
+  }, [parents, searchQuery]);
 
   const selectedParent = useMemo(
     () => parents.find((p) => p.id === selectedParentId) || null,

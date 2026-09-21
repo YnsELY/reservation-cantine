@@ -22,6 +22,7 @@ import {
 } from 'lucide-react-native';
 import { authService } from '@/lib/auth';
 import { safeBack } from '@/lib/navigation';
+import { comparePeopleByLastName, normalizeSearchText } from '@/lib/people';
 import { supabase } from '@/lib/supabase';
 
 const ALL = 'all';
@@ -151,20 +152,31 @@ export default function ProviderStudentsScreen() {
   }, [schoolFilter, students]);
 
   const visibleStudents = useMemo(() => {
-    const query = searchQuery.trim().toLocaleLowerCase('fr-FR');
+    const query = normalizeSearchText(searchQuery);
 
-    return students.filter(student => {
-      const grade = student.grade?.trim() || NO_GRADE;
-      const parentName = `${student.parent_first_name || ''} ${student.parent_last_name || ''}`.trim();
-      const schoolName = schoolNames.get(student.school_id) || '';
+    return students
+      .filter(student => {
+        const grade = student.grade?.trim() || NO_GRADE;
+        const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
+        const parentName = `${student.parent_first_name || ''} ${student.parent_last_name || ''}`.trim();
+        const schoolName = schoolNames.get(student.school_id) || '';
 
-      if (schoolFilter !== ALL && student.school_id !== schoolFilter) return false;
-      if (gradeFilter !== ALL && grade !== gradeFilter) return false;
-      if (!query) return true;
+        if (schoolFilter !== ALL && student.school_id !== schoolFilter) return false;
+        if (gradeFilter !== ALL && grade !== gradeFilter) return false;
+        if (!query) return true;
 
-      return [student.first_name, student.last_name, grade, parentName, schoolName]
-        .some(value => value.toLocaleLowerCase('fr-FR').includes(query));
-    });
+        return [
+          student.first_name,
+          student.last_name,
+          studentName,
+          `${student.last_name || ''} ${student.first_name || ''}`.trim(),
+          grade,
+          parentName,
+          `${student.parent_last_name || ''} ${student.parent_first_name || ''}`.trim(),
+          schoolName,
+        ].some(value => normalizeSearchText(value).includes(query));
+      })
+      .sort(comparePeopleByLastName);
   }, [gradeFilter, schoolFilter, schoolNames, searchQuery, students]);
 
   const selectSchool = (schoolId: string) => {
