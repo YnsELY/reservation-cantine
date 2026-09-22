@@ -132,3 +132,13 @@ test('a late DECLINED notification cannot report a completed order as failed', a
   assert.ok(fn.calls.some(call => call.method === 'in' && call.args[0] === 'status'
     && !call.args[1].includes('completed') && !call.args[1].includes('refunded')));
 });
+
+test('refund processing uses the atomic RPC and exposes reconciliation failures',async()=>{
+ const fn=await handler('payzone-callback');
+ assert.equal((await fn.run({orderId:'order-1',id:'CHG_test',status:'REFUNDED'})).status,200);
+ assert.ok(fn.calls.some(c=>c.rpc==='refund_payzone_payment'));
+ const blocked=await handler('payzone-callback',{completionError:{message:'Un avoir existe déjà'}});
+ assert.equal((await blocked.run({orderId:'order-1',id:'CHG_test',status:'REFUNDED'})).status,500);
+ const update=blocked.calls.find(c=>c.method==='update').args[0];
+ assert.equal(update.payzone_status,'REFUNDED');assert.match(update.failure_reason,/avoir existe déjà/);
+});

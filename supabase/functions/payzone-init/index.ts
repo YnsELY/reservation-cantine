@@ -79,6 +79,7 @@ serve(async (req) => {
       { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     if (!payment) throw new Error('Commande non enregistrée')
     const orderId = payment.order_id
+    if (payment.payzone_status === 'REFUNDED') return new Response(JSON.stringify({ error: 'Ce paiement a été remboursé. Contactez le support si votre cagnotte doit être régularisée.' }), { status: 409, headers: corsHeaders })
     if (payment.status === 'completed') return new Response(JSON.stringify({
       success: true, completed: true, orderId, totalAmount: payment.total_amount,
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })

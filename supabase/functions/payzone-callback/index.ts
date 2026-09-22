@@ -114,6 +114,9 @@ serve(async (req) => {
     if (id !== pendingPayment.charge_id) return new Response(JSON.stringify({ error: 'Payment reference mismatch' }), { status: 409, headers: corsHeaders })
 
     // Traiter selon le statut
+    if (status === 'CHARGED' && pendingPayment.payzone_status === 'REFUNDED') {
+      return new Response(JSON.stringify({ success: true, message: 'Refund already received' }), { headers: corsHeaders })
+    }
     if (status === 'CHARGED') {
       // The database locks this payment and commits reservations, credits and
       // cart removal together. Repeated callbacks cannot repeat these effects.
@@ -304,22 +307,17 @@ serve(async (req) => {
       }
 
     } else if (status === 'REFUNDED') {
-      // Remboursement
-      await supabase
-        .from('pending_payments')
-        .update({
-          status: 'refunded',
-          payzone_status: status,
-          refunded_at: new Date().toISOString(),
-        })
-        .eq('order_id', orderId)
-
-      // Mettre à jour les réservations si elles existent
-      await supabase
-        .from('reservations')
-        .update({ payment_status: 'cancelled' })
-        .eq('payment_intent_id', id)
-
+      const { error: refundError } = await supabase.rpc('refund_payzone_payment', {
+        p_order_id: orderId, p_transaction_id: id,
+      })
+      if (refundError) {
+        await supabase.from('pending_payments').update({
+          payzone_status: 'REFUNDED',
+          failure_reason: `Refund reconciliation: ${refundError.message}`,
+        }).eq('order_id', orderId).neq('status', 'refunded')
+        return new Response(JSON.stringify({ error: 'Remboursement bancaire reçu, cagnotte à rapprocher' }),
+          { status: 500, headers: corsHeaders })
+      }
       console.log(`Payment ${orderId} refunded`)
     }
 

@@ -5,7 +5,7 @@ const { PGlite } = await import(process.env.PGLITE_MODULE || '@electric-sql/pgli
 const id = n => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
 const item = (n=40,child=1,date='2099-10-01') => ({id:id(n),child_id:id(child),menu_id:id(10),date,total_price:45});
 const applied = (amount=20) => [{credit_id:id(50),amount}];
-const migrations = await Promise.all(['20260922140000_prevent_duplicate_meal_orders.sql','20260922150000_confirm_additional_daily_meals.sql','20260923090000_atomic_checkout_and_credit_ledger.sql'].map(n=>readFile(new URL('../supabase/migrations/'+n,import.meta.url),'utf8')));
+const migrations = await Promise.all(['20260922140000_prevent_duplicate_meal_orders.sql','20260922150000_confirm_additional_daily_meals.sql','20260923090000_atomic_checkout_and_credit_ledger.sql','20260923100000_atomic_payzone_refund.sql'].map(n=>readFile(new URL('../supabase/migrations/'+n,import.meta.url),'utf8')));
 async function database() {
  const db=new PGlite();
  await db.exec(`
@@ -21,7 +21,7 @@ async function database() {
  CREATE TABLE cart_items(id uuid PRIMARY KEY,parent_id uuid,child_id uuid,menu_id uuid,date date,total_price numeric,supplements jsonb,annotations text);
  CREATE TABLE reservations(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),parent_id uuid,child_id uuid,menu_id uuid,date date,total_price numeric,supplements jsonb,annotations text,payment_status text,payment_intent_id text,created_by_school boolean DEFAULT false,school_payment_pending boolean DEFAULT false,cancelled_at timestamptz);
  CREATE TABLE parent_credits(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),parent_id uuid,amount numeric,used_amount numeric DEFAULT 0,is_active boolean DEFAULT true,source_reservation_id uuid UNIQUE,meal_week_start_date date,created_at timestamptz DEFAULT now());
- CREATE TABLE pending_payments(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),order_id text UNIQUE,charge_id text,parent_id uuid,cart_items jsonb,applied_credits jsonb DEFAULT '[]',total_amount numeric,status text DEFAULT 'pending',payzone_transaction_id text,payzone_status text,completed_at timestamptz,failure_reason text,created_at timestamptz DEFAULT now(),expires_at timestamptz);
+ CREATE TABLE pending_payments(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),order_id text UNIQUE,charge_id text,parent_id uuid,cart_items jsonb,applied_credits jsonb DEFAULT '[]',total_amount numeric,status text DEFAULT 'pending',payzone_transaction_id text,payzone_status text,completed_at timestamptz,failure_reason text,created_at timestamptz DEFAULT now(),expires_at timestamptz,refunded_at timestamptz);
  INSERT INTO parents VALUES('${id(20)}','${id(21)}',false),('${id(22)}','${id(23)}',false);
  INSERT INTO children VALUES('${id(1)}','${id(20)}','${id(30)}','Test','One'),('${id(2)}','${id(20)}','${id(30)}','Test','Two');
  INSERT INTO menus(id,school_id,date,price,meal_name) VALUES('${id(10)}','${id(30)}','2099-10-01',45,'Menu');
@@ -154,5 +154,26 @@ test('supplement prices are checked on the server against the selected menu',asy
   await cart(db);await db.exec(`INSERT INTO provider_supplements(id,menu_id,price) VALUES('${id(60)}','${id(10)}',5); UPDATE cart_items SET supplements='[{"id":"${id(60)}","price":5}]',total_price=50;`);
   await prepare(db,[{...item(),total_price:50}],50,[]).then(p=>complete(db,p));
   assert.equal((await numbers(db)).reservations,1);
+ }finally{await db.close();}
+});
+
+test('bank refund restores spent or reserved credit exactly once',async()=>{
+ for(const charged of [true,false]) {
+  const db=await database();try {
+   await cart(db);const p=await prepare(db);if(charged) await complete(db,p);
+   const refund=()=>db.query('SELECT refund_payzone_payment($1,$2) ok',[p.order_id,p.charge_id]);
+   assert.equal((await refund()).rows[0].ok,true);assert.equal((await refund()).rows[0].ok,false);
+   assert.deepEqual(await numbers(db),{reservations:charged?1:0,holds:0,used:0,reserved:0});
+   assert.equal(await complete(db,p),false);
+   await assert.rejects(prepare(db),/remboursée/);
+  }finally{await db.close();}
+ }
+});
+test('bank refund stops for manual reconciliation when a wallet grant already compensated the meal',async()=>{
+ const db=await database();try {
+  await cart(db);const p=await prepare(db);await complete(db,p);
+  await db.exec(`INSERT INTO parent_credits(parent_id,amount,source_reservation_id) SELECT parent_id,total_price,id FROM reservations`);
+  await assert.rejects(db.query('SELECT refund_payzone_payment($1,$2)',[p.order_id,p.charge_id]),/avoir existe déjà/);
+  assert.equal((await numbers(db)).used,20);
  }finally{await db.close();}
 });
