@@ -165,16 +165,6 @@ export default function HistoryScreen() {
                 return;
               }
 
-              const { error: updateError } = await supabase
-                .from('reservations')
-                .update({
-                  payment_status: 'cancelled',
-                  cancelled_at: new Date().toISOString(),
-                })
-                .eq('id', reservation.id);
-
-              if (updateError) throw updateError;
-
               const { ok, error: creditError } = await createCreditForCancellation({
                 parentId: parent.id,
                 reservationId: reservation.id,
@@ -183,12 +173,6 @@ export default function HistoryScreen() {
               });
 
               if (!ok) {
-                // Crédit non créé : on annule l'annulation pour éviter une commande
-                // annulée sans contrepartie en cagnotte.
-                await supabase
-                  .from('reservations')
-                  .update({ payment_status: 'paid', cancelled_at: null })
-                  .eq('id', reservation.id);
                 console.error('Credit creation failed:', creditError);
                 showAlert('Erreur', "L'annulation n'a pas pu être finalisée (crédit non créé). Réessayez.");
                 return;

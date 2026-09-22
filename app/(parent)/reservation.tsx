@@ -77,7 +77,13 @@ const getFirstBookableDate = (): Date => {
 };
 
 export default function ParentDashboard() {
-  const { childId: preselectedChildId } = useLocalSearchParams<{ childId?: string }>();
+  const { childId: preselectedChildId, selectChild, date: requestedDate } = useLocalSearchParams<{
+    childId?: string; selectChild?: string; date?: string;
+  }>();
+  const appliedSelectionRequest = useRef<string | null>(null);
+  const preferredDate = useRef<string | undefined>(requestedDate);
+  const dataLoadRequest = useRef(0);
+  const menuLoadRequest = useRef(0);
   const [parent, setParent] = useState<Parent | null>(null);
   const [children, setChildren] = useState<Child[]>([]);
   const [selectedChild, setSelectedChild] = useState<Child | null>(null);
@@ -113,7 +119,11 @@ export default function ParentDashboard() {
 
   useFocusEffect(useCallback(() => {
     loadData();
-  }, [preselectedChildId]));
+    return () => {
+      dataLoadRequest.current++;
+      menuLoadRequest.current++;
+    };
+  }, [preselectedChildId, selectChild, requestedDate]));
 
   useEffect(() => {
     if (parent?.id) {
@@ -134,8 +144,10 @@ export default function ParentDashboard() {
   }, [weekMenus, selectedDate]);
 
   const loadData = async () => {
+    const requestId = ++dataLoadRequest.current;
     try {
       const currentParent = await authService.getCurrentParentFromAuth();
+      if (requestId !== dataLoadRequest.current) return;
       if (!currentParent) {
         router.replace('/auth');
         return;
@@ -149,21 +161,39 @@ export default function ParentDashboard() {
         .eq('parent_id', currentParent.id)
         .order('first_name');
 
+      if (requestId !== dataLoadRequest.current) return;
       if (childrenError) throw childrenError;
 
       setChildren(childrenData || []);
 
       // Refresh the selected child too: its school may have changed while away.
-      const activeChildId = preselectedChildId || selectedChildRef.current?.id;
+      // Consume route instructions once; returning from a menu must not restore
+      // the former child after the parent explicitly opened the child selector.
+      const request = `${selectChild || ''}:${preselectedChildId || ''}:${requestedDate || ''}`;
+      const newRequest = appliedSelectionRequest.current !== request;
+      appliedSelectionRequest.current = request;
+      if (newRequest && requestedDate) preferredDate.current = requestedDate;
+      const activeChildId = newRequest && selectChild
+        ? undefined
+        : (newRequest && preselectedChildId) || selectedChildRef.current?.id;
+      if (!activeChildId) {
+        menuLoadRequest.current++;
+        selectedChildRef.current = null;
+        setSelectedChild(null);
+        setMenus([]);
+        setWeekMenus({});
+      }
       if (activeChildId && childrenData) {
         const match = childrenData.find(c => c.id === activeChildId);
         if (match) {
+          selectedChildRef.current = match;
           setSelectedChild(match);
           setMenus([]);
           setWeekMenus({});
-          // loadMenusForChild is defined below — call it after state settles
-          setTimeout(() => loadMenusForChild(match), 0);
+          loadMenusForChild(match);
         } else {
+          menuLoadRequest.current++;
+          selectedChildRef.current = null;
           setSelectedChild(null);
           setMenus([]);
           setWeekMenus({});
@@ -185,6 +215,7 @@ export default function ParentDashboard() {
           .in('id', Array.from(schoolIds))
           .order('name');
 
+        if (requestId !== dataLoadRequest.current) return;
         setSchools(schoolsData || []);
       } else {
         setSchools([]);
@@ -200,20 +231,26 @@ export default function ParentDashboard() {
       }
 
       setWeekDates(dates);
-      setSelectedDate(formatDateToLocal(dates[0]));
+      const dayIndex = Math.max(0, dates.findIndex(day => formatDateToLocal(day) === preferredDate.current));
+      setSelectedDayIndex(dayIndex);
+      setSelectedDate(formatDateToLocal(dates[dayIndex]));
 
       setError('');
     } catch (err) {
+      if (requestId !== dataLoadRequest.current) return;
       console.error('Error loading data:', err);
       setError('Erreur lors du chargement des données');
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (requestId === dataLoadRequest.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   };
 
   const loadMenusForChild = async (child: Child) => {
-    if (!child.school_id) return;
+    if (!child.school_id || selectedChildRef.current?.id !== child.id) return;
+    const requestId = ++menuLoadRequest.current;
 
     try {
       const dates: Date[] = [];
@@ -226,7 +263,9 @@ export default function ParentDashboard() {
       }
 
       setWeekDates(dates);
-      setSelectedDate(formatDateToLocal(dates[0]));
+      const dayIndex = Math.max(0, dates.findIndex(day => formatDateToLocal(day) === preferredDate.current));
+      setSelectedDayIndex(dayIndex);
+      setSelectedDate(formatDateToLocal(dates[dayIndex]));
 
       const menusMap: {[key: string]: Menu[]} = {};
       const startDate = formatDateToLocal(dates[0]);
@@ -242,6 +281,7 @@ export default function ParentDashboard() {
         .order('date')
         .order('meal_name');
 
+      if (requestId !== menuLoadRequest.current || selectedChildRef.current?.id !== child.id) return;
       if (!menusError) {
         dates.forEach((date) => {
           const dateString = formatDateToLocal(date);
@@ -253,13 +293,17 @@ export default function ParentDashboard() {
       }
 
     } catch (err) {
+      if (requestId !== menuLoadRequest.current) return;
       console.error('Error loading menus:', err);
       setError('Erreur lors du chargement des menus');
     }
   };
 
   const handleChildSelect = (child: Child) => {
+    selectedChildRef.current = child;
     setSelectedChild(child);
+    setMenus([]);
+    setWeekMenus({});
     loadMenusForChild(child);
   };
 
@@ -270,6 +314,7 @@ export default function ParentDashboard() {
 
   const handleDateSelect = (date: Date, index: number) => {
     const dateString = formatDateToLocal(date);
+    preferredDate.current = dateString;
     setSelectedDate(dateString);
     setSelectedDayIndex(index);
     const dayMenus = weekMenus[dateString] || [];
@@ -357,6 +402,8 @@ export default function ParentDashboard() {
   };
 
   const handleBackToChildrenList = () => {
+    menuLoadRequest.current++;
+    selectedChildRef.current = null;
     setSelectedChild(null);
     setMenus([]);
     setWeekMenus({});

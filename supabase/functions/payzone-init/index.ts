@@ -48,35 +48,49 @@ serve(async (req) => {
   }
 
   try {
-    const { parentId, cartItems, totalAmount, customerEmail, customerName, appliedCredits = [] }: PaymentRequest = await req.json()
+    const { parentId, cartItems, totalAmount, appliedCredits = [] }: PaymentRequest = await req.json()
 
-    // Validation
-    if (!parentId || !cartItems || cartItems.length === 0 || !totalAmount) {
-      return new Response(
-        JSON.stringify({ error: 'Paramètres manquants' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const token = req.headers.get('authorization')?.replace(/^Bearer /i, '')
+    if (!token) return new Response(JSON.stringify({ error: 'Authentification requise' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    const { data: identity, error: authError } = await supabase.auth.getUser(token)
+    if (authError || !identity.user) return new Response(JSON.stringify({ error: 'Session expirée' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    const { data: parent, error: parentError } = await supabase.from('parents')
+      .select('id, email, first_name, last_name').eq('user_id', identity.user.id).eq('id', parentId).single()
+    if (parentError || !parent) return new Response(JSON.stringify({ error: 'Compte parent introuvable' }),
+      { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    if (!Array.isArray(cartItems) || !cartItems.length || !Number.isFinite(totalAmount) || totalAmount < 0) {
+      return new Response(JSON.stringify({ error: 'Panier ou montant invalide' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
-
-    // Vérifier que les credentials sont configurés
-    if (!PAYZONE_MERCHANT_ACCOUNT || !PAYZONE_SECRET_KEY) {
-      console.error('PayZone credentials not configured')
-      return new Response(
-        JSON.stringify({ error: 'Configuration PayZone manquante' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+    if (totalAmount > 0 && (!PAYZONE_MERCHANT_ACCOUNT || !PAYZONE_SECRET_KEY)) {
+      throw new Error('Configuration PayZone manquante')
     }
-
-    // Créer un ID de commande unique
-    const orderId = `CK_${Date.now()}_${parentId.substring(0, 8)}`
-    const chargeId = `CHG_${Date.now()}`
+    // The database validates prices/consent and reserves credit + child/day slots
+    // in one transaction. A retry returns the original checkout and charge ID.
+    const { data: payment, error: prepareError } = await supabase.rpc('prepare_meal_checkout', {
+      p_parent_id: parent.id, p_items: cartItems, p_bank_amount: totalAmount, p_credits: appliedCredits,
+    })
+    if (prepareError) return new Response(JSON.stringify({ error: prepareError.message }),
+      { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    if (!payment) throw new Error('Commande non enregistrée')
+    const orderId = payment.order_id
+    if (payment.status === 'completed') return new Response(JSON.stringify({
+      success: true, completed: true, orderId, totalAmount: payment.total_amount,
+    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    if (payment.payzone_status === 'CHARGED') return new Response(JSON.stringify({
+      error: 'Ce paiement a déjà été reçu. Consultez vos commandes ou contactez le support avant de recommencer.',
+    }), { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    if (!PAYZONE_MERCHANT_ACCOUNT || !PAYZONE_SECRET_KEY) throw new Error('Configuration PayZone manquante')
+    const chargeId = payment.charge_id
     const timestamp = Math.floor(Date.now() / 1000)
-
-    // Construire la description des articles
-    const description = cartItems
-      .map(item => `${item.menu.meal_name} - ${item.child.first_name}`)
-      .join(', ')
-      .substring(0, 250)
+    const description = payment.cart_items
+      .map((item: any) => `${item.menu.meal_name} - ${item.child.first_name}`)
+      .join(', ').substring(0, 250)
 
     // Construire le payload PayZone selon la documentation
     const payload = {
@@ -89,13 +103,13 @@ serve(async (req) => {
       customerId: parentId,
       customerCountry: 'MA',
       customerLocale: 'fr_FR',
-      ...(customerEmail && { customerEmail }),
-      ...(customerName && { customerName }),
+      ...(parent.email && { customerEmail: parent.email }),
+      customerName: `${parent.first_name} ${parent.last_name}`,
 
       // Charge parameters
       chargeId: chargeId,
       orderId: orderId,
-      price: totalAmount.toString(),
+      price: String(payment.total_amount),
       currency: 'MAD',
       description: description,
 
@@ -117,30 +131,6 @@ serve(async (req) => {
     const jsonPayload = JSON.stringify(payload)
     const signature = await sha256(PAYZONE_SECRET_KEY + jsonPayload)
 
-    // Initialiser Supabase pour sauvegarder la transaction en attente
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-    // Sauvegarder la transaction en attente
-    const { error: insertError } = await supabase
-      .from('pending_payments')
-      .insert({
-        order_id: orderId,
-        charge_id: chargeId,
-        parent_id: parentId,
-        cart_items: cartItems,
-        total_amount: totalAmount,
-        status: 'pending',
-        applied_credits: appliedCredits,
-        created_at: new Date().toISOString(),
-      })
-
-    if (insertError) {
-      console.error('Error saving pending payment:', insertError)
-      // On continue quand même car le paiement peut être récupéré via le callback
-    }
-
     // Retourner les données pour le POST vers PayZone
     return new Response(
       JSON.stringify({
@@ -149,6 +139,9 @@ serve(async (req) => {
         payload: jsonPayload,
         signature: signature,
         orderId: orderId,
+        reused: payment.reused,
+        totalAmount: Number(payment.total_amount),
+        creditAmount: (payment.applied_credits || []).reduce((sum: number, c: any) => sum + Number(c.amount), 0),
       }),
       {
         status: 200,

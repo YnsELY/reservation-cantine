@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useMemo } from 'react';
+﻿import { useState, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Switch } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,11 +6,11 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase, CartItem, Child, Menu, Parent, ParentCredit } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { sendOrderConfirmationEmail } from '@/lib/emails';
 import { payzoneService, CartItemForPayment } from '@/lib/payzone';
 import { getPaymentErrorMessage } from '@/lib/payment-errors';
-import { applyCreditsToCart, consumeCredits, getAvailableCredits, CANCELLATION_CUTOFF_HOUR } from '@/lib/credits';
-import { ArrowLeft, Trash2, ShoppingCart, Lock, User, FlaskConical, Wallet, Check } from 'lucide-react-native';
+import { childSelectionRoute, prepareCartOrders } from '@/lib/meal-orders';
+import { applyCreditsToCart, getAvailableCredits, CANCELLATION_CUTOFF_HOUR } from '@/lib/credits';
+import { ArrowLeft, Trash2, ShoppingCart, Lock, User, Wallet, Check } from 'lucide-react-native';
 
 interface CartItemWithDetails extends CartItem {
   child: Child;
@@ -24,14 +24,13 @@ export default function CartScreen() {
   const [useCredits, setUseCredits] = useState(true);
   const [loading, setLoading] = useState(true);
   const [processingPayment, setProcessingPayment] = useState(false);
+  const processingPaymentRef = useRef(false);
   const router = useRouter();
-
-  useEffect(() => {
-    loadCartData();
-  }, []);
 
   useFocusEffect(
     useCallback(() => {
+      processingPaymentRef.current = false;
+      setProcessingPayment(false);
       loadCartData();
     }, [])
   );
@@ -113,7 +112,7 @@ export default function CartScreen() {
       showAlert('Succès', 'Article retiré du panier');
     } catch (err) {
       console.error('Error removing item:', err);
-      showAlert('Erreur', 'Erreur lors de la suppression');
+      showAlert('Suppression impossible', err instanceof Error ? err.message : String((err as any)?.message || 'Réessayez dans un instant.'));
     }
   };
 
@@ -123,7 +122,7 @@ export default function CartScreen() {
   );
 
   const balance = useMemo(
-    () => credits.reduce((s, c) => s + (Number(c.amount) - Number(c.used_amount)), 0),
+    () => credits.reduce((s, c) => s + (Number(c.amount) - Number(c.used_amount) - Number(c.reserved_amount || 0)), 0),
     [credits]
   );
 
@@ -138,25 +137,34 @@ export default function CartScreen() {
   const totalAfterCredit = Math.max(0, Math.round((subtotal - application.totalDiscount) * 100) / 100);
 
   const handlePayment = async () => {
-    if (cartItems.length === 0 || !parent) return;
+    if (cartItems.length === 0 || !parent || processingPaymentRef.current) return;
 
-    // Garde-fou : si 7h est passé pour certains repas pendant que le panier était ouvert,
-    // on les retire et on demande de reconfirmer (le total et les crédits changent).
-    const expiredNow = cartItems.filter(item => isPastCutoff(item.date));
-    if (expiredNow.length > 0) {
-      await supabase.from('cart_items').delete().in('id', expiredNow.map(i => i.id));
-      setCartItems(prev => prev.filter(item => !isPastCutoff(item.date)));
-      showAlert(
-        'Panier mis à jour',
-        `${expiredNow.length} repas retiré${expiredNow.length > 1 ? 's' : ''} : la commande n'est plus possible après 7h le jour du repas. Vérifiez votre panier puis relancez le paiement.`
-      );
-      return;
-    }
-
+    processingPaymentRef.current = true;
     setProcessingPayment(true);
+    let paymentOpened = false;
     try {
-      const cartItemsForPayment: CartItemForPayment[] = cartItems.map(item => ({
+      // Garde-fou : si 7h est passé pour certains repas pendant que le panier était ouvert,
+      // on les retire et on demande de reconfirmer (le total et les crédits changent).
+      const expiredNow = cartItems.filter(item => isPastCutoff(item.date));
+      if (expiredNow.length > 0) {
+        await supabase.from('cart_items').delete().in('id', expiredNow.map(i => i.id));
+        setCartItems(prev => prev.filter(item => !isPastCutoff(item.date)));
+        showAlert(
+          'Panier mis à jour',
+          `${expiredNow.length} repas retiré${expiredNow.length > 1 ? 's' : ''} : la commande n'est plus possible après 7h le jour du repas. Vérifiez votre panier puis relancez le paiement.`
+        );
+        return;
+      }
+
+      const confirmedItems = await prepareCartOrders(cartItems, parent.id, date => {
+        router.push(childSelectionRoute(date));
+      });
+      if (!confirmedItems) return;
+
+      const cartItemsForPayment: CartItemForPayment[] = confirmedItems.map(item => ({
         id: item.id,
+        confirmed_daily_quantity: item.confirmed_daily_quantity,
+        repeat_order_confirmed_at: item.repeat_order_confirmed_at,
         child_id: item.child_id,
         menu_id: item.menu_id,
         date: item.date,
@@ -172,11 +180,6 @@ export default function CartScreen() {
         },
       }));
 
-      if (totalAfterCredit <= 0.005 && application.creditsUsed.length > 0) {
-        await finalizeFreeOrder(cartItemsForPayment, application.creditsUsed);
-        return;
-      }
-
       const response = await payzoneService.initializePayment(
         parent.id,
         cartItemsForPayment,
@@ -186,8 +189,26 @@ export default function CartScreen() {
         application.creditsUsed
       );
 
+      if (response.success && response.completed && response.orderId) {
+        setCredits([]);
+        setCartItems([]);
+        router.replace({ pathname: '/(parent)/order-summary', params: { orderId: response.orderId } });
+        return;
+      }
+
       if (!response.success || !response.paywallUrl || !response.payload || !response.signature) {
         throw new Error(response.error || 'Erreur lors de l\'initialisation du paiement');
+      }
+
+      if (response.reused) {
+        const resume = await new Promise<boolean>(resolve => showAlert(
+          'Reprendre votre paiement',
+          `Ce panier a déjà un paiement en cours : ${Number(response.totalAmount).toFixed(2)} DH par carte et ${Number(response.creditAmount || 0).toFixed(2)} DH de cagnotte réservée. Vous allez reprendre ce même paiement.`,
+          [{ text: 'Annuler', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Reprendre', onPress: () => resolve(true) }],
+          { requireExplicitChoice: true }
+        ));
+        if (!resume) return;
       }
 
       router.push({
@@ -199,6 +220,7 @@ export default function CartScreen() {
           orderId: response.orderId,
         },
       });
+      paymentOpened = true;
 
     } catch (err) {
       console.error('Error processing payment:', err);
@@ -207,176 +229,13 @@ export default function CartScreen() {
         getPaymentErrorMessage(err, totalAfterCredit <= 0.005 && application.creditsUsed.length > 0)
       );
     } finally {
-      setProcessingPayment(false);
+      if (!paymentOpened) {
+        processingPaymentRef.current = false;
+        setProcessingPayment(false);
+      }
     }
   };
 
-  const finalizeFreeOrder = async (
-    items: CartItemForPayment[],
-    creditsUsed: { credit_id: string; amount: number }[]
-  ) => {
-    if (!parent) return;
-    const reference = `CRD_${Date.now()}`;
-
-    const reservations = items.map(item => ({
-      parent_id: parent.id,
-      child_id: item.child_id,
-      menu_id: item.menu_id,
-      date: item.date,
-      supplements: item.supplements || [],
-      annotations: item.annotations,
-      total_price: item.total_price,
-      payment_status: 'paid',
-      payment_intent_id: reference,
-    }));
-
-    const { error: insertError } = await supabase.from('reservations').insert(reservations);
-    if (insertError) throw insertError;
-
-    const cartItemIds = items.map(item => item.id);
-    await supabase.from('cart_items').delete().in('id', cartItemIds);
-
-    await consumeCredits(creditsUsed);
-
-    setCredits([]);
-    setCartItems([]);
-
-    showAlert(
-      'Commande validée',
-      `Votre crédit cagnotte de ${application.totalDiscount.toFixed(2)} DH a couvert l'intégralité de la commande.`,
-      [{ text: 'OK', onPress: () => safeBack('/(parent)') }]
-    );
-  };
-
-  const handleTestOrder = async () => {
-    if (cartItems.length === 0 || !parent) return;
-
-    showAlert(
-      'Commande test',
-      'Créer les réservations sans passer par le paiement ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Confirmer',
-          onPress: async () => {
-            setProcessingPayment(true);
-            try {
-              const testReference = `TEST_${Date.now()}`;
-
-              const reservations = cartItems.map(item => ({
-                parent_id: parent.id,
-                child_id: item.child_id,
-                menu_id: item.menu_id,
-                date: item.date,
-                supplements: item.supplements || [],
-                annotations: item.annotations,
-                total_price: item.total_price,
-                payment_status: 'paid',
-                payment_intent_id: testReference,
-              }));
-
-              const { error: insertError } = await supabase
-                .from('reservations')
-                .insert(reservations);
-
-              if (insertError) throw insertError;
-
-              // Delete cart items
-              const cartItemIds = cartItems.map(item => item.id);
-              await supabase.from('cart_items').delete().in('id', cartItemIds);
-
-              if (application.creditsUsed.length > 0) {
-                await consumeCredits(application.creditsUsed);
-              }
-
-              // Send test notifications
-              try {
-                const totalAmount = totalAfterCredit;
-
-                const { error: emailError } = await sendOrderConfirmationEmail({
-                  orderId: testReference,
-                  totalAmount,
-                  paymentReference: testReference,
-                  paidAt: new Date().toISOString(),
-                  items: cartItems.map(item => ({
-                    childFirstName: item.child.first_name,
-                    childLastName: item.child.last_name,
-                    mealName: item.menu.meal_name,
-                    date: item.date,
-                    totalPrice: Number(item.total_price),
-                    supplements: item.supplements || [],
-                    annotations: item.annotations,
-                  })),
-                });
-
-                if (emailError) {
-                  console.error('Test order confirmation email error:', emailError);
-                }
-
-                // P4: parent notification
-                await supabase.functions.invoke('send-notification', {
-                  body: {
-                    userId: parent.id,
-                    userType: 'parent',
-                    title: 'Paiement confirmé ✓',
-                    body: `Votre paiement de ${totalAmount.toFixed(2)} MAD a été confirmé. Les réservations sont enregistrées.`,
-                    notificationType: 'payment_confirmed',
-                    data: { orderId: testReference, amount: totalAmount },
-                  },
-                });
-
-                // S6: school notifications
-                const schoolIds = [...new Set(cartItems.map(item => item.menu.school_id).filter(Boolean))];
-                if (schoolIds.length > 0) {
-                  await supabase.functions.invoke('send-notification', {
-                    body: {
-                      userIds: schoolIds,
-                      userType: 'school',
-                      title: 'Nouvelles réservations',
-                      body: `${cartItems.length} nouvelle(s) réservation(s) enregistrée(s).`,
-                      notificationType: 'new_reservation_school',
-                      data: { count: cartItems.length },
-                    },
-                  });
-                }
-
-                // Pr7: provider notifications
-                const menuIds = [...new Set(cartItems.map(item => item.menu_id))];
-                const { data: menus } = await supabase
-                  .from('menus')
-                  .select('provider_id')
-                  .in('id', menuIds);
-                const providerIds = [...new Set((menus || []).map(m => m.provider_id).filter(Boolean))];
-                if (providerIds.length > 0) {
-                  await supabase.functions.invoke('send-notification', {
-                    body: {
-                      userIds: providerIds,
-                      userType: 'provider',
-                      title: 'Nouvelles commandes',
-                      body: `${cartItems.length} nouvelle(s) commande(s) reçue(s).`,
-                      notificationType: 'new_order_provider',
-                      data: { count: cartItems.length },
-                    },
-                  });
-                }
-              } catch (notifError) {
-                console.error('Error sending test notifications:', notifError);
-              }
-
-              showAlert('Succès', 'Commande test créée avec succès !', [
-                { text: 'OK', onPress: () => safeBack('/(parent)') },
-              ]);
-            } catch (err) {
-              console.error('Error creating test order:', err);
-              showAlert('Erreur', 'Erreur lors de la création de la commande test');
-            } finally {
-              setProcessingPayment(false);
-            }
-          },
-        },
-      ]
-    );
-  };
 
   if (loading) {
     return (
@@ -445,6 +304,7 @@ export default function CartScreen() {
                         <Text style={styles.menuName}>{item.menu.meal_name}</Text>
                         <TouchableOpacity
                           onPress={() => removeFromCart(item.id)}
+                          disabled={processingPayment}
                           style={styles.deleteButton}
                         >
                           <Trash2 size={18} color="#EF4444" />
@@ -513,6 +373,7 @@ export default function CartScreen() {
                 <Switch
                   value={useCredits}
                   onValueChange={setUseCredits}
+                  disabled={processingPayment}
                   trackColor={{ false: '#E5E7EB', true: '#CFE4F7' }}
                   thumbColor={useCredits ? '#0E5FC0' : '#F4F6FB'}
                 />

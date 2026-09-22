@@ -147,6 +147,9 @@ export interface ProviderWeekPlanDay {
 }
 
 export interface Reservation {
+  confirmed_daily_quantity?: number;
+  repeat_order_confirmed_at?: string | null;
+  source_cart_item_id?: string | null;
   id: string;
   child_id: string;
   menu_id: string;
@@ -168,6 +171,8 @@ export interface Reservation {
 }
 
 export interface CartItem {
+  confirmed_daily_quantity?: number;
+  repeat_order_confirmed_at?: string | null;
   id: string;
   parent_id: string;
   child_id: string;
@@ -224,6 +229,9 @@ export interface ParentCredit {
   meal_week_start_date?: string | null;
   expires_at?: string | null;
   created_at: string;
+  reserved_amount?: number;
+  reason?: string | null;
+  source_reference?: string | null;
 }
 
 export interface PendingPayment {

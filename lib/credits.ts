@@ -21,7 +21,7 @@ export interface CreditApplicationResult {
   creditsUsed: AppliedCredit[];
 }
 
-const remaining = (c: ParentCredit) => Number(c.amount) - Number(c.used_amount);
+const remaining = (c: ParentCredit) => Number(c.amount) - Number(c.used_amount) - Number(c.reserved_amount || 0);
 
 export async function getAvailableCredits(parentId: string): Promise<ParentCredit[]> {
   // Crédits sans deadline : disponibles tant qu'il reste un solde, quelle que soit la semaine.
@@ -104,20 +104,8 @@ export function getCreditWindow(
 export async function createCreditForCancellation(
   input: CreateCreditInput
 ): Promise<{ ok: boolean; error?: string }> {
-  // Crédit sans deadline ni couplage semaine. On conserve meal_week_start_date
-  // uniquement pour la limite MAX_CANCELLATIONS_PER_WEEK (calée sur la semaine du repas).
-  const mealWeekStart = getWeekStart(input.mealDate);
-  const { error } = await supabase.from('parent_credits').insert({
-    parent_id: input.parentId,
-    amount: input.amount,
-    used_amount: 0,
-    source_reservation_id: input.reservationId,
-    meal_week_start_date: formatYmd(mealWeekStart),
-  });
-  if (error) {
-    return { ok: false, error: error.message };
-  }
-  return { ok: true };
+  const { error } = await supabase.rpc('cancel_meal_with_credit', { p_reservation_id: input.reservationId });
+  return error ? { ok: false, error: error.message } : { ok: true };
 }
 
 export function applyCreditsToCart(
@@ -156,29 +144,6 @@ export function applyCreditsToCart(
   );
 
   return { totalDiscount, perItemDiscount, creditsUsed };
-}
-
-export async function consumeCredits(applied: AppliedCredit[]): Promise<void> {
-  if (!applied.length) return;
-  const ids = applied.map(a => a.credit_id);
-  const { data: rows, error } = await supabase
-    .from('parent_credits')
-    .select('id, used_amount')
-    .in('id', ids);
-  if (error) {
-    console.error('consumeCredits fetch error:', error);
-    return;
-  }
-  const currentById = new Map<string, number>((rows || []).map((r: any) => [r.id, Number(r.used_amount)]));
-  await Promise.all(applied.map(async a => {
-    const current = currentById.get(a.credit_id) || 0;
-    const next = round2(current + a.amount);
-    const { error: upErr } = await supabase
-      .from('parent_credits')
-      .update({ used_amount: next })
-      .eq('id', a.credit_id);
-    if (upErr) console.error('consumeCredits update error:', upErr);
-  }));
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;

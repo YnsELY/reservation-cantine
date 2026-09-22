@@ -39,13 +39,17 @@ const subscribe = (l: Listener) => {
 export const showAlert = (
   title: string,
   message?: string,
-  buttons?: AlertButton[]
+  buttons?: AlertButton[],
+  options?: { requireExplicitChoice?: boolean }
 ) => {
   const finalButtons: AlertButton[] =
     buttons && buttons.length > 0 ? buttons : [{ text: 'OK', style: 'default' }];
 
   if (Platform.OS !== 'web') {
-    RNAlert.alert(title, message, finalButtons as any);
+    RNAlert.alert(title, message, finalButtons as any, options?.requireExplicitChoice ? {
+      cancelable: true,
+      onDismiss: () => finalButtons.find(button => button.style === 'cancel')?.onPress?.(),
+    } : undefined);
     return;
   }
 
@@ -56,6 +60,12 @@ export const showAlert = (
 
   // Fallback if provider isn't mounted yet
   if (typeof window !== 'undefined') {
+    // A generic browser OK must never mean consent to an extra paid meal.
+    if (options?.requireExplicitChoice) {
+      window.alert(`${title}${message ? '\n\n' + message : ''}\n\nVeuillez réessayer pour choisir une option.`);
+      finalButtons.find(button => button.style === 'cancel')?.onPress?.();
+      return;
+    }
     if (finalButtons.length > 1) {
       const ok = window.confirm(
         `${title}${message ? '\n\n' + message : ''}`

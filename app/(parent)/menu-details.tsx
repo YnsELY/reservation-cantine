@@ -1,10 +1,12 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase, Child, Menu, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
+import { childSelectionRoute, confirmRepeatOrder, getActiveMeals, hasAnotherChild } from '@/lib/meal-orders';
+import { getPaymentErrorMessage } from '@/lib/payment-errors';
 import { ChevronLeft, ShoppingCart, AlertCircle, CheckSquare, Square } from 'lucide-react-native';
 
 interface Supplement {
@@ -28,6 +30,7 @@ export default function MenuDetailsScreen() {
   const [error, setError] = useState('');
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [addingToCart, setAddingToCart] = useState(false);
+  const addingToCartRef = useRef(false);
 
   const menuId = params.menuId as string;
   const childId = params.childId as string;
@@ -124,18 +127,40 @@ export default function MenuDetailsScreen() {
   };
 
   const handleAddToCart = async () => {
-    if (!parent || !child || !menu) return;
+    if (!parent || !child || !menu || addingToCartRef.current) return;
 
+    addingToCartRef.current = true;
     setAddingToCart(true);
     setError('');
 
     try {
+      const reservations = await getActiveMeals([{ child_id: child.id, menu_id: menu.id, date }]);
+      const { data: existingItems, error: cartError } = await supabase
+        .from('cart_items')
+        .select('id')
+        .eq('child_id', child.id)
+        .eq('date', date);
+      if (cartError) throw cartError;
+
       const selectedSupplementsData = supplements
         .filter(s => selectedSupplements.includes(s.id))
         .map(s => ({ id: s.id, name: s.name, price: s.price }));
 
       const supplementsTotal = selectedSupplementsData.reduce((sum, s) => sum + s.price, 0);
-      const totalPrice = menu.price + supplementsTotal;
+      const totalPrice = Number(menu.price) + supplementsTotal;
+
+      const cartCount = existingItems?.length || 0;
+      const quantity = reservations.length + cartCount + 1;
+      if (quantity > 1) {
+        const choice = await confirmRepeatOrder({
+          childName: `${child.first_name} ${child.last_name}`,
+          date, reservedCount: reservations.length, cartCount, quantity,
+          amount: totalPrice, adding: true,
+          hasSibling: await hasAnotherChild(parent.id, child.id),
+        });
+        if (choice === 'other-child') router.replace(childSelectionRoute(date));
+        if (choice !== 'confirm') return;
+      }
 
       const supplementsJson = selectedSupplementsData.length > 0 ? { items: selectedSupplementsData } : null;
 
@@ -149,6 +174,7 @@ export default function MenuDetailsScreen() {
           total_price: totalPrice,
           supplements: supplementsJson,
           annotations: specialInstructions || null,
+          confirmed_daily_quantity: quantity,
         });
 
       if (error) throw error;
@@ -156,8 +182,9 @@ export default function MenuDetailsScreen() {
       safeBack('/(parent)');
     } catch (err) {
       console.error('Error adding to cart:', err);
-      setError('Erreur lors de l\'ajout au panier');
+      setError(getPaymentErrorMessage(err, false));
     } finally {
+      addingToCartRef.current = false;
       setAddingToCart(false);
     }
   };

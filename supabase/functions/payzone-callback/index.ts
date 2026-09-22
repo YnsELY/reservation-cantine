@@ -40,14 +40,6 @@ serve(async (req) => {
     // Récupérer le body brut pour la vérification de signature
     const rawBody = await req.text()
 
-    // Logger tous les headers pour debug
-    console.log('=== PayZone Callback Debug ===')
-    console.log('Headers received:')
-    for (const [key, value] of req.headers.entries()) {
-      console.log(`  ${key}: ${value}`)
-    }
-    console.log('Raw body:', rawBody)
-
     // Récupérer la signature - PayZone peut utiliser différents noms d'header
     const receivedSignature =
       req.headers.get('x-callback-signature') ||
@@ -56,12 +48,13 @@ serve(async (req) => {
       req.headers.get('x-payzone-signature') ||
       ''
 
-    console.log('Received signature:', receivedSignature)
 
-    // Vérifier la signature si la clé de notification est configurée ET si une signature est reçue
-    if (PAYZONE_NOTIFICATION_KEY && receivedSignature) {
+    if (!PAYZONE_NOTIFICATION_KEY) {
+      console.error('PayZone notification key is not configured')
+      return new Response(JSON.stringify({ error: 'Callback unavailable' }), { status: 503, headers: corsHeaders })
+    }
+    if (receivedSignature) {
       const calculatedSignature = await hmacSha256(PAYZONE_NOTIFICATION_KEY, rawBody)
-      console.log('Calculated signature:', calculatedSignature)
 
       if (calculatedSignature.toLowerCase() !== receivedSignature.toLowerCase()) {
         console.error('Signature mismatch! Rejecting callback.')
@@ -83,7 +76,6 @@ serve(async (req) => {
     // Parser la notification
     const notification = JSON.parse(rawBody)
 
-    console.log('PayZone notification received:', JSON.stringify(notification, null, 2))
 
     const {
       id,
@@ -107,7 +99,10 @@ serve(async (req) => {
       .eq('order_id', orderId)
       .single()
 
-    if (fetchError || !pendingPayment) {
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      return new Response(JSON.stringify({ error: 'Payment lookup unavailable' }), { status: 500, headers: corsHeaders })
+    }
+    if (!pendingPayment) {
       console.error('Pending payment not found for orderId:', orderId)
       // On retourne 200 pour éviter les retries inutiles de PayZone
       return new Response(
@@ -116,80 +111,44 @@ serve(async (req) => {
       )
     }
 
+    if (id !== pendingPayment.charge_id) return new Response(JSON.stringify({ error: 'Payment reference mismatch' }), { status: 409, headers: corsHeaders })
+
     // Traiter selon le statut
     if (status === 'CHARGED') {
-      // Paiement réussi - créer les réservations
-      const cartItems = pendingPayment.cart_items
+      // The database locks this payment and commits reservations, credits and
+      // cart removal together. Repeated callbacks cannot repeat these effects.
+      const { data: completedNow, error: completionError } = await supabase.rpc(
+        'complete_payzone_payment',
+        { p_order_id: orderId, p_transaction_id: id }
+      )
 
-      const reservations = cartItems.map((item: any) => ({
-        parent_id: pendingPayment.parent_id,
-        child_id: item.child_id,
-        menu_id: item.menu_id,
-        date: item.date,
-        supplements: item.supplements || [],
-        annotations: item.annotations,
-        total_price: item.total_price,
-        payment_status: 'paid',
-        payment_intent_id: id, // ID de transaction PayZone
-      }))
-
-      // Insérer les réservations
-      const { error: insertError } = await supabase
-        .from('reservations')
-        .insert(reservations)
-
-      if (insertError) {
-        console.error('Error creating reservations:', insertError)
+      if (completionError) {
+        console.error('Error completing paid order:', completionError)
+        // Keep evidence that the bank charged the payment. Do not mislabel it as
+        // a card refusal or silently discard paid lines when a conflict occurs.
+        await supabase.from('pending_payments').update({
+          payzone_transaction_id: id,
+          payzone_status: 'CHARGED',
+          failure_reason: `Reservation completion: ${completionError.message}`,
+        }).eq('order_id', orderId).not('status', 'in', '(completed,refunded)')
         return new Response(
-          JSON.stringify({ error: 'Erreur lors de la création des réservations' }),
+          JSON.stringify({ error: 'Paiement reçu, enregistrement de la commande à vérifier' }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
       }
 
-      // Supprimer les articles du panier
-      const cartItemIds = cartItems.map((item: any) => item.id)
-      await supabase
-        .from('cart_items')
-        .delete()
-        .in('id', cartItemIds)
-
-      // Consommer les crédits cagnotte appliqués à la commande
-      const appliedCredits: Array<{ credit_id: string; amount: number }> =
-        Array.isArray(pendingPayment.applied_credits) ? pendingPayment.applied_credits : []
-      if (appliedCredits.length > 0) {
-        const creditIds = appliedCredits.map(c => c.credit_id)
-        const { data: creditRows } = await supabase
-          .from('parent_credits')
-          .select('id, used_amount')
-          .in('id', creditIds)
-        const usedById = new Map<string, number>(
-          (creditRows || []).map((r: any) => [r.id, Number(r.used_amount)])
+      if (!completedNow) {
+        return new Response(
+          JSON.stringify({ success: true, message: 'Payment already processed' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         )
-        for (const applied of appliedCredits) {
-          const current = usedById.get(applied.credit_id) || 0
-          const next = Math.round((current + applied.amount) * 100) / 100
-          const { error: creditError } = await supabase
-            .from('parent_credits')
-            .update({ used_amount: next })
-            .eq('id', applied.credit_id)
-          if (creditError) console.error('Credit update error:', creditError)
-        }
       }
 
-      // Mettre à jour le statut du paiement en attente
-      await supabase
-        .from('pending_payments')
-        .update({
-          status: 'completed',
-          payzone_transaction_id: id,
-          payzone_status: status,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('order_id', orderId)
+      const cartItems = pendingPayment.cart_items
 
       console.log(`Payment ${orderId} completed successfully`)
 
-      const totalAmount = cartItems.reduce((sum: number, item: any) => sum + (item.total_price || 0), 0)
+      const totalAmount = Number(pendingPayment.total_amount)
 
       try {
         const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-transactional-email`, {
@@ -295,8 +254,8 @@ serve(async (req) => {
       }
 
     } else if (status === 'DECLINED' || status === 'CANCELLED' || status === 'ERROR') {
-      // Paiement échoué
-      await supabase
+      // A late failure notification must not downgrade a completed payment.
+      const { data: failedPayment, error: failureError } = await supabase
         .from('pending_payments')
         .update({
           status: 'failed',
@@ -306,6 +265,20 @@ serve(async (req) => {
           failure_reason: transactions?.[0]?.responseText || status,
         })
         .eq('order_id', orderId)
+        .in('status', ['pending', 'failed', 'expired'])
+        .or('payzone_status.is.null,payzone_status.neq.CHARGED')
+        .select('id')
+
+      if (failureError) {
+        return new Response(JSON.stringify({ error: 'Payment update failed' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      if (!failedPayment?.length) {
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
 
       console.log(`Payment ${orderId} failed with status: ${status}`)
 
@@ -358,10 +331,10 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in payzone-callback:', error)
-    // Retourner 200 pour éviter les retries en cas d'erreur de parsing
+    // Do not acknowledge a callback whose processing failed.
     return new Response(
       JSON.stringify({ success: false, error: 'Processing error' }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })

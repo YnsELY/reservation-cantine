@@ -12,6 +12,8 @@ const SUPABASE_FUNCTIONS_URL = Constants.expoConfig?.extra?.supabaseUrl
     : '';
 
 export interface CartItemForPayment {
+  confirmed_daily_quantity?: number;
+  repeat_order_confirmed_at?: string | null;
   id: string;
   child_id: string;
   menu_id: string;
@@ -25,6 +27,10 @@ export interface CartItemForPayment {
 
 export interface PaymentInitResponse {
   success: boolean;
+  completed?: boolean;
+  reused?: boolean;
+  creditAmount?: number;
+  totalAmount?: number;
   paywallUrl?: string;
   payload?: string;
   signature?: string;
@@ -147,7 +153,8 @@ class PayzoneService {
 
         const payment = await this.checkPaymentStatus(orderId);
 
-        if (payment && payment.status !== 'pending') {
+        if (payment && (payment.status !== 'pending' ||
+            (payment.payzone_status === 'CHARGED' && payment.failure_reason))) {
           resolve(payment);
           return;
         }

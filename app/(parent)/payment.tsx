@@ -8,7 +8,7 @@ import { WebView, WebViewNavigation } from 'react-native-webview';
 import { ArrowLeft, X, RefreshCw, CheckCircle, XCircle, AlertCircle } from 'lucide-react-native';
 import { payzoneService } from '@/lib/payzone';
 
-type PaymentStatus = 'loading' | 'ready' | 'processing' | 'success' | 'failure' | 'cancelled' | 'error';
+type PaymentStatus = 'loading' | 'ready' | 'processing' | 'success' | 'failure' | 'cancelled' | 'error' | 'review';
 
 export default function PaymentScreen() {
   const router = useRouter();
@@ -20,6 +20,7 @@ export default function PaymentScreen() {
   }>();
 
   const webViewRef = useRef<WebView>(null);
+  const confirmationInProgressRef = useRef(false);
   const [status, setStatus] = useState<PaymentStatus>('loading');
   const [webViewHtml, setWebViewHtml] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -60,7 +61,7 @@ export default function PaymentScreen() {
     if (!isOurUrl) return;
 
     if (url.includes('/payment-success')) {
-      setStatus('success');
+      setStatus('processing');
       checkPaymentConfirmation();
     } else if (url.includes('/payment-failure')) {
       setStatus('failure');
@@ -72,7 +73,8 @@ export default function PaymentScreen() {
   };
 
   const checkPaymentConfirmation = async () => {
-    if (!params.orderId) return;
+    if (!params.orderId || confirmationInProgressRef.current) return;
+    confirmationInProgressRef.current = true;
 
     try {
       // Attendre la confirmation du callback (max 30 secondes)
@@ -82,20 +84,29 @@ export default function PaymentScreen() {
         2000
       );
 
-      if (payment) {
-        if (payment.status === 'completed') {
-          // Rediriger vers la page de récapitulatif de commande
-          router.replace({
-            pathname: '/(parent)/order-summary',
-            params: { orderId: params.orderId },
-          });
-        } else if (payment.status === 'failed') {
-          setStatus('failure');
-          setErrorMessage(payment.failure_reason || 'Le paiement a échoué');
-        }
+      if (payment?.status === 'completed') {
+        setStatus('success');
+        // Rediriger vers la page de récapitulatif de commande
+        router.replace({
+          pathname: '/(parent)/order-summary',
+          params: { orderId: params.orderId },
+        });
+      } else if (payment?.payzone_status === 'CHARGED') {
+        setStatus('review');
+        setErrorMessage('Votre paiement a été reçu, mais la commande doit être vérifiée. Contactez le support avec la référence ci-dessous avant de relancer un paiement.');
+      } else if (payment?.status === 'failed') {
+        setStatus('failure');
+        setErrorMessage(payment.failure_reason || 'Le paiement a échoué');
+      } else {
+        setStatus('review');
+        setErrorMessage('La confirmation de votre commande n’est pas disponible. Consultez vos commandes ou contactez le support avant de relancer un paiement.');
       }
     } catch (error) {
       console.error('Error checking payment:', error);
+      setStatus('review');
+      setErrorMessage('La confirmation de votre commande n’est pas disponible. Contactez le support avant de relancer un paiement.');
+    } finally {
+      confirmationInProgressRef.current = false;
     }
   };
 
@@ -129,12 +140,30 @@ export default function PaymentScreen() {
   };
 
   // Écran de chargement
-  if (status === 'loading') {
+  if (status === 'loading' || status === 'processing') {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#0E5FC0" />
-          <Text style={styles.loadingText}>Préparation du paiement...</Text>
+          <Text style={styles.loadingText}>
+            {status === 'processing' ? 'Confirmation de votre commande...' : 'Préparation du paiement...'}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (status === 'review') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.resultContainer}>
+          <AlertCircle size={80} color="#F59E0B" />
+          <Text style={styles.resultTitle}>Commande à vérifier</Text>
+          <Text style={styles.resultText}>{errorMessage}</Text>
+          <Text style={styles.resultText}>Référence : {params.orderId}</Text>
+          <TouchableOpacity style={styles.primaryButton} onPress={handleGoToHistory}>
+            <Text style={styles.primaryButtonText}>Voir mes commandes</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
