@@ -12,41 +12,7 @@ export type UserType = 'parent' | 'school' | 'provider';
 
 export const authService = {
   async authenticateWithCode(code: string): Promise<{ success: boolean; parent?: Parent; school?: School; userType?: UserType; error?: string }> {
-    try {
-      const { data: parentData, error: parentError } = await supabase
-        .from('parents')
-        .select('*')
-        .eq('access_code', code.toUpperCase())
-        .maybeSingle();
-
-      if (parentData) {
-        await AsyncStorage.setItem(ACCESS_CODE_KEY, code.toUpperCase());
-        await AsyncStorage.setItem(PARENT_DATA_KEY, JSON.stringify(parentData));
-        await AsyncStorage.setItem(USER_TYPE_KEY, 'parent');
-
-        return { success: true, parent: parentData, userType: 'parent' };
-      }
-
-      const { data: schoolData, error: schoolError } = await supabase
-        .from('schools')
-        .select('*')
-        .eq('access_code', code.toUpperCase())
-        .eq('is_school_user', true)
-        .maybeSingle();
-
-      if (schoolData) {
-        await AsyncStorage.setItem(ACCESS_CODE_KEY, code.toUpperCase());
-        await AsyncStorage.setItem(SCHOOL_DATA_KEY, JSON.stringify(schoolData));
-        await AsyncStorage.setItem(USER_TYPE_KEY, 'school');
-
-        return { success: true, school: schoolData, userType: 'school' };
-      }
-
-      return { success: false, error: 'Code invalide' };
-    } catch (error) {
-      console.error('Authentication error:', error);
-      return { success: false, error: 'Erreur de connexion' };
-    }
+    return { success: false, error: 'Connectez-vous avec votre email et votre mot de passe.' };
   },
 
   async getCurrentAccessCode(): Promise<string | null> {
@@ -89,24 +55,10 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
-    // Deactivate push token before signing out
-    try {
-      const userType = await this.getUserType();
-      if (userType === 'parent') {
-        const parent = await this.getCurrentParent();
-        if (parent) await notificationService.unregisterToken(parent.id);
-      } else if (userType === 'school') {
-        const school = await this.getCurrentSchool();
-        if (school) await notificationService.unregisterToken(school.id);
-      } else if (userType === 'provider') {
-        const provider = await this.getCurrentProvider();
-        if (provider) await notificationService.unregisterToken(provider.id);
-      }
-    } catch (e) {
-      console.error('Error unregistering push token on logout:', e);
-    }
-
-    await supabase.auth.signOut({ scope: 'local' });
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) await notificationService.unregisterToken();
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
+    if (error) throw error;
     await AsyncStorage.removeItem(ACCESS_CODE_KEY);
     await AsyncStorage.removeItem(PARENT_DATA_KEY);
     await AsyncStorage.removeItem(SCHOOL_DATA_KEY);
@@ -142,7 +94,7 @@ export const authService = {
 
       const { data } = await supabase
         .from('schools')
-        .select('*')
+        .select('id, name, address, contact_email, contact_phone, user_id, is_school_user, created_at, closed_weekdays')
         .eq('user_id', session.user.id)
         .maybeSingle();
 
@@ -172,22 +124,8 @@ export const authService = {
   },
 
   async refreshSchoolData(): Promise<void> {
-    try {
-      const code = await this.getCurrentAccessCode();
-      if (!code) return;
-
-      const { data } = await supabase
-        .from('schools')
-        .select('*')
-        .eq('access_code', code)
-        .maybeSingle();
-
-      if (data) {
-        await AsyncStorage.setItem(SCHOOL_DATA_KEY, JSON.stringify(data));
-      }
-    } catch (error) {
-      console.error('Error refreshing school data:', error);
-    }
+    const school = await this.getCurrentSchoolFromAuth();
+    if (school) await AsyncStorage.setItem(SCHOOL_DATA_KEY, JSON.stringify(school));
   },
 
   async getCurrentProviderFromAuth(): Promise<Provider | null> {

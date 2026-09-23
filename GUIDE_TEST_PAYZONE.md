@@ -4,9 +4,9 @@
 
 ### 1. Secrets Supabase configurés
 - [x] `PAYZONE_MERCHANT_ACCOUNT` = "childrens_kitchen_Test"
-- [x] `PAYZONE_SECRET_KEY` = "k8P1bGukoJfYNmyU"
+- [x] `PAYZONE_SECRET_KEY` = "À_CONFIGURER_DANS_SUPABASE"
 - [x] `PAYZONE_URL` = "https://payment-sandbox.payzone.ma/pwthree/launch"
-- [x] `PAYZONE_NOTIFICATION_KEY` = "3Vlm2S3IkBO7BuiO"
+- [x] `PAYZONE_NOTIFICATION_KEY` = "À_CONFIGURER_DANS_SUPABASE"
 - [x] `APP_BASE_URL` = "https://childrens-kitchen.netlify.app"
 
 ### 2. Edge Functions déployées

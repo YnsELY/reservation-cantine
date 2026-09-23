@@ -44,7 +44,7 @@ export default function SchoolsListScreen() {
 
       const { data: affiliationsData } = await supabase
         .from('parent_school_affiliations')
-        .select('school_id, schools(*)')
+        .select('school_id, schools(id, name, address, contact_email, contact_phone, user_id, is_school_user, created_at, closed_weekdays)')
         .eq('parent_id', currentParent.id)
         .eq('status', 'active');
 
@@ -127,10 +127,7 @@ export default function SchoolsListScreen() {
                   {school.address && (
                     <Text style={styles.schoolAddress}>{school.address}</Text>
                   )}
-                  <View style={styles.codeContainer}>
-                    <Text style={styles.codeLabel}>Code d'accès:</Text>
-                    <Text style={styles.codeValue}>{school.access_code}</Text>
-                  </View>
+
                 </View>
               </View>
             ))}

@@ -115,14 +115,13 @@ export default function ProviderDashboard() {
       setTotalSchools(schoolIds.length);
 
       let menusData: any[] = [];
-      if (schoolIds.length > 0) {
+      {
         const { data } = await supabase
           .from('menus')
           .select('*, schools(name)')
-          .in('school_id', schoolIds)
           .gte('date', startDate)
           .lte('date', endDate)
-          .eq('available', true)
+          .eq('provider_id', currentProvider.id)
           .order('date')
           .order('meal_name');
         menusData = data || [];
@@ -155,7 +154,7 @@ export default function ProviderDashboard() {
           })
         );
 
-        menusMap[dateString] = menusWithCounts;
+        menusMap[dateString] = menusWithCounts.filter(menu => menu.available || menu.order_count > 0);
       }
 
       setWeekMenus(menusMap);

@@ -44,7 +44,7 @@ async function handler(name, options = {}) {
     },
     async rpc(name, args) {
       calls.push({ rpc: name, args });
-      if (name === 'prepare_meal_checkout') return { data: options.payment || payment, error: options.prepareError };
+      if (name === 'prepare_meal_checkout' || name === 'resume_meal_checkout') return { data: options.payment || payment, error: options.prepareError };
       return { data: options.completedNow ?? false, error: options.completionError };
     },
   };
@@ -129,8 +129,8 @@ test('a late DECLINED notification cannot report a completed order as failed', a
   const fn = await handler('payzone-callback');
   assert.equal((await fn.run({ orderId: 'order-1', id: 'CHG_test', status: 'DECLINED' })).status, 200);
   assert.equal(fn.notifications.length, 0);
-  assert.ok(fn.calls.some(call => call.method === 'in' && call.args[0] === 'status'
-    && !call.args[1].includes('completed') && !call.args[1].includes('refunded')));
+  assert.ok(fn.calls.some(call => call.rpc === 'release_failed_checkout'));
+  assert.equal(fn.calls.some(call => call.method === 'update'), false);
 });
 
 test('refund processing uses the atomic RPC and exposes reconciliation failures',async()=>{
@@ -141,4 +141,13 @@ test('refund processing uses the atomic RPC and exposes reconciliation failures'
  assert.equal((await blocked.run({orderId:'order-1',id:'CHG_test',status:'REFUNDED'})).status,500);
  const update=blocked.calls.find(c=>c.method==='update').args[0];
  assert.equal(update.payzone_status,'REFUNDED');assert.match(update.failure_reason,/avoir existe déjà/);
+});
+
+test('resume sends the original order reference to the server without recomputing a basket', async()=>{
+  const fn=await handler('payzone-init',{payment:{...payment,reused:true}});
+  const response=await fn.run({parentId:'parent-1',orderId:'order-1'});
+  assert.equal(response.status,200);
+  assert.equal(fn.calls.find(c=>c.rpc==='resume_meal_checkout').args.p_order_id,'order-1');
+  assert.equal(fn.calls.some(c=>c.rpc==='prepare_meal_checkout'),false);
+  assert.equal(JSON.parse((await response.json()).payload).chargeId,payment.charge_id);
 });

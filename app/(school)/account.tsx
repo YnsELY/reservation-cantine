@@ -1,4 +1,6 @@
-﻿import { useState, useEffect } from 'react';
+import { showAlert } from '@/lib/alert';
+import { authService } from '@/lib/auth';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -25,7 +27,7 @@ export default function AccountScreen() {
 
       const { data: schoolData } = await supabase
         .from('schools')
-        .select('*')
+        .select('id, name, address, contact_email, contact_phone, user_id, is_school_user, created_at, closed_weekdays')
         .eq('user_id', session.user.id)
         .maybeSingle();
 
@@ -126,9 +128,10 @@ export default function AccountScreen() {
           style={styles.logoutButton}
           onPress={async () => {
             try {
-              await supabase.auth.signOut({ scope: 'local' });
+              await authService.logout();
             } catch (err) {
-              console.error('Logout error:', err);
+              showAlert('Déconnexion impossible', (err as Error).message);
+              return;
             }
             router.replace('/auth');
           }}

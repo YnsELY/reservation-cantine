@@ -1,3 +1,4 @@
+import { joinSchoolByCode } from '@/lib/school-access';
 import { useState, useEffect } from 'react';
 import {
   View,
@@ -136,7 +137,7 @@ export default function EditChildScreen() {
       setParentId(parent.id);
       const { data, error } = await supabase
         .from('children')
-        .select('*, schools(*)')
+        .select('*, schools(id, name, address, contact_email, contact_phone, user_id, is_school_user, created_at, closed_weekdays)')
         .eq('parent_id', parent.id)
         .eq('id', childId)
         .maybeSingle();
@@ -150,7 +151,7 @@ export default function EditChildScreen() {
 
       const { data: affiliations, error: affiliationsError } = await supabase
         .from('parent_school_affiliations')
-        .select('schools(*)')
+        .select('schools(id, name, address, contact_email, contact_phone, user_id, is_school_user, created_at, closed_weekdays)')
         .eq('parent_id', parent.id)
         .eq('status', 'active');
       if (affiliationsError) throw affiliationsError;
@@ -293,28 +294,14 @@ export default function EditChildScreen() {
     if (!schoolCode.trim() || !parentId || addingSchool) return;
     setAddingSchool(true);
     try {
-      const { data: school, error } = await supabase.from('schools').select('*')
-        .eq('access_code', schoolCode.trim().toUpperCase()).maybeSingle();
-      if (error) throw error;
-      if (!school) {
-        showAlert('Erreur', 'École non trouvée avec ce code d’accès');
-        return;
-      }
-      const { data: affiliation, error: lookupError } = await supabase.from('parent_school_affiliations')
-        .select('id, status').eq('parent_id', parentId).eq('school_id', school.id).maybeSingle();
-      if (lookupError) throw lookupError;
-      if (affiliation?.status !== 'active') {
-        const { error: affiliationError } = affiliation
-          ? await supabase.from('parent_school_affiliations').update({ status: 'active' }).eq('id', affiliation.id).eq('parent_id', parentId).select('id').single()
-          : await supabase.from('parent_school_affiliations').insert({ parent_id: parentId, school_id: school.id, status: 'active' });
-        if (affiliationError) throw affiliationError;
-      }
+      const school = await joinSchoolByCode(schoolCode, 'parent');
+
       setSchools(current => current.some(item => item.id === school.id) ? current : [...current, school]);
       selectSchool(school);
       setSchoolCode('');
     } catch (error) {
       console.error('Error adding school:', error);
-      showAlert('Erreur', 'Impossible d’ajouter cette école. Veuillez réessayer.');
+      showAlert('Erreur', error instanceof Error ? error.message : 'Impossible d’ajouter cette école.');
     } finally {
       setAddingSchool(false);
     }

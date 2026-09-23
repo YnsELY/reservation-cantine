@@ -264,34 +264,6 @@ export default function ProviderCagnottesScreen() {
     );
   };
 
-  const deleteCredit = async (credit: ParentCredit) => {
-    setProcessing(true);
-    try {
-      const { error: deleteError } = await supabase
-        .from('parent_credits')
-        .delete()
-        .eq('id', credit.id);
-      if (deleteError) throw deleteError;
-      await loadData();
-    } catch (caught: any) {
-      console.error('provider delete credit error', caught);
-      showAlert('Erreur', caught?.message || 'Impossible de supprimer la cagnotte.');
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const confirmDelete = (credit: ParentCredit) => {
-    showAlert(
-      'Supprimer cette cagnotte ?',
-      `Cette action est définitive et retire ${formatAmount(remaining(credit))} du solde disponible.`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Supprimer', style: 'destructive', onPress: () => deleteCredit(credit) },
-      ]
-    );
-  };
-
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -389,14 +361,6 @@ export default function ProviderCagnottesScreen() {
                       <Text style={styles.smallActionText}>
                         {inactive ? 'Réactiver' : 'Désactiver'}
                       </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.smallAction}
-                      onPress={() => confirmDelete(credit)}
-                      disabled={processing}
-                    >
-                      <Trash2 size={18} color="#DC2626" />
-                      <Text style={[styles.smallActionText, styles.deleteText]}>Supprimer</Text>
                     </TouchableOpacity>
                   </View>
                 </View>

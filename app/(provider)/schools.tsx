@@ -48,7 +48,7 @@ export default function ProviderSchools() {
 
       const { data: schoolAccess } = await supabase
         .from('provider_school_access')
-        .select('*, schools(*)')
+        .select('*, schools(id, name, address, contact_email, contact_phone, user_id, is_school_user, created_at, closed_weekdays)')
         .eq('provider_id', currentProvider.id)
         .order('granted_at', { ascending: false });
 

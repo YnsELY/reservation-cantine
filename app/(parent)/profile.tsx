@@ -1,3 +1,4 @@
+import { joinSchoolByCode } from '@/lib/school-access';
 import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput } from 'react-native';
 import { showAlert } from '@/lib/alert';
@@ -72,7 +73,7 @@ export default function ProfileScreen() {
 
       const { data: affiliationsData } = await supabase
         .from('parent_school_affiliations')
-        .select('school_id, schools(*)')
+        .select('school_id, schools(id, name, address, contact_email, contact_phone, user_id, is_school_user, created_at, closed_weekdays)')
         .eq('parent_id', parentData.id)
         .eq('status', 'active');
 
@@ -96,45 +97,7 @@ export default function ProfileScreen() {
 
     setAddingSchool(true);
     try {
-      const { data: schoolData } = await supabase
-        .from('schools')
-        .select('*')
-        .eq('access_code', schoolIdentifier.trim().toUpperCase())
-        .maybeSingle();
-
-      if (!schoolData) {
-        showAlert('Erreur', 'École non trouvée avec cet identifiant');
-        return;
-      }
-
-      if (!parent) {
-        showAlert('Erreur', 'Compte parent non trouvé');
-        return;
-      }
-
-      const { data: existingAffiliation } = await supabase
-        .from('parent_school_affiliations')
-        .select('id')
-        .eq('parent_id', parent.id)
-        .eq('school_id', schoolData.id)
-        .maybeSingle();
-
-      if (existingAffiliation) {
-        showAlert('Information', 'Vous êtes déjà affilié à cette école');
-        setSchoolIdentifier('');
-        setShowAddSchoolModal(false);
-        return;
-      }
-
-      const { error: affiliationError } = await supabase
-        .from('parent_school_affiliations')
-        .insert({
-          parent_id: parent.id,
-          school_id: schoolData.id,
-          status: 'active',
-        });
-
-      if (affiliationError) throw affiliationError;
+      const schoolData = await joinSchoolByCode(schoolIdentifier, 'parent');
 
       await loadData();
       setSchoolIdentifier('');
@@ -142,7 +105,7 @@ export default function ProfileScreen() {
       showAlert('Succès', `École "${schoolData.name}" ajoutée avec succès`);
     } catch (err) {
       console.error('Error adding school:', err);
-      showAlert('Erreur', 'Erreur lors de l\'ajout de l\'école');
+      showAlert('Erreur', err instanceof Error ? err.message : 'Impossible d’ajouter cette école.');
     } finally {
       setAddingSchool(false);
     }
@@ -151,7 +114,7 @@ export default function ProfileScreen() {
   const handleDeleteChild = async (childId: string) => {
     showAlert(
       'Confirmer la suppression',
-      'Êtes-vous sûr de vouloir supprimer cet enfant ?',
+      'Seuls les enfants sans commande ni paiement peuvent être supprimés. Confirmer la suppression ?',
       [
         {
           text: 'Annuler',
@@ -173,7 +136,7 @@ export default function ProfileScreen() {
               showAlert('Succès', 'Enfant supprimé avec succès');
             } catch (err) {
               console.error('Error deleting child:', err);
-              showAlert('Erreur', 'Erreur lors de la suppression de l\'enfant');
+              showAlert('Suppression impossible', (err as any)?.message || 'La fiche est conservée pour préserver les commandes.');
             }
           },
         },
@@ -185,9 +148,10 @@ export default function ProfileScreen() {
     // scope 'local' : vide la session locale sans appel réseau global (qui peut
     // rester bloqué sur web et empêcher la navigation de déconnexion).
     try {
-      await supabase.auth.signOut({ scope: 'local' });
+      await authService.logout();
     } catch (error) {
-      console.error('Logout error:', error);
+      showAlert('Déconnexion impossible', (error as Error).message);
+      return;
     }
     if (router.canGoBack()) {
       router.dismissAll();

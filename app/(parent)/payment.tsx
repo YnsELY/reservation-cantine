@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -63,13 +63,12 @@ export default function PaymentScreen() {
     if (url.includes('/payment-success')) {
       setStatus('processing');
       checkPaymentConfirmation();
-    } else if (url.includes('/payment-failure')) {
-      setStatus('failure');
-      setErrorMessage('Le paiement a été refusé');
-    } else if (url.includes('/payment-cancel')) {
-      setStatus('cancelled');
-      setErrorMessage('Paiement annulé');
+    } else if (url.includes('/payment-failure') || url.includes('/payment-cancel')) {
+      // Return URLs are navigation signals, never evidence of bank cancellation.
+      setStatus('processing');
+      checkPaymentConfirmation();
     }
+
   };
 
   const checkPaymentConfirmation = async () => {
@@ -78,6 +77,7 @@ export default function PaymentScreen() {
 
     try {
       // Attendre la confirmation du callback (max 30 secondes)
+      await payzoneService.reconcilePayment(params.orderId).catch(() => null);
       const payment = await payzoneService.waitForPaymentConfirmation(
         params.orderId,
         30000,
@@ -112,31 +112,27 @@ export default function PaymentScreen() {
 
   const handleCancel = () => {
     showAlert(
-      'Annuler le paiement',
-      'Êtes-vous sûr de vouloir annuler le paiement ?',
+      'Quitter la page de paiement',
+      'Fermer cette page ne confirme pas une annulation bancaire. Vous retrouverez ce paiement et son suivi dans le panier.',
       [
         { text: 'Non', style: 'cancel' },
         {
-          text: 'Oui, annuler',
+          text: 'Retour au panier',
           style: 'destructive',
-          onPress: () => safeBack('/(parent)'),
+          onPress: () => router.replace('/(parent)/cart'),
         },
       ]
     );
   };
 
-  const handleRetry = () => {
-    setStatus('loading');
-    setErrorMessage('');
-    initializePayment();
-  };
+  const handleRetry = () => router.replace('/(parent)/cart');
 
   const handleGoToHistory = () => {
     router.replace('/(parent)/history');
   };
 
   const handleGoBack = () => {
-    safeBack('/(parent)');
+    router.replace('/(parent)/cart');
   };
 
   // Écran de chargement
@@ -163,6 +159,9 @@ export default function PaymentScreen() {
           <Text style={styles.resultText}>Référence : {params.orderId}</Text>
           <TouchableOpacity style={styles.primaryButton} onPress={handleGoToHistory}>
             <Text style={styles.primaryButtonText}>Voir mes commandes</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryButton} onPress={() => router.replace('/(parent)/cart')}>
+            <Text style={styles.secondaryButtonText}>Retrouver le paiement dans le panier</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>

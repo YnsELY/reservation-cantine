@@ -1,3 +1,4 @@
+import { showAlert } from '@/lib/alert';
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -70,7 +71,7 @@ export default function AdminDashboard() {
         { data: weekReservations }
       ] = await Promise.all([
         supabase.from('providers').select('*', { count: 'exact', head: true }),
-        supabase.from('schools').select('*', { count: 'exact', head: true }),
+        supabase.from('schools').select('id, name, address, contact_email, contact_phone, user_id, is_school_user, created_at, closed_weekdays', { count: 'exact', head: true }),
         supabase.from('parents').select('*', { count: 'exact', head: true }),
         supabase
           .from('reservations')
@@ -243,8 +244,10 @@ export default function AdminDashboard() {
                 style={[styles.dropdownItem, styles.dropdownItemLogout, styles.dropdownItemLast]}
                 onPress={async () => {
                   setIsMenuCardOpen(false);
-                  await authService.signOut();
-                  router.replace('/auth');
+                  try {
+                    await authService.signOut();
+                    router.replace('/auth');
+                  } catch (error) { showAlert('Déconnexion impossible', (error as Error).message); }
                 }}
               >
                 <LogOut size={22} color="#EF4444" />

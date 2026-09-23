@@ -52,6 +52,9 @@ export interface PendingPayment {
   created_at: string;
   completed_at: string | null;
   failed_at: string | null;
+  released_at: string | null;
+  checkout_key: string | null;
+  applied_credits: { credit_id: string; amount: number }[];
 }
 
 class PayzoneService {
@@ -65,7 +68,8 @@ class PayzoneService {
     totalAmount: number,
     customerEmail?: string,
     customerName?: string,
-    appliedCredits?: { credit_id: string; amount: number }[]
+    appliedCredits?: { credit_id: string; amount: number }[],
+    orderId?: string
   ): Promise<PaymentInitResponse> {
     try {
       // Récupérer le token d'authentification
@@ -83,6 +87,7 @@ class PayzoneService {
         },
         body: JSON.stringify({
           parentId,
+          orderId,
           cartItems,
           totalAmount,
           customerEmail,
@@ -106,6 +111,22 @@ class PayzoneService {
         error: error instanceof Error ? error.message : 'Erreur inconnue',
       };
     }
+  }
+
+  async resumePayment(parentId: string, orderId: string): Promise<PaymentInitResponse> {
+    return this.initializePayment(parentId, [], 0, undefined, undefined, [], orderId);
+  }
+
+  async reconcilePayment(orderId: string): Promise<{ payment: PendingPayment; checked: boolean; message?: string }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Session expirée');
+    const response = await fetch(`${SUPABASE_FUNCTIONS_URL}/payzone-status`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ orderId }),
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) throw new Error(result.error || 'Vérification indisponible.');
+    return result;
   }
 
   /**

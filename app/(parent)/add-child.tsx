@@ -1,3 +1,4 @@
+import { joinSchoolByCode } from '@/lib/school-access';
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
 import { showAlert } from '@/lib/alert';
@@ -128,7 +129,7 @@ export default function AddChildScreen() {
 
       const { data: affiliationsData } = await supabase
         .from('parent_school_affiliations')
-        .select('school_id, schools(*)')
+        .select('school_id, schools(id, name, address, contact_email, contact_phone, user_id, is_school_user, created_at, closed_weekdays)')
         .eq('parent_id', currentParent.id)
         .eq('status', 'active');
 
@@ -250,41 +251,7 @@ export default function AddChildScreen() {
 
     setAddingSchool(true);
     try {
-      const accessCodeUpper = schoolIdentifier.trim().toUpperCase();
-
-      const { data: schoolData } = await supabase
-        .from('schools')
-        .select('*')
-        .eq('access_code', accessCodeUpper)
-        .maybeSingle();
-
-      if (!schoolData) {
-        showAlert('Erreur', 'École non trouvée avec ce code d\'accès');
-        return;
-      }
-
-      const { data: existingAffiliation } = await supabase
-        .from('parent_school_affiliations')
-        .select('id')
-        .eq('parent_id', parent.id)
-        .eq('school_id', schoolData.id)
-        .maybeSingle();
-
-      if (existingAffiliation) {
-        showAlert('Information', 'Vous êtes déjà affilié à cette école');
-        setShowAddSchoolModal(false);
-        return;
-      }
-
-      const { error: affiliationError } = await supabase
-        .from('parent_school_affiliations')
-        .insert({
-          parent_id: parent.id,
-          school_id: schoolData.id,
-          status: 'active',
-        });
-
-      if (affiliationError) throw affiliationError;
+      const schoolData = await joinSchoolByCode(schoolIdentifier, 'parent');
 
       setSchools([...schools, schoolData]);
       setSelectedSchool(schoolData);
@@ -293,7 +260,7 @@ export default function AddChildScreen() {
       showAlert('Succès', `École "${schoolData.name}" ajoutée avec succès`);
     } catch (err) {
       console.error('Error adding school:', err);
-      showAlert('Erreur', 'Erreur lors de l\'ajout de l\'école');
+      showAlert('Erreur', err instanceof Error ? err.message : 'Impossible d’ajouter cette école.');
     } finally {
       setAddingSchool(false);
     }

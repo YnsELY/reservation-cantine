@@ -9,9 +9,7 @@ import { showAlert } from '@/lib/alert';
 import {
   ArrowLeft, User, Building2, Store, Mail, Phone, MapPin, Key,
   GraduationCap, School as SchoolIcon, ShoppingBag, Power, RotateCcw,
-  Eye, EyeOff, Copy,
 } from 'lucide-react-native';
-import { copyToClipboard } from '@/lib/clipboard';
 
 type AccountType = 'parent' | 'school' | 'provider';
 
@@ -64,8 +62,6 @@ export default function AccountDetailScreen() {
   const [schools, setSchools] = useState<any[]>([]);
   const [providers, setProviders] = useState<any[]>([]);
   const [reservations, setReservations] = useState<any[]>([]);
-  const [tempPassword, setTempPassword] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
 
   const [genreFilter, setGenreFilter] = useState<'all' | 'fille' | 'garcon'>('all');
   const [classFilter, setClassFilter] = useState<string>('all');
@@ -76,17 +72,6 @@ export default function AccountDetailScreen() {
   useEffect(() => {
     loadData();
   }, [type, id]);
-
-  // Mot de passe initial (comptes prestataire/école), table admin-only.
-  const loadTempPassword = async (userId: string | null | undefined) => {
-    if (!userId) { setTempPassword(null); return; }
-    const { data } = await supabase
-      .from('managed_account_passwords')
-      .select('temp_password')
-      .eq('user_id', userId)
-      .maybeSingle();
-    setTempPassword(data?.temp_password || null);
-  };
 
   const loadData = async () => {
     try {
@@ -108,7 +93,7 @@ export default function AccountDetailScreen() {
         setChildren(ch || []);
         const { data: aff } = await supabase
           .from('parent_school_affiliations')
-          .select('schools(*)').eq('parent_id', id).eq('status', 'active');
+          .select('schools(id, name, address, contact_email, contact_phone, user_id, is_school_user, created_at, closed_weekdays)').eq('parent_id', id).eq('status', 'active');
         setSchools((aff || []).map((a: any) => a.schools).filter(Boolean));
         const { data: res } = await supabase
           .from('reservations')
@@ -120,15 +105,14 @@ export default function AccountDetailScreen() {
       } else if (type === 'provider') {
         const { data: pr } = await supabase.from('providers').select('*').eq('id', id).maybeSingle();
         setAccount(pr);
-        await loadTempPassword(pr?.user_id);
         const { data: acc } = await supabase
           .from('provider_school_access')
-          .select('granted_at, schools(*)').eq('provider_id', id);
+          .select('granted_at, schools(id, name, address, contact_email, contact_phone, user_id, is_school_user, created_at, closed_weekdays)').eq('provider_id', id);
         setSchools((acc || []).map((a: any) => ({ ...(a.schools || {}), granted_at: a.granted_at })).filter((s: any) => s.id));
       } else if (type === 'school') {
-        const { data: s } = await supabase.from('schools').select('*').eq('id', id).maybeSingle();
-        setAccount(s);
-        await loadTempPassword(s?.user_id);
+        const { data: s } = await supabase.from('schools').select('id, name, address, contact_email, contact_phone, user_id, is_school_user, created_at, closed_weekdays').eq('id', id).maybeSingle();
+        const { data: securedSchools } = await supabase.rpc('admin_school_access');
+        setAccount(securedSchools?.find((row: any) => row.id === id) || s);
         const { data: ch } = await supabase
           .from('children').select('*').eq('school_id', id).order('last_name');
         setChildren(ch || []);
@@ -151,11 +135,8 @@ export default function AccountDetailScreen() {
     setProcessing(true);
     let errorMsg: string | null = null;
     try {
-      const { error: upErr } = await supabase.from('providers').update({ is_active: false }).eq('id', id);
+      const { error: upErr } = await supabase.rpc('set_provider_active', { p_provider_id: id, p_active: false });
       if (upErr) throw upErr;
-      // Disparition des affiliations : retire le prestataire de toutes les écoles.
-      const { error: delErr } = await supabase.from('provider_school_access').delete().eq('provider_id', id);
-      if (delErr) throw delErr;
       await loadData();
     } catch (e: any) {
       console.error('deactivate error', e);
@@ -189,7 +170,7 @@ export default function AccountDetailScreen() {
     if (!id) return;
     setProcessing(true);
     try {
-      const { error } = await supabase.from('providers').update({ is_active: true }).eq('id', id);
+      const { error } = await supabase.rpc('set_provider_active', { p_provider_id: id, p_active: true });
       if (error) throw error;
       showAlert('Compte réactivé', "Le prestataire peut de nouveau se connecter. Les écoles partenaires doivent être ré-associées via le code d'accès.");
       await loadData();
@@ -323,33 +304,11 @@ export default function AccountDetailScreen() {
                   <Key size={18} color="#6B7280" />
                   <Text style={styles.infoLabel}>Mot de passe</Text>
                 </View>
-                {tempPassword ? (
-                  <View style={styles.pwdRight}>
-                    <Text style={styles.pwdValue} numberOfLines={1}>
-                      {showPassword ? tempPassword : '••••••••'}
-                    </Text>
-                    <TouchableOpacity onPress={() => setShowPassword((v) => !v)} style={styles.pwdBtn}>
-                      {showPassword ? <EyeOff size={18} color="#6B7280" /> : <Eye size={18} color="#6B7280" />}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={async () => {
-                        await copyToClipboard(tempPassword);
-                        showAlert('Copié', 'Mot de passe copié dans le presse-papier.');
-                      }}
-                      style={styles.pwdBtn}
-                    >
-                      <Copy size={18} color="#6B7280" />
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  <Text style={styles.infoValue}>Non disponible</Text>
-                )}
+                <Text style={styles.infoValue}>Choisi par le titulaire</Text>
               </View>
             </View>
             <Text style={styles.pwdCaveat}>
-              {tempPassword
-                ? "Mot de passe initial (défini à la création). S'il a été modifié par le compte, il n'est plus à jour."
-                : 'Mot de passe non enregistré (compte créé avant cette fonctionnalité).'}
+              Aucun mot de passe n’est enregistré dans l’application. Le titulaire peut utiliser « Mot de passe oublié » sur l’écran de connexion.
             </Text>
           </View>
         )}

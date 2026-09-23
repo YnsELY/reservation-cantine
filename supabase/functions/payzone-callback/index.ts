@@ -30,7 +30,7 @@ async function hmacSha256(key: string, message: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -256,28 +256,17 @@ serve(async (req) => {
         // Don't fail the callback for notification errors
       }
 
-    } else if (status === 'DECLINED' || status === 'CANCELLED' || status === 'ERROR') {
-      // A late failure notification must not downgrade a completed payment.
-      const { data: failedPayment, error: failureError } = await supabase
-        .from('pending_payments')
-        .update({
-          status: 'failed',
-          payzone_transaction_id: id,
-          payzone_status: status,
-          failed_at: new Date().toISOString(),
-          failure_reason: transactions?.[0]?.responseText || status,
-        })
-        .eq('order_id', orderId)
-        .in('status', ['pending', 'failed', 'expired'])
-        .or('payzone_status.is.null,payzone_status.neq.CHARGED')
-        .select('id')
+    } else if (status === 'DECLINED' || status === 'CANCELLED' || status === 'ERROR' || status === 'AUTH_REVERSED') {
+      const { data: failedPayment, error: failureError } = await supabase.rpc('release_failed_checkout', {
+        p_order_id: orderId, p_transaction_id: id, p_status: status,
+      })
 
       if (failureError) {
         return new Response(JSON.stringify({ error: 'Payment update failed' }), {
           status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
-      if (!failedPayment?.length) {
+      if (!failedPayment) {
         return new Response(JSON.stringify({ success: true }), {
           status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })

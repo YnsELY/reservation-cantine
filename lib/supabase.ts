@@ -49,7 +49,7 @@ export interface School {
   address: string | null;
   contact_email: string | null;
   contact_phone: string | null;
-  access_code: string | null;
+  access_code?: string | null;
   is_school_user: boolean;
   closed_weekdays?: number[] | null;
   created_at: string;

@@ -94,13 +94,12 @@ export default function ProviderHomeScreen() {
       let classicMenus: MenuBreakdownItem[] = [];
       let specificOrders: MenuBreakdownItem[] = [];
       let genericAgg: SupplementAggregate[] = [];
-      if (schoolIds.length > 0) {
+      {
         const { data: todayMenusData } = await supabase
           .from('menus')
           .select('id, meal_name')
-          .in('school_id', schoolIds)
           .eq('date', todayStr)
-          .eq('available', true);
+          .eq('provider_id', currentProvider.id);
 
         const menuNameById = new Map<string, string>(
           (todayMenusData || []).map((m: any) => [m.id, (m.meal_name || 'Menu').trim()])

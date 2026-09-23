@@ -1,3 +1,4 @@
+import { showAlert } from '@/lib/alert';
 ﻿import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -39,7 +40,7 @@ export default function AdminProfile() {
       }
       router.replace('/');
     } catch (error) {
-      console.error('Logout error:', error);
+      showAlert('Déconnexion impossible', (error as Error).message);
     }
   };
 

@@ -1,3 +1,4 @@
+import { authService } from '@/lib/auth';
 /* eslint-disable react/no-unescaped-entities */
 import { useEffect, useState } from 'react';
 import { View, Text, Image, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
@@ -101,7 +102,7 @@ export default function AuthScreen() {
             .eq('user_id', authData.user.id)
             .maybeSingle();
           if (providerStatus && providerStatus.is_active === false) {
-            await supabase.auth.signOut();
+            await authService.logout();
             setError('Votre compte prestataire a été désactivé. Contactez l\'administrateur.');
           } else {
             setError('Compte non trouvé');

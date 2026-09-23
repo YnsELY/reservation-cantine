@@ -36,9 +36,7 @@ export default function SchoolAccessScreen() {
       }
 
       const { data: schoolsData, error: schoolsError } = await supabase
-        .from('schools')
-        .select('*')
-        .order('name', { ascending: true });
+        .rpc('admin_school_access');
 
       if (schoolsError) throw schoolsError;
 
@@ -78,21 +76,6 @@ export default function SchoolAccessScreen() {
     setIsUpdating(true);
     try {
       const codeUpper = newCode.trim().toUpperCase();
-
-      const { data: existingSchool, error: checkError } = await supabase
-        .from('schools')
-        .select('id')
-        .eq('access_code', codeUpper)
-        .neq('id', editingSchool.id)
-        .maybeSingle();
-
-      if (checkError) throw checkError;
-
-      if (existingSchool) {
-        showAlert('Erreur', 'Ce code est déjà utilisé par une autre école');
-        setIsUpdating(false);
-        return;
-      }
 
       const { error: updateError } = await supabase
         .from('schools')

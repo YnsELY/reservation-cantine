@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
@@ -7,7 +8,8 @@ import { supabase } from './supabase';
 // Configure how notifications are displayed when app is in foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
@@ -36,6 +38,16 @@ export const notificationService = {
         return null;
       }
 
+      // Configure Android notification channel
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: "Child's Kitchen",
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#4F46E5',
+        });
+      }
+
       // Check existing permissions
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
@@ -58,20 +70,9 @@ export const notificationService = {
       });
       const pushToken = tokenData.data;
 
-      console.log('Expo Push Token:', pushToken);
 
       // Save to Supabase
       await this.saveToken(userId, userType, pushToken);
-
-      // Configure Android notification channel
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: "Child's Kitchen",
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#4F46E5',
-        });
-      }
 
       return pushToken;
     } catch (error) {
@@ -88,48 +89,19 @@ export const notificationService = {
     userType: UserType,
     pushToken: string
   ): Promise<void> {
-    try {
-      const deviceType = Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'web';
-
-      // Upsert: update if token exists, insert if not
-      const { error } = await supabase
-        .from('user_push_tokens')
-        .upsert(
-          {
-            user_id: userId,
-            user_type: userType,
-            push_token: pushToken,
-            provider: 'expo',
-            device_type: deviceType,
-            is_active: true,
-            last_used_at: new Date().toISOString(),
-          },
-          { onConflict: 'push_token' }
-        );
-
-      if (error) {
-        console.error('Error saving push token:', error);
-      }
-    } catch (error) {
-      console.error('Error saving push token:', error);
-    }
+    const deviceType = Platform.OS === 'ios' ? 'ios' : Platform.OS === 'android' ? 'android' : 'web';
+    const { error } = await supabase.rpc('register_session_push_token', {
+      p_token: pushToken, p_user_id: userId, p_user_type: userType, p_device_type: deviceType,
+    });
+    if (error) throw error;
+    await AsyncStorage.setItem('@cantine/push-token', pushToken);
   },
 
-  /**
-   * Remove push token (on logout)
-   */
-  async unregisterToken(userId: string): Promise<void> {
-    try {
-      const tokenData = await Notifications.getExpoPushTokenAsync();
-      const pushToken = tokenData.data;
-
-      await supabase
-        .from('user_push_tokens')
-        .update({ is_active: false })
-        .eq('push_token', pushToken);
-    } catch (error) {
-      console.error('Error unregistering token:', error);
-    }
+  /** Revoke using the authenticated session, without calling Expo or reading legacy profile caches. */
+  async unregisterToken(): Promise<void> {
+    const { error } = await supabase.rpc('revoke_session_push_tokens');
+    if (error) throw new Error('Connectez-vous à Internet pour désactiver les notifications de ce compte avant de vous déconnecter.');
+    await AsyncStorage.removeItem('@cantine/push-token');
   },
 
   /**

@@ -1,3 +1,4 @@
+import { authService } from '@/lib/auth';
 import { useEffect, useState } from 'react';
 import {
   View, Text, Image, TextInput, TouchableOpacity, StyleSheet,
@@ -88,7 +89,7 @@ export default function ResetPasswordScreen() {
     try {
       const { error: updErr } = await supabase.auth.updateUser({ password });
       if (updErr) throw updErr;
-      await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+      await authService.logout();
       setPhase('done');
     } catch (err: any) {
       setError(err.message || 'Impossible de réinitialiser le mot de passe.');

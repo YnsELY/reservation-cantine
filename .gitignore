@@ -33,3 +33,6 @@ yarn-error.*
 
 # typescript
 *.tsbuildinfo
+
+# Never package merchant credentials in mobile/web assets
+assets/Payzone_paywall_tutorial/launch_credentials.inc

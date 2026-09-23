@@ -65,7 +65,7 @@ export default function AdminUsersScreen() {
         { data: providers }
       ] = await Promise.all([
         supabase.from('parents').select('*').order('created_at', { ascending: false }),
-        supabase.from('schools').select('*').order('created_at', { ascending: false }),
+        supabase.from('schools').select('id, name, address, contact_email, contact_phone, user_id, is_school_user, created_at, closed_weekdays').order('created_at', { ascending: false }),
         supabase.from('providers').select('*').order('created_at', { ascending: false })
       ]);
 

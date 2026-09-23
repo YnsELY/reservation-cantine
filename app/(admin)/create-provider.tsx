@@ -7,43 +7,10 @@ import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
-import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { copyToClipboard } from '@/lib/clipboard';
-import { ArrowLeft, Building2, Eye, EyeOff, RefreshCw, Copy, Plus } from 'lucide-react-native';
-import Constants from 'expo-constants';
-
-const SUPABASE_URL = Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL!;
-const SUPABASE_ANON_KEY = Constants.expoConfig?.extra?.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
-
-const isolatedClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    persistSession: false,
-    autoRefreshToken: false,
-    detectSessionInUrl: false,
-  },
-});
-
-function generatePassword(): string {
-  const uppercase = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const lowercase = 'abcdefghjkmnpqrstuvwxyz';
-  const digits = '23456789';
-  const symbols = '@#$!';
-  const all = uppercase + lowercase + digits + symbols;
-
-  let password =
-    uppercase[Math.floor(Math.random() * uppercase.length)] +
-    lowercase[Math.floor(Math.random() * lowercase.length)] +
-    digits[Math.floor(Math.random() * digits.length)] +
-    symbols[Math.floor(Math.random() * symbols.length)];
-
-  for (let i = 4; i < 12; i++) {
-    password += all[Math.floor(Math.random() * all.length)];
-  }
-
-  return password.split('').sort(() => Math.random() - 0.5).join('');
-}
+import { ArrowLeft, Building2, RefreshCw, Plus } from 'lucide-react-native';
 
 function generatePin(): string {
   return String(Math.floor(1000 + Math.random() * 9000));
@@ -52,25 +19,8 @@ function generatePin(): string {
 export default function CreateProviderScreen() {
   const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [pin, setPin] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-
-  const handleGeneratePassword = () => {
-    setPassword(generatePassword());
-    setShowPassword(true);
-  };
-
-  const handleCopyPassword = async () => {
-    if (!password) return;
-    try {
-      await copyToClipboard(password);
-      showAlert('Copié', 'Mot de passe copié dans le presse-papier');
-    } catch {
-      showAlert('Erreur', 'Impossible de copier');
-    }
-  };
 
   const handleCreateProvider = async () => {
     if (!companyName.trim()) {
@@ -79,10 +29,6 @@ export default function CreateProviderScreen() {
     }
     if (!email.trim() || !email.includes('@')) {
       showAlert('Erreur', 'Adresse email invalide');
-      return;
-    }
-    if (!password || password.length < 8) {
-      showAlert('Erreur', 'Le mot de passe doit contenir au moins 8 caractères');
       return;
     }
     if (!/^[0-9]{4}$/.test(pin)) {
@@ -98,70 +44,20 @@ export default function CreateProviderScreen() {
         return;
       }
 
-      const { data: authData, error: signUpError } = await isolatedClient.auth.signUp({
-        email: email.trim().toLowerCase(),
-        password,
+      const { data, error } = await supabase.functions.invoke('create-managed-account', {
+        body: { accountType: 'provider', name: companyName.trim(), email: email.trim().toLowerCase(), pin },
       });
-
-      if (signUpError) {
-        const message = signUpError.message.includes('already registered')
-          ? 'Cette adresse email est déjà utilisée'
-          : signUpError.message;
-        showAlert('Erreur', message);
-        return;
-      }
-
-      if (!authData.user) {
-        showAlert('Erreur', "Impossible de créer le compte. Vérifiez que l'email est valide.");
-        return;
-      }
-
-      const { error: insertError } = await supabase.from('providers').insert({
-        user_id: authData.user.id,
-        company_name: companyName.trim(),
-        email: email.trim().toLowerCase(),
-        contact_email: email.trim().toLowerCase(),
-        pin,
-      });
-
-      if (insertError) {
-        await isolatedClient.auth.admin.deleteUser(authData.user.id).catch(() => {});
-        throw insertError;
-      }
-
-      // Mémorise le mot de passe initial (table admin-only) pour la fiche admin.
-      // Best-effort : si ça échoue, la création reste valide.
-      const { error: credError } = await supabase.from('managed_account_passwords').upsert({
-        user_id: authData.user.id,
-        account_type: 'provider',
-        email: email.trim().toLowerCase(),
-        temp_password: password,
-      });
-      if (credError) console.error('store temp password (provider) error:', credError);
-
-      const capturedPassword = password;
-      const capturedEmail = email.trim().toLowerCase();
-      const capturedName = companyName.trim();
-      const capturedPin = pin;
-
+      if (error || !data?.activationLink) throw new Error(data?.error || 'Impossible de créer le compte. Vérifiez si cet email est déjà utilisé.');
+      const activationLink: string = data.activationLink;
       setCompanyName('');
       setEmail('');
-      setPassword('');
       setPin('');
-
-      showAlert(
-        'Prestataire créé !',
-        `Le compte de "${capturedName}" a été créé.\n\nEmail : ${capturedEmail}\nMot de passe temporaire : ${capturedPassword}\nPIN d'accès (4 chiffres) : ${capturedPin}\n\nCommuniquez ces identifiants au prestataire.`,
-        [
-          {
-            text: 'Copier le mot de passe',
-            onPress: async () => {
-              await copyToClipboard(capturedPassword).catch(() => {});
-            },
-          },
-          { text: 'OK' },
-        ]
-      );
+      showAlert('Compte créé', 'Copiez le lien d’activation et transmettez-le au titulaire. Il choisira son propre mot de passe. Le lien est personnel, temporaire et à usage unique.', [
+        { text: 'Copier le lien', onPress: async () => {
+          try { await copyToClipboard(activationLink); showAlert('Copié', 'Lien d’activation copié.'); }
+          catch { showAlert('Copie impossible', activationLink); }
+        } },
+      ], { requireExplicitChoice: true });
     } catch (err: any) {
       console.error('Error creating provider:', err);
       showAlert('Erreur', err.message || 'Impossible de créer le prestataire');
@@ -190,7 +86,7 @@ export default function CreateProviderScreen() {
           <Building2 size={48} color="#4F46E5" />
           <Text style={styles.infoTitle}>Nouveau compte prestataire</Text>
           <Text style={styles.infoText}>
-            Créez directement le compte d'un prestataire. Le prestataire pourra se connecter avec l'email et le mot de passe temporaire que vous lui communiquerez.
+            Le titulaire recevra un lien personnel pour choisir son mot de passe. Aucun mot de passe ne sera conservé dans l’application.
           </Text>
         </View>
 
@@ -222,58 +118,10 @@ export default function CreateProviderScreen() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Mot de passe temporaire *</Text>
-
-            <View style={styles.passwordInputWrapper}>
-              <TextInput
-                style={[styles.input, styles.passwordInput]}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Générez ou saisissez un mot de passe"
-                placeholderTextColor="#9CA3AF"
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                maxLength={64}
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                {showPassword
-                  ? <EyeOff size={20} color="#6B7280" />
-                  : <Eye size={20} color="#6B7280" />
-                }
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.passwordActions}>
-              <TouchableOpacity style={styles.passwordActionButton} onPress={handleGeneratePassword}>
-                <RefreshCw size={16} color="#4F46E5" />
-                <Text style={styles.passwordActionText}>Générer</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.passwordActionButton, !password && styles.passwordActionButtonDisabled]}
-                onPress={handleCopyPassword}
-                disabled={!password}
-              >
-                <Copy size={16} color={password ? '#4F46E5' : '#D1D5DB'} />
-                <Text style={[styles.passwordActionText, { color: password ? '#4F46E5' : '#D1D5DB' }]}>
-                  Copier
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {password.length > 0 && password.length < 8 && (
-              <Text style={styles.passwordWarning}>Le mot de passe doit faire au moins 8 caractères</Text>
-            )}
-          </View>
-
-          <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>PIN d'accès (4 chiffres) *</Text>
             <View style={styles.passwordActions}>
               <TextInput
-                style={[styles.input, { flex: 1 }]}
+                style={[styles.input, { flex: 1, minWidth: 0 }]}
                 value={pin}
                 onChangeText={(t) => setPin(t.replace(/[^0-9]/g, '').slice(0, 4))}
                 placeholder="Ex : 4821"
@@ -282,7 +130,7 @@ export default function CreateProviderScreen() {
                 maxLength={4}
               />
               <TouchableOpacity
-                style={[styles.passwordActionButton, { flex: 0, paddingHorizontal: 16 }]}
+                style={[styles.passwordActionButton, { flex: 0, minWidth: 100, paddingHorizontal: 12 }]}
                 onPress={() => setPin(generatePin())}
               >
                 <RefreshCw size={16} color="#4F46E5" />
@@ -310,12 +158,10 @@ export default function CreateProviderScreen() {
 
         <View style={styles.instructionsCard}>
           <Text style={styles.instructionsTitle}>Comment ça marche ?</Text>
-          <Text style={styles.instructionsText}>1. Renseignez le nom et l'email du prestataire</Text>
-          <Text style={styles.instructionsText}>2. Générez un mot de passe temporaire sécurisé</Text>
-          <Text style={styles.instructionsText}>3. Créez le compte — le prestataire est immédiatement actif</Text>
-          <Text style={styles.instructionsText}>4. Communiquez l'email, le mot de passe ET le PIN au prestataire</Text>
-          <Text style={styles.instructionsText}>5. Le PIN protège les pages de gestion (semaines, menus, suppléments)</Text>
-          <Text style={styles.instructionsText}>6. Le prestataire pourra changer son mot de passe et son PIN après connexion</Text>
+          <Text style={styles.instructionsText}>1. Renseignez le nom et l’email du titulaire.</Text>
+          <Text style={styles.instructionsText}>2. Créez le compte et copiez le lien d’activation.</Text>
+          <Text style={styles.instructionsText}>3. Transmettez ce lien uniquement au titulaire du compte.</Text>
+          <Text style={styles.instructionsText}>4. Il choisira son mot de passe. Un lien expiré se renouvelle depuis « Mot de passe oublié ».</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -16,6 +16,7 @@ const PAYZONE_URL = Deno.env.get('PAYZONE_URL') || 'https://payment.payzone.ma/p
 const APP_BASE_URL = Deno.env.get('APP_BASE_URL') || 'https://childrens-kitchen.netlify.app'
 
 interface PaymentRequest {
+  orderId?: string
   parentId: string
   cartItems: Array<{
     id: string
@@ -41,14 +42,14 @@ async function sha256(message: string): Promise<string> {
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { parentId, cartItems, totalAmount, appliedCredits = [] }: PaymentRequest = await req.json()
+    const { parentId, orderId: resumeOrderId, cartItems, totalAmount, appliedCredits = [] }: PaymentRequest = await req.json()
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -63,7 +64,7 @@ serve(async (req) => {
       .select('id, email, first_name, last_name').eq('user_id', identity.user.id).eq('id', parentId).single()
     if (parentError || !parent) return new Response(JSON.stringify({ error: 'Compte parent introuvable' }),
       { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-    if (!Array.isArray(cartItems) || !cartItems.length || !Number.isFinite(totalAmount) || totalAmount < 0) {
+    if (!resumeOrderId && (!Array.isArray(cartItems) || !cartItems.length || !Number.isFinite(totalAmount) || totalAmount < 0)) {
       return new Response(JSON.stringify({ error: 'Panier ou montant invalide' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
@@ -72,9 +73,11 @@ serve(async (req) => {
     }
     // The database validates prices/consent and reserves credit + child/day slots
     // in one transaction. A retry returns the original checkout and charge ID.
-    const { data: payment, error: prepareError } = await supabase.rpc('prepare_meal_checkout', {
-      p_parent_id: parent.id, p_items: cartItems, p_bank_amount: totalAmount, p_credits: appliedCredits,
-    })
+    const { data: payment, error: prepareError } = await (resumeOrderId
+      ? supabase.rpc('resume_meal_checkout', { p_parent_id: parent.id, p_order_id: resumeOrderId })
+      : supabase.rpc('prepare_meal_checkout', {
+          p_parent_id: parent.id, p_items: cartItems, p_bank_amount: totalAmount, p_credits: appliedCredits,
+        }))
     if (prepareError) return new Response(JSON.stringify({ error: prepareError.message }),
       { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     if (!payment) throw new Error('Commande non enregistrée')

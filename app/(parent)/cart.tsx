@@ -1,4 +1,5 @@
-﻿import { useState, useCallback, useMemo, useRef } from 'react';
+import { isMealPastCutoff } from '@/lib/dates';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Switch } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,10 +7,10 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase, CartItem, Child, Menu, Parent, ParentCredit } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { payzoneService, CartItemForPayment } from '@/lib/payzone';
+import { payzoneService, CartItemForPayment, PendingPayment } from '@/lib/payzone';
 import { getPaymentErrorMessage } from '@/lib/payment-errors';
 import { childSelectionRoute, prepareCartOrders } from '@/lib/meal-orders';
-import { applyCreditsToCart, getAvailableCredits, CANCELLATION_CUTOFF_HOUR } from '@/lib/credits';
+import { applyCreditsToCart, getAvailableCredits } from '@/lib/credits';
 import { ArrowLeft, Trash2, ShoppingCart, Lock, User, Wallet, Check } from 'lucide-react-native';
 
 interface CartItemWithDetails extends CartItem {
@@ -18,6 +19,8 @@ interface CartItemWithDetails extends CartItem {
 }
 
 export default function CartScreen() {
+  const [openPayments, setOpenPayments] = useState<PendingPayment[]>([]);
+  const [checkingOrder, setCheckingOrder] = useState<string | null>(null);
   const [parent, setParent] = useState<Parent | null>(null);
   const [cartItems, setCartItems] = useState<CartItemWithDetails[]>([]);
   const [credits, setCredits] = useState<ParentCredit[]>([]);
@@ -35,10 +38,7 @@ export default function CartScreen() {
     }, [])
   );
 
-  // Cutoff 7h : un repas du jour J n'est plus commandable à partir de J 7h00,
-  // donc il doit aussi sortir du panier.
-  const isPastCutoff = (date: string) =>
-    new Date() >= new Date(`${date}T${String(CANCELLATION_CUTOFF_HOUR).padStart(2, '0')}:00:00`);
+  const isPastCutoff = isMealPastCutoff;
 
   const loadCartData = async () => {
     try {
@@ -49,6 +49,14 @@ export default function CartScreen() {
       }
 
       setParent(currentParent);
+
+      const { data: pendingRows, error: pendingError } = await supabase.from('pending_payments')
+        .select('*').eq('parent_id', currentParent.id).is('released_at', null)
+        .in('status', ['pending', 'failed', 'expired']).order('created_at', { ascending: false });
+      if (pendingError) throw pendingError;
+      const pending = (pendingRows || []) as PendingPayment[];
+      setOpenPayments(pending);
+      const lockedItems = new Set(pending.flatMap(payment => payment.cart_items.map(item => item.id)));
 
       const { data: items, error } = await supabase
         .from('cart_items')
@@ -74,12 +82,13 @@ export default function CartScreen() {
           })
         );
 
-        const valid = itemsWithDetails.filter(item => item.child && item.menu);
+        const valid = itemsWithDetails.filter(item => item.child && item.menu && !lockedItems.has(item.id));
         const expired = valid.filter(item => isPastCutoff(item.date));
         const current = valid.filter(item => !isPastCutoff(item.date));
 
         if (expired.length > 0) {
-          await supabase.from('cart_items').delete().in('id', expired.map(i => i.id));
+          const { error: removalError } = await supabase.from('cart_items').delete().in('id', expired.map(i => i.id));
+          if (removalError) throw removalError;
           showAlert(
             'Panier mis à jour',
             `${expired.length} repas retiré${expired.length > 1 ? 's' : ''} du panier : la commande n'est plus possible après 7h le jour du repas.`
@@ -94,6 +103,8 @@ export default function CartScreen() {
       setCredits(availableCredits);
     } catch (err) {
       console.error('Error loading cart:', err);
+      showAlert('Panier indisponible', 'Impossible de vérifier les paiements en cours. Réessayez avant de commander.');
+      setCartItems([]);
     } finally {
       setLoading(false);
     }
@@ -147,7 +158,8 @@ export default function CartScreen() {
       // on les retire et on demande de reconfirmer (le total et les crédits changent).
       const expiredNow = cartItems.filter(item => isPastCutoff(item.date));
       if (expiredNow.length > 0) {
-        await supabase.from('cart_items').delete().in('id', expiredNow.map(i => i.id));
+        const { error: removalError } = await supabase.from('cart_items').delete().in('id', expiredNow.map(i => i.id));
+        if (removalError) throw removalError;
         setCartItems(prev => prev.filter(item => !isPastCutoff(item.date)));
         showAlert(
           'Panier mis à jour',
@@ -236,6 +248,37 @@ export default function CartScreen() {
     }
   };
 
+  const handleOpenPayment = async (payment: PendingPayment, resume: boolean) => {
+    if (!parent || checkingOrder || processingPaymentRef.current) return;
+    setCheckingOrder(payment.order_id);
+    try {
+      const result = await payzoneService.reconcilePayment(payment.order_id);
+      if (result.payment.status === 'completed') {
+        router.replace({ pathname: '/(parent)/order-summary', params: { orderId: payment.order_id } });
+        return;
+      }
+      if (result.payment.released_at) {
+        showAlert('Paiement non abouti confirmé', 'Les repas et le crédit réservé sont débloqués. Vérifiez le panier avant de passer une nouvelle commande.');
+        await loadCartData();
+        return;
+      }
+      if (!resume) {
+        showAlert('Suivi du paiement', result.message || 'Ce paiement nécessite encore une vérification. Conservez sa référence et contactez le support avant de payer à nouveau.');
+        await loadCartData();
+        return;
+      }
+      const response = await payzoneService.resumePayment(parent.id, payment.order_id);
+      if (!response.success || !response.paywallUrl || !response.payload || !response.signature) {
+        throw new Error(response.error || 'Reprise du paiement indisponible.');
+      }
+      router.push({ pathname: '/(parent)/payment', params: {
+        paywallUrl: response.paywallUrl, payload: response.payload, signature: response.signature, orderId: payment.order_id,
+      } });
+    } catch (error) {
+      showAlert('Paiement à vérifier', (error as Error).message);
+    } finally { setCheckingOrder(null); }
+  };
+
 
   if (loading) {
     return (
@@ -256,6 +299,32 @@ export default function CartScreen() {
           <Text style={styles.badgeText}>Mon Panier</Text>
         </View>
       </View>
+
+      {openPayments.length > 0 && (
+        <ScrollView style={{ maxHeight: 245, flexGrow: 0 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+          <Text style={{ fontWeight: '700', color: '#111827', marginBottom: 8 }}>Paiements à terminer ou à vérifier</Text>
+          {openPayments.map(payment => (
+            <View key={payment.order_id} style={{ backgroundColor: '#FFFFFF', padding: 14, borderRadius: 12, marginBottom: 8 }}>
+              <Text style={{ fontWeight: '600', color: '#111827' }}>{payment.cart_items.length} repas · {Number(payment.total_amount).toFixed(2)} DH par carte</Text>
+              <Text style={{ color: '#4B5563', marginVertical: 4 }}>
+                {payment.cart_items.map(item => `${item.child?.first_name || 'Enfant'} · ${item.date}`).join(', ')}
+              </Text>
+              <Text style={{ color: '#4B5563' }}>{payment.applied_credits.reduce((sum, c) => sum + Number(c.amount), 0).toFixed(2)} DH de cagnotte dans cette commande</Text>
+              <Text selectable style={{ color: '#6B7280', fontSize: 11, marginVertical: 4 }}>Réf. {payment.order_id}</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+                {payment.checkout_key && !payment.cart_items.some(item => isPastCutoff(item.date)) && (
+                  <TouchableOpacity disabled={!!checkingOrder || processingPayment} onPress={() => handleOpenPayment(payment, true)} style={{ minHeight: 44, justifyContent: 'center' }}>
+                    <Text style={{ color: '#0E5FC0', fontWeight: '700' }}>Reprendre ce paiement</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity disabled={!!checkingOrder || processingPayment} onPress={() => handleOpenPayment(payment, false)} style={{ minHeight: 44, justifyContent: 'center' }}>
+                  <Text style={{ color: '#0E5FC0', fontWeight: '700' }}>{checkingOrder === payment.order_id ? 'Vérification…' : 'Vérifier le résultat'}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+      )}
 
       {cartItems.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -400,9 +469,9 @@ export default function CartScreen() {
             </View>
 
             <TouchableOpacity
-              style={[styles.payButton, processingPayment && styles.payButtonDisabled]}
+              style={[styles.payButton, (processingPayment || !!checkingOrder) && styles.payButtonDisabled]}
               onPress={handlePayment}
-              disabled={processingPayment}
+              disabled={processingPayment || !!checkingOrder}
             >
               {processingPayment ? (
                 <ActivityIndicator color="#FFFFFF" />

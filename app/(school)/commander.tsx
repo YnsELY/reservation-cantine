@@ -1,4 +1,5 @@
-﻿import { useState, useEffect } from 'react';
+import { formatYmd } from '@/lib/dates';
+import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, FlatList, Image } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,6 +10,7 @@ import { authService } from '@/lib/auth';
 import { ArrowLeft, Calendar, Check } from 'lucide-react-native';
 
 export default function SchoolCommanderScreen() {
+  const menuRequestRef = useRef(0);
   const [school, setSchool] = useState<School | null>(null);
   const [children, setChildren] = useState<Child[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
@@ -27,7 +29,7 @@ export default function SchoolCommanderScreen() {
     if (selectedDate) {
       loadMenusForDate(selectedDate);
     }
-  }, [selectedDate]);
+  }, [selectedDate, school?.id]);
 
   const loadData = async () => {
     try {
@@ -60,7 +62,7 @@ export default function SchoolCommanderScreen() {
 
       setWeekDates(dates);
       if (dates.length > 0) {
-        setSelectedDate(dates[0].toISOString().split('T')[0]);
+        setSelectedDate(formatYmd(dates[0]));
       }
     } catch (err) {
       console.error('Error loading data:', err);
@@ -72,6 +74,9 @@ export default function SchoolCommanderScreen() {
   const loadMenusForDate = async (date: string) => {
     if (!school) return;
 
+    const requestId = ++menuRequestRef.current;
+    setSelectedMenu(null);
+    setMenus([]);
     try {
       const { data } = await supabase
         .from('menus')
@@ -81,7 +86,7 @@ export default function SchoolCommanderScreen() {
         .eq('available', true)
         .order('meal_name');
 
-      setMenus(data || []);
+      if (requestId === menuRequestRef.current) setMenus(data || []);
     } catch (err) {
       console.error('Error loading menus:', err);
     }
@@ -111,6 +116,10 @@ export default function SchoolCommanderScreen() {
       return;
     }
 
+    if (selectedMenu.date !== selectedDate) {
+      showAlert('Date modifiée', 'Sélectionnez un menu pour la date affichée avant de commander.');
+      return;
+    }
     setSubmitting(true);
     try {
       const reservations = Array.from(selectedChildren).map(childId => {
@@ -189,7 +198,7 @@ export default function SchoolCommanderScreen() {
           <Text style={styles.sectionTitle}>1. Sélectionner une date</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.datesScroll}>
             {weekDates.map((date) => {
-              const dateString = date.toISOString().split('T')[0];
+              const dateString = formatYmd(date);
               const isSelected = selectedDate === dateString;
 
               return (

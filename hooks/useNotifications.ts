@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
+import { AppState } from 'react-native';
 import { notificationService, UserType } from '@/lib/notifications';
 import * as Notifications from 'expo-notifications';
 
@@ -11,17 +12,18 @@ export function useNotifications(
   userType: UserType,
   onNotificationTap?: (data: Record<string, any>) => void
 ) {
-  const registered = useRef(false);
-
   useEffect(() => {
-    if (!userId || registered.current) return;
-    registered.current = true;
-
-    notificationService.registerForPushNotifications(userId, userType).then(token => {
-      if (token) {
-        console.log(`[Notifications] Registered ${userType} ${userId} with token`);
-      }
-    });
+    if (!userId) return;
+    let busy = false;
+    const register = async () => {
+      if (busy) return;
+      busy = true;
+      try { await notificationService.registerForPushNotifications(userId, userType); }
+      finally { busy = false; }
+    };
+    void register();
+    const subscription = AppState.addEventListener('change', state => { if (state === 'active') void register(); });
+    return () => subscription.remove();
   }, [userId, userType]);
 
   // Listen for notification taps

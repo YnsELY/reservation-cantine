@@ -1,4 +1,6 @@
-﻿import { useState, useEffect } from 'react';
+import { authService } from '@/lib/auth';
+import { joinSchoolByCode } from '@/lib/school-access';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Modal } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -57,7 +59,7 @@ export default function AccountScreen() {
 
       const { data: accessData } = await supabase
         .from('provider_school_access')
-        .select('school_id, schools(*)')
+        .select('school_id, schools(id, name, address, contact_email, contact_phone, user_id, is_school_user, created_at, closed_weekdays)')
         .eq('provider_id', providerData.id);
 
       const affiliatedSchools = accessData?.map((acc: any) => acc.schools).filter(Boolean) || [];
@@ -105,9 +107,6 @@ export default function AccountScreen() {
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      if (provider) {
-        await supabase.from('providers').update({ must_change_credentials: false }).eq('id', provider.id);
-      }
       setShowPasswordModal(false);
       setNewPassword('');
       showAlert('Succès', 'Mot de passe mis à jour');
@@ -129,7 +128,7 @@ export default function AccountScreen() {
     try {
       const { error } = await supabase
         .from('providers')
-        .update({ pin: newPin, must_change_credentials: false })
+        .update({ pin: newPin })
         .eq('id', provider.id);
       if (error) throw error;
       setShowPinModal(false);
@@ -152,44 +151,7 @@ export default function AccountScreen() {
 
     setAddingSchool(true);
     try {
-      const { data: schoolData } = await supabase
-        .from('schools')
-        .select('*')
-        .eq('access_code', schoolIdentifier.trim().toUpperCase())
-        .maybeSingle();
-
-      if (!schoolData) {
-        showAlert('Erreur', 'École non trouvée avec cet identifiant');
-        return;
-      }
-
-      if (!provider) {
-        showAlert('Erreur', 'Compte prestataire non trouvé');
-        return;
-      }
-
-      const { data: existingAccess } = await supabase
-        .from('provider_school_access')
-        .select('id')
-        .eq('provider_id', provider.id)
-        .eq('school_id', schoolData.id)
-        .maybeSingle();
-
-      if (existingAccess) {
-        showAlert('Information', 'Vous avez déjà accès à cette école');
-        setSchoolIdentifier('');
-        setShowAddSchoolModal(false);
-        return;
-      }
-
-      const { error: accessError } = await supabase
-        .from('provider_school_access')
-        .insert({
-          provider_id: provider.id,
-          school_id: schoolData.id,
-        });
-
-      if (accessError) throw accessError;
+      const schoolData = await joinSchoolByCode(schoolIdentifier, 'provider');
 
       await loadData();
       setSchoolIdentifier('');
@@ -197,7 +159,7 @@ export default function AccountScreen() {
       showAlert('Succès', `École "${schoolData.name}" ajoutée avec succès`);
     } catch (err) {
       console.error('Error adding school:', err);
-      showAlert('Erreur', 'Erreur lors de l\'ajout de l\'école');
+      showAlert('Erreur', err instanceof Error ? err.message : 'Impossible d’ajouter cette école.');
     } finally {
       setAddingSchool(false);
     }
@@ -475,9 +437,10 @@ export default function AccountScreen() {
           style={styles.logoutButton}
           onPress={async () => {
             try {
-              await supabase.auth.signOut({ scope: 'local' });
+              await authService.logout();
             } catch (err) {
-              console.error('Logout error:', err);
+              showAlert('Déconnexion impossible', (err as Error).message);
+              return;
             }
             router.replace('/auth');
           }}

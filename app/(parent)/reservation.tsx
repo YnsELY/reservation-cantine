@@ -211,7 +211,7 @@ export default function ParentDashboard() {
       if (schoolIds.size > 0) {
         const { data: schoolsData } = await supabase
           .from('schools')
-          .select('*')
+          .select('id, name, address, contact_email, contact_phone, user_id, is_school_user, created_at, closed_weekdays')
           .in('id', Array.from(schoolIds))
           .order('name');
 
