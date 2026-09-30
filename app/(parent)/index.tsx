@@ -11,6 +11,8 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { showAlert } from '@/lib/alert';
 import { getBalance } from '@/lib/credits';
 import { consumeCreditAdded } from '@/lib/credit-events';
+import { parseYmd } from '@/lib/dates';
+import { getFirstBookableYmd, getMoroccoDate, getOrderDeadlineMs } from '@/lib/order-time';
 
 interface WeekReservation {
   id: string;
@@ -49,22 +51,11 @@ const formatDateToLocal = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-// Prochaine date commandable: aujourd'hui si avant 7h, sinon demain (règle identique à reservation.tsx)
-const getFirstBookableDate = (): Date => {
-  const now = new Date();
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const deadline = new Date();
-  deadline.setHours(7, 0, 0, 0);
-  if (now >= deadline) {
-    start.setDate(start.getDate() + 1);
-  }
-  return start;
-};
+// Dates de calendrier pour l'affichage ; l'échéance utilise l'heure du Maroc.
+const getFirstBookableDate = (): Date => parseYmd(getFirstBookableYmd());
 
 const getTargetLabel = (target: Date): string => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = parseYmd(getMoroccoDate());
   const t = new Date(target);
   t.setHours(0, 0, 0, 0);
   const diffDays = Math.round((t.getTime() - today.getTime()) / 86400000);
@@ -189,16 +180,15 @@ export default function ParentHomeScreen() {
 
       setChildrenCount(childrenData?.length || 0);
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayStr = today.toISOString().split('T')[0];
+      const todayStr = getMoroccoDate();
+      const today = parseYmd(todayStr);
 
-      const startOfWeek = getStartOfWeek(new Date());
+      const startOfWeek = getStartOfWeek(today);
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(endOfWeek.getDate() + 5);
 
-      const startDateStr = startOfWeek.toISOString().split('T')[0];
-      const endDateStr = endOfWeek.toISOString().split('T')[0];
+      const startDateStr = formatDateToLocal(startOfWeek);
+      const endDateStr = formatDateToLocal(endOfWeek);
 
       const childrenWithStatus: ChildWithStatus[] = await Promise.all(
         (childrenData || []).map(async (child) => {
@@ -289,10 +279,8 @@ export default function ParentHomeScreen() {
         missing = servableChildren.filter((c) => !orderedChildIds.has(c.id));
       }
 
-      const deadline = new Date(targetDate);
-      deadline.setHours(7, 0, 0, 0);
       setCountdown({
-        deadlineMs: deadline.getTime(),
+        deadlineMs: getOrderDeadlineMs(targetDateStr),
         label: getTargetLabel(targetDate),
         missing,
         hasService,
@@ -327,7 +315,7 @@ export default function ParentHomeScreen() {
         );
       }
 
-      const now = new Date();
+      const now = parseYmd(getMoroccoDate());
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
@@ -335,8 +323,8 @@ export default function ParentHomeScreen() {
         .from('reservations')
         .select('date')
         .eq('parent_id', parentData.id)
-        .gte('date', startOfMonth.toISOString().split('T')[0])
-        .lte('date', endOfMonth.toISOString().split('T')[0]);
+        .gte('date', formatDateToLocal(startOfMonth))
+        .lte('date', formatDateToLocal(endOfMonth));
 
       const getWeekOfMonth = (date: Date) => {
         const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
@@ -570,6 +558,7 @@ export default function ParentHomeScreen() {
                     </Text>
                   </View>
                   <OrderCountdown deadlineMs={countdown.deadlineMs} onExpire={loadData} />
+                  <Text style={styles.missingLabel}>Clôture à 7 h, heure du Maroc</Text>
                   <Text style={styles.missingLabel}>
                     Sans commande pour {countdown.label} :
                   </Text>

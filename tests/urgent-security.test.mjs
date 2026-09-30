@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 const { PGlite } = await import(process.env.PGLITE_MODULE || '@electric-sql/pglite');
 const id = n => `00000000-0000-0000-0000-${String(n).padStart(12,'0')}`;
 const base = await readFile(new URL('./fixtures/pre-urgent-schema.sql',import.meta.url),'utf8');
-const migrations = await Promise.all(['20260923110000_secure_roles_and_history.sql','20260923111000_private_access_codes.sql','20260923112000_notification_authorization.sql','20260923113000_checkout_recovery.sql'].map(n=>readFile(new URL('../supabase/migrations/'+n,import.meta.url),'utf8')));
+const migrations = await Promise.all(['20260923110000_secure_roles_and_history.sql','20260923111000_private_access_codes.sql','20260923112000_notification_authorization.sql','20260923113000_checkout_recovery.sql','20260930070000_morocco_permanent_gmt.sql'].map(n=>readFile(new URL('../supabase/migrations/'+n,import.meta.url),'utf8')));
 async function database() {
  const db = new PGlite();
  await db.exec(base);
@@ -33,14 +33,46 @@ async function asUser(db,user=101) {
  await db.exec('SET ROLE authenticated');
 }
 async function server(db) { await db.exec('RESET ROLE'); await db.query("SELECT set_config('test.uid','',false)"); }
-async function checkout(db) {
+async function checkout(db,date='2099-10-01') {
  await server(db);
- await db.exec(`INSERT INTO cart_items(id,parent_id,child_id,menu_id,date,total_price) VALUES('${id(40)}','${id(1)}','${id(20)}','${id(30)}','2099-10-01',45)`);
- return (await db.query('SELECT prepare_meal_checkout($1,$2,25,$3) AS p',[id(1),JSON.stringify([{id:id(40),child_id:id(20),menu_id:id(30),date:'2099-10-01',total_price:45}]),JSON.stringify([{credit_id:id(50),amount:20}])])).rows[0].p;
+ await db.query(`INSERT INTO cart_items(id,parent_id,child_id,menu_id,date,total_price) VALUES('${id(40)}','${id(1)}','${id(20)}','${id(30)}',$1,45)`,[date]);
+ return (await db.query('SELECT prepare_meal_checkout($1,$2,25,$3) AS p',[id(1),JSON.stringify([{id:id(40),child_id:id(20),menu_id:id(30),date,total_price:45}]),JSON.stringify([{credit_id:id(50),amount:20}])])).rows[0].p;
 }
 async function complete(db,p) {return db.query('SELECT complete_payzone_payment($1,$2) ok',[p.order_id,p.charge_id]);}
 async function release(db,p,status='DECLINED') {return db.query('SELECT release_failed_checkout($1,$2,$3) ok',[p.order_id,p.charge_id,status]);}
 async function balance(db) {return (await db.query(`SELECT amount::float,used_amount::float,reserved_amount::float FROM parent_credits WHERE id='${id(50)}'`)).rows[0];}
+
+test('Morocco GMT change: latest checkout and payment recovery accept 06:49 and close at 07:00',async()=>{
+ const db=await database();try {
+  await db.exec(`CREATE FUNCTION public.test_checkout_now() RETURNS timestamptz LANGUAGE sql STABLE AS
+    'SELECT current_setting(''test.checkout_now'')::timestamptz';`);
+  for(const signature of ['public.prepare_meal_checkout(uuid,jsonb,numeric,jsonb)','public.resume_meal_checkout(uuid,text)']) {
+   const source=(await db.query('SELECT pg_get_functiondef($1::regprocedure) source',[signature])).rows[0].source;
+   assert.match(source,/public\.morocco_local_time\(now\(\)\)/);
+   await db.exec(source.replace(/\bnow\(\)/g,'public.test_checkout_now()'));
+  }
+  await db.query("SELECT set_config('test.checkout_now','2026-09-29T06:49:38Z',false)");
+  await db.exec("UPDATE menus SET date='2026-09-29';");
+  const p=await checkout(db,'2026-09-29');
+  for(const [time,allowed] of [['06:49:38',true],['06:59:59.999',true],['07:00:00',false]]) {
+   await db.query("SELECT set_config('test.checkout_now',$1,false)",['2026-09-29T'+time+'Z']);
+   const resume=()=>db.query('SELECT resume_meal_checkout($1,$2) p',[id(1),p.order_id]);
+   if(allowed) assert.equal((await resume()).rows[0].p.charge_id,p.charge_id);
+   else await assert.rejects(resume,/clôturée/);
+  }
+  // Use a fresh basket to exercise the current preparation definition as well.
+  await release(db,p);
+  for(const [time,allowed] of [['06:49:38',true],['06:59:59.999',true],['07:00:00',false]]) {
+   await db.exec('BEGIN');
+   try {
+    await db.query("SELECT set_config('test.checkout_now',$1,true)",['2026-09-29T'+time+'Z']);
+    const prepare=()=>db.query("SELECT prepare_meal_checkout($1,$2,45,'[]') p",[id(1),JSON.stringify([{id:id(40),child_id:id(20),menu_id:id(30),date:'2026-09-29',total_price:45}])]);
+    if(allowed) assert.equal((await prepare()).rows[0].p.status,'pending');
+    else await assert.rejects(prepare,/Ce repas n’est plus disponible/);
+   } finally {await db.exec('ROLLBACK');}
+  }
+ }finally{await db.close();}
+});
 
 test('R02 parent profile editing cannot elevate roles or insert a second admin identity',async()=>{
  const db=await database();try {

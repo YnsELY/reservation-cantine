@@ -5,7 +5,7 @@ const { PGlite } = await import(process.env.PGLITE_MODULE || '@electric-sql/pgli
 const id = n => `00000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
 const item = (n=40,child=1,date='2099-10-01') => ({id:id(n),child_id:id(child),menu_id:id(10),date,total_price:45});
 const applied = (amount=20) => [{credit_id:id(50),amount}];
-const migrations = await Promise.all(['20260922140000_prevent_duplicate_meal_orders.sql','20260922150000_confirm_additional_daily_meals.sql','20260923090000_atomic_checkout_and_credit_ledger.sql','20260923100000_atomic_payzone_refund.sql'].map(n=>readFile(new URL('../supabase/migrations/'+n,import.meta.url),'utf8')));
+const migrations = await Promise.all(['20260922140000_prevent_duplicate_meal_orders.sql','20260922150000_confirm_additional_daily_meals.sql','20260923090000_atomic_checkout_and_credit_ledger.sql','20260923100000_atomic_payzone_refund.sql','20260930070000_morocco_permanent_gmt.sql'].map(n=>readFile(new URL('../supabase/migrations/'+n,import.meta.url),'utf8')));
 async function database() {
  const db=new PGlite();
  await db.exec(`
@@ -42,6 +42,46 @@ async function complete(db,p,reference=p.charge_id) {
 async function numbers(db) {
  return (await db.query(`SELECT (SELECT count(*)::int FROM reservations) reservations,(SELECT count(*)::int FROM meal_payment_holds) holds,(SELECT used_amount::float FROM parent_credits WHERE id='${id(50)}') used,(SELECT reserved_amount::float FROM parent_credits WHERE id='${id(50)}') reserved`)).rows[0];
 }
+
+test('Morocco legal time: September 29 checkout accepts 06:49 and closes at 07:00 UTC', async () => {
+ const db=await database();try {
+  await db.exec(`CREATE FUNCTION public.test_checkout_now() RETURNS timestamptz LANGUAGE sql STABLE AS
+    'SELECT current_setting(''test.checkout_now'')::timestamptz';`);
+  const source=(await db.query("SELECT pg_get_functiondef('public.prepare_meal_checkout(uuid,jsonb,numeric,jsonb)'::regprocedure) AS source")).rows[0].source;
+  assert.match(source,/public\.morocco_local_time\(now\(\)\)/);
+  await db.exec(source.replace(/\bnow\(\)/g,'public.test_checkout_now()'));
+  await cart(db);
+  await db.exec("UPDATE menus SET date='2026-09-29'; UPDATE cart_items SET date='2026-09-29';");
+  const entries=[['06:49:38',true],['06:59:59.999',true],['07:00:00',false],['07:00:00.001',false]];
+  for(const [time,allowed] of entries) {
+   await db.exec('BEGIN');
+   try {
+    await db.query("SELECT set_config('test.checkout_now',$1,true)",['2026-09-29T'+time+'Z']);
+    const checkout=()=>prepare(db,[{...item(),date:'2026-09-29'}]);
+    if(allowed) assert.equal((await checkout()).status,'pending');
+    else await assert.rejects(checkout,/Ce repas n’est plus disponible/);
+   } finally { await db.exec('ROLLBACK'); }
+  }
+ } finally { await db.close(); }
+});
+
+test('Morocco conversion preserves history and the migration can run twice', async () => {
+ const db=await database();try {
+  for(const [instant,expected] of [
+   ['2026-09-19 06:49:00+00','2026-09-19 07:49:00'],
+   ['2026-09-20 00:59:59+00','2026-09-20 01:59:59'],
+   ['2026-09-20 01:00:00+00','2026-09-20 01:00:00'],
+   ['2026-09-29 06:49:38+00','2026-09-29 06:49:38'],
+   ['2027-06-10 06:50:00+00','2027-06-10 06:50:00'],
+  ]) {
+   const result=await db.query('SELECT public.morocco_local_time($1::timestamptz)::text AS local',[instant]);
+   assert.equal(result.rows[0].local,expected);
+  }
+  const cancel=(await db.query("SELECT pg_get_functiondef('public.cancel_meal_with_credit(uuid)'::regprocedure) AS source")).rows[0].source;
+  assert.match(cancel,/public\.morocco_local_time\(now\(\)\)/);
+  await db.exec(migrations.at(-1));
+ } finally { await db.close(); }
+});
 
 test('bank checkout reserves credit, reuses its reference and completes once',async()=>{
  const db=await database();try {

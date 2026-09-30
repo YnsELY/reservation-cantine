@@ -78,7 +78,7 @@ test('R09 reconciliation signs the documented PayZone GET and forwards only a ve
 test('R11 school civil dates and Moroccan cutoff are independent of the phone timezone',()=>{
  const source=new URL('../lib/dates.ts',import.meta.url).href;
  for(const tz of ['Africa/Casablanca','Europe/Paris','UTC','America/Los_Angeles','Pacific/Auckland']) {
-  const result=execFileSync(process.execPath,['--input-type=module','-e',`import {formatYmd,isMealPastCutoff} from ${JSON.stringify(source)};console.log(JSON.stringify([formatYmd(new Date(2026,8,23,0,0)),isMealPastCutoff('2026-09-23',new Date('2026-09-23T05:59:59Z')),isMealPastCutoff('2026-09-23',new Date('2026-09-23T06:00:00Z'))]));`],{env:{...process.env,TZ:tz},encoding:'utf8'});
+  const result=execFileSync(process.execPath,['--input-type=module','-e',`import {formatYmd,isMealPastCutoff} from ${JSON.stringify(source)};console.log(JSON.stringify([formatYmd(new Date(2026,8,23,0,0)),isMealPastCutoff('2026-09-23',new Date('2026-09-23T06:59:59Z')),isMealPastCutoff('2026-09-23',new Date('2026-09-23T07:00:00Z'))]));`],{env:{...process.env,TZ:tz},encoding:'utf8'});
   assert.deepEqual(JSON.parse(result),['2026-09-23',false,true],tz);
  }
 });

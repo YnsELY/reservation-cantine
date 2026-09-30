@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { supabase, Child, Menu, Parent, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
+import { parseYmd } from '@/lib/dates';
+import { getFirstBookableYmd } from '@/lib/order-time';
 import { AlertCircle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ShoppingCart, UserPlus, School as SchoolIcon, ArrowLeft, UtensilsCrossed } from 'lucide-react-native';
 
 const DESCRIPTION_PREVIEW_LENGTH = 115;
@@ -64,17 +66,7 @@ const formatDateToLocal = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
-const getFirstBookableDate = (): Date => {
-  const now = new Date();
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  const deadline = new Date();
-  deadline.setHours(7, 0, 0, 0);
-  if (now >= deadline) {
-    start.setDate(start.getDate() + 1);
-  }
-  return start;
-};
+const getFirstBookableDate = (): Date => parseYmd(getFirstBookableYmd());
 
 export default function ParentDashboard() {
   const { childId: preselectedChildId, selectChild, date: requestedDate } = useLocalSearchParams<{

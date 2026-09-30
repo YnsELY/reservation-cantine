@@ -7,6 +7,8 @@ import { supabase, Child, Menu, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { childSelectionRoute, confirmRepeatOrder, getActiveMeals, hasAnotherChild } from '@/lib/meal-orders';
 import { getPaymentErrorMessage } from '@/lib/payment-errors';
+import { isPastOrderCutoff } from '@/lib/order-time';
+import { parseYmd } from '@/lib/dates';
 import { ChevronLeft, ShoppingCart, AlertCircle, CheckSquare, Square } from 'lucide-react-native';
 
 interface Supplement {
@@ -134,6 +136,9 @@ export default function MenuDetailsScreen() {
     setError('');
 
     try {
+      if (isPastOrderCutoff(date)) {
+        throw new Error('Les commandes pour ce repas sont closes depuis 7 h, heure du Maroc.');
+      }
       const reservations = await getActiveMeals([{ child_id: child.id, menu_id: menu.id, date }]);
       const { data: existingItems, error: cartError } = await supabase
         .from('cart_items')
@@ -164,6 +169,10 @@ export default function MenuDetailsScreen() {
 
       const supplementsJson = selectedSupplementsData.length > 0 ? { items: selectedSupplementsData } : null;
 
+      // La confirmation peut rester ouverte jusqu'après l'échéance.
+      if (isPastOrderCutoff(date)) {
+        throw new Error('Les commandes pour ce repas sont closes depuis 7 h, heure du Maroc.');
+      }
       const { error } = await supabase
         .from('cart_items')
         .insert({
@@ -191,7 +200,7 @@ export default function MenuDetailsScreen() {
 
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = parseYmd(dateString);
     const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
     const months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
     return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
@@ -233,10 +242,10 @@ export default function MenuDetailsScreen() {
         </TouchableOpacity>
         <View style={styles.dateBanner}>
           <Text style={styles.dateBannerDay}>
-            {new Date(date).toLocaleDateString('fr-FR', { weekday: 'long' })}
+            {parseYmd(date).toLocaleDateString('fr-FR', { weekday: 'long' })}
           </Text>
           <Text style={styles.dateBannerDate}>
-            {new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+            {parseYmd(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
           </Text>
         </View>
       </View>

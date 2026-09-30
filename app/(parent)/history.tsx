@@ -10,10 +10,10 @@ import {
   countCancellationsThisWeek,
   createCreditForCancellation,
   MAX_CANCELLATIONS_PER_WEEK,
-  CANCELLATION_CUTOFF_HOUR,
 } from '@/lib/credits';
 import { flagCreditAdded } from '@/lib/credit-events';
 import { getWeekStartYmd } from '@/lib/dates';
+import { isPastOrderCutoff } from '@/lib/order-time';
 import { Receipt, AlertCircle, History, ArrowLeft, ChevronLeft, ChevronRight, XCircle } from 'lucide-react-native';
 import { NativeSelect } from '@/components/NativeSelect';
 
@@ -137,9 +137,7 @@ export default function HistoryScreen() {
 
   const canCancel = (reservation: ReservationWithDetails) => {
     if (reservation.payment_status !== 'paid') return false;
-    const cutoff = `T${String(CANCELLATION_CUTOFF_HOUR).padStart(2, '0')}:00:00`;
-    const deadline = new Date(`${reservation.date}${cutoff}`);
-    return new Date() < deadline;
+    return !isPastOrderCutoff(reservation.date);
   };
 
   const handleCancelReservation = (reservation: ReservationWithDetails) => {

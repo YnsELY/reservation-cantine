@@ -1,3 +1,5 @@
+import { isPastOrderCutoff } from './order-time.ts';
+
 export const formatYmd = (d: Date): string => {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -28,12 +30,4 @@ export const isSameWeek = (a: Date | string, b: Date | string): boolean =>
   getWeekStartYmd(a) === getWeekStartYmd(b);
 
 /** Compare the meal's civil date with the catering service's cutoff in Morocco. */
-export function isMealPastCutoff(date: string, now = new Date(), cutoffHour = 7): boolean {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Africa/Casablanca', year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', hourCycle: 'h23',
-  }).formatToParts(now);
-  const part = (type: string) => parts.find(p => p.type === type)?.value || '';
-  const today = `${part('year')}-${part('month')}-${part('day')}`;
-  return date < today || (date === today && Number(part('hour')) >= cutoffHour);
-}
+export const isMealPastCutoff = isPastOrderCutoff;

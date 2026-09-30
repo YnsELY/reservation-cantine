@@ -1,4 +1,4 @@
-import { isMealPastCutoff } from '@/lib/dates';
+import { isMealPastCutoff, parseYmd } from '@/lib/dates';
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Switch } from 'react-native';
 import { showAlert } from '@/lib/alert';
@@ -83,15 +83,16 @@ export default function CartScreen() {
         );
 
         const valid = itemsWithDetails.filter(item => item.child && item.menu && !lockedItems.has(item.id));
-        const expired = valid.filter(item => isPastCutoff(item.date));
-        const current = valid.filter(item => !isPastCutoff(item.date));
+        const now = Date.now();
+        const expired = valid.filter(item => isPastCutoff(item.date, now));
+        const current = valid.filter(item => !isPastCutoff(item.date, now));
 
         if (expired.length > 0) {
           const { error: removalError } = await supabase.from('cart_items').delete().in('id', expired.map(i => i.id));
           if (removalError) throw removalError;
           showAlert(
             'Panier mis à jour',
-            `${expired.length} repas retiré${expired.length > 1 ? 's' : ''} du panier : la commande n'est plus possible après 7h le jour du repas.`
+            `${expired.length} repas retiré${expired.length > 1 ? 's' : ''} du panier : les commandes ferment à 7 h, heure du Maroc, le jour du repas.`
           );
         }
         setCartItems(current);
@@ -156,14 +157,15 @@ export default function CartScreen() {
     try {
       // Garde-fou : si 7h est passé pour certains repas pendant que le panier était ouvert,
       // on les retire et on demande de reconfirmer (le total et les crédits changent).
-      const expiredNow = cartItems.filter(item => isPastCutoff(item.date));
+      const now = Date.now();
+      const expiredNow = cartItems.filter(item => isPastCutoff(item.date, now));
       if (expiredNow.length > 0) {
         const { error: removalError } = await supabase.from('cart_items').delete().in('id', expiredNow.map(i => i.id));
         if (removalError) throw removalError;
-        setCartItems(prev => prev.filter(item => !isPastCutoff(item.date)));
+        setCartItems(prev => prev.filter(item => !isPastCutoff(item.date, now)));
         showAlert(
           'Panier mis à jour',
-          `${expiredNow.length} repas retiré${expiredNow.length > 1 ? 's' : ''} : la commande n'est plus possible après 7h le jour du repas. Vérifiez votre panier puis relancez le paiement.`
+          `${expiredNow.length} repas retiré${expiredNow.length > 1 ? 's' : ''} : les commandes ferment à 7 h, heure du Maroc, le jour du repas. Vérifiez votre panier puis relancez le paiement.`
         );
         return;
       }
@@ -381,7 +383,7 @@ export default function CartScreen() {
                       </View>
 
                       <Text style={styles.menuDate}>
-                        {new Date(item.date).toLocaleDateString('fr-FR', {
+                        {parseYmd(item.date).toLocaleDateString('fr-FR', {
                           weekday: 'long',
                           day: 'numeric',
                           month: 'long',
