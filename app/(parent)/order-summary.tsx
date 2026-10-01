@@ -4,11 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { CheckCircle, Calendar, User, UtensilsCrossed, Home } from 'lucide-react-native';
 import { payzoneService, PendingPayment } from '@/lib/payzone';
+import { supabase } from '@/lib/supabase';
 
 export default function OrderSummaryScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ orderId: string }>();
   const [payment, setPayment] = useState<PendingPayment | null>(null);
+  const [schoolNames, setSchoolNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,6 +27,20 @@ export default function OrderSummaryScreen() {
       const paymentData = await payzoneService.checkPaymentStatus(params.orderId);
       if (paymentData && paymentData.status === 'completed') {
         setPayment(paymentData);
+        try {
+          // Display the school of the purchased menu, even after a child transfer.
+          const menuIds = [...new Set(paymentData.cart_items.map(item => item.menu_id))];
+          const { data, error } = await supabase.from('menus')
+            .select('id, schools(name)').in('id', menuIds);
+          if (!error) {
+            setSchoolNames(Object.fromEntries((data || []).map(menu => {
+              const school = Array.isArray(menu.schools) ? menu.schools[0] : menu.schools;
+              return [menu.id, school?.name || 'École à vérifier'];
+            })));
+          }
+        } catch {
+          // A school-label lookup must never hide a completed payment.
+        }
       } else {
         // Si le paiement n'est pas complété, rediriger
         router.replace('/(parent)/');
@@ -145,6 +161,9 @@ export default function OrderSummaryScreen() {
               </View>
 
               <View style={styles.reservationDetails}>
+                <Text style={styles.childName}>
+                  École : {schoolNames[item.menu_id] || 'École à vérifier dans vos réservations'}
+                </Text>
                 <View style={styles.dateRow}>
                   <Calendar size={16} color="#6B7280" />
                   <Text style={styles.dateText}>{formatDate(item.date)}</Text>

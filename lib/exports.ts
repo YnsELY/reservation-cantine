@@ -147,6 +147,7 @@ const buildHtml = (payload: ExportPayload): string => {
   th { background: #111827; color: #FFFFFF; text-align: left; padding: 10px 12px; font-weight: 600; }
   td { padding: 9px 12px; border-bottom: 1px solid #E5E7EB; color: #111827; }
   tr:nth-child(even) td { background: #F9FAFB; }
+  tbody tr { break-inside: avoid; page-break-inside: avoid; }
   .footer { margin-top: 24px; font-size: 11px; color: #9CA3AF; text-align: right; }
   .brand-footer { position: fixed; left: 40px; right: 40px; bottom: 22px; display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: #9CA3AF; background: #FFFFFF; padding-top: 6px; }
 </style>
@@ -240,6 +241,7 @@ const exportPdfWeb = async (baseName: string, payload: ExportPayload) => {
     head: [payload.header],
     body: payload.rows.map((r) => r.map((c) => (c == null ? '' : String(c)))),
     startY: y + 6,
+    rowPageBreak: 'avoid',
     margin: { left: marginX, right: marginX, bottom: 46 },
     styles: { fontSize: 9, cellPadding: 5, textColor: [17, 24, 39], overflow: 'linebreak' },
     headStyles: { fillColor: [17, 24, 39], textColor: [255, 255, 255], fontStyle: 'bold' },

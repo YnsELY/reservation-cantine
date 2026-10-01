@@ -1,38 +1,24 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as XLSX from 'xlsx';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Modal, Platform } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
 import {
   aggregateOrderSupplements,
   formatSupplementAggregate,
-  OrderSupplement,
-  parseOrderSupplements,
 } from '@/lib/order-supplements';
 import { AlertTriangle, ArrowLeft, Check, FileDown, Users as UsersIcon } from 'lucide-react-native';
 import { exportData } from '@/lib/exports';
+import { fetchPreparationSnapshot, selectPreparationOrders } from '@/lib/preparation';
+import type { PreparationOrder as OrderDetail } from '@/lib/preparation';
+import { isPastOrderCutoff } from '@/lib/order-time';
 
 type ExportFormat = 'csv' | 'xlsx' | 'pdf';
-
-interface OrderDetail {
-  id: string;
-  child_name: string;
-  child_initial: string;
-  parent_name: string;
-  school_id: string;
-  school_name: string;
-  grade: string | null;
-  genre: string | null;
-  allergies: string[];
-  dietary_restrictions: string[];
-  supplements: OrderSupplement[];
-  annotations: string | null;
-}
 
 interface SchoolFilter {
   id: string;
@@ -100,6 +86,8 @@ export default function MenuOrdersScreen() {
   const params = useLocalSearchParams();
   const [orders, setOrders] = useState<OrderDetail[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const loadVersion = useRef(0);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedSchoolId, setSelectedSchoolId] = useState<SchoolScope>('all');
   const [showExportModal, setShowExportModal] = useState(false);
@@ -150,132 +138,35 @@ export default function MenuOrdersScreen() {
   }, [schoolFilters, selectedSchoolId]);
 
   const loadOrders = useCallback(async () => {
+    const version = ++loadVersion.current;
+    setLoading(true);
+    setLoadError('');
     try {
-      setLoading(true);
-
-      if (!date || menuIds.length === 0) {
-        setOrders([]);
-        return;
-      }
-
-      let reservationsQuery = supabase
-        .from('reservations')
-        .select('id, child_id, parent_id, supplements, annotations, menu:menus(school_id)')
-        .eq('date', date)
-        .neq('payment_status', 'cancelled')
-        .order('created_at', { ascending: true });
-
-      reservationsQuery = menuIds.length === 1
-        ? reservationsQuery.eq('menu_id', menuIds[0])
-        : reservationsQuery.in('menu_id', menuIds);
-
-      const { data: reservationsData, error: reservationsError } = await reservationsQuery;
-
-      if (reservationsError) {
-        throw reservationsError;
-      }
-
-      const reservations = reservationsData || [];
-
-      if (reservations.length === 0) {
-        setOrders([]);
-        return;
-      }
-
-      const childIds = Array.from(new Set(reservations.map((r: any) => r.child_id).filter(Boolean)));
-      const parentIds = Array.from(new Set(reservations.map((r: any) => r.parent_id).filter(Boolean)));
-
-      const [childrenResult, parentsResult] = await Promise.all([
-        childIds.length > 0
-          ? supabase
-              .from('children')
-              .select('id, first_name, last_name, grade, allergies, dietary_restrictions, school_id, genre')
-              .in('id', childIds)
-          : Promise.resolve({ data: [], error: null }),
-        parentIds.length > 0
-          ? supabase
-              .from('parents')
-              .select('id, first_name, last_name')
-              .in('id', parentIds)
-          : Promise.resolve({ data: [], error: null }),
-      ]);
-
-      if (childrenResult.error) throw childrenResult.error;
-      if (parentsResult.error) throw parentsResult.error;
-
-      const childrenList = (childrenResult.data || []) as any[];
-      const parentsList = (parentsResult.data || []) as any[];
-
-      const schoolIds = Array.from(new Set(reservations.map((r: any) => r.menu?.school_id).filter(Boolean)));
-      let schoolsList: any[] = [];
-      if (schoolIds.length > 0) {
-        const { data: schoolsData, error: schoolsError } = await supabase
-          .from('schools')
-          .select('id, name')
-          .in('id', schoolIds);
-        if (schoolsError) throw schoolsError;
-        schoolsList = schoolsData || [];
-      }
-
-      const childrenById = new Map(childrenList.map((c: any) => [c.id, c]));
-      const parentsById = new Map(parentsList.map((p: any) => [p.id, p]));
-      const schoolsById = new Map(schoolsList.map((s: any) => [s.id, s]));
-
-      const formattedOrders: OrderDetail[] = reservations.map((reservation: any) => {
-        const child = childrenById.get(reservation.child_id);
-        const parent = parentsById.get(reservation.parent_id);
-        const school = schoolsById.get(reservation.menu?.school_id);
-
-        const childName = `${child?.first_name || ''} ${child?.last_name || ''}`.trim() || 'Élève';
-        const parentName = `${parent?.first_name || ''} ${parent?.last_name || ''}`.trim() || 'Parent non renseigné';
-        const schoolId = reservation.menu?.school_id || 'unknown';
-
-        return {
-          id: reservation.id,
-          child_name: childName,
-          child_initial: childName.charAt(0).toUpperCase() || '?',
-          parent_name: parentName,
-          school_id: schoolId,
-          school_name: school?.name || 'École non renseignée',
-          grade: child?.grade || null,
-          genre: child?.genre || null,
-          allergies: Array.isArray(child?.allergies) ? child.allergies : [],
-          dietary_restrictions: Array.isArray(child?.dietary_restrictions) ? child.dietary_restrictions : [],
-          supplements: parseOrderSupplements(reservation.supplements),
-          annotations: (reservation.annotations || '').trim() || null,
-        };
-      });
-
-      setOrders(formattedOrders);
+      const snapshot = await fetchPreparationSnapshot(supabase, menuIds, date);
+      if (version === loadVersion.current) setOrders(snapshot.orders);
     } catch (err) {
-      console.error('Error loading orders:', err);
+      if (version !== loadVersion.current) return;
       setOrders([]);
+      setLoadError(err instanceof Error ? err.message : 'Impossible de charger les réservations.');
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (version === loadVersion.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [date, menuIds]);
 
-  useEffect(() => {
-    if (menuIds.length > 0 && date) {
-      loadOrders();
-      return;
-    }
-
-    setLoading(false);
-  }, [date, loadOrders, menuIds.length]);
+  useFocusEffect(useCallback(() => {
+    void loadOrders();
+    return () => { loadVersion.current++; };
+  }, [loadOrders]));
 
   const onRefresh = () => {
     setRefreshing(true);
-    loadOrders();
+    void loadOrders();
   };
 
-  const getOrdersForExport = () => {
-    return orders.filter(order =>
-      (exportSchoolId === 'all' || order.school_id === exportSchoolId) &&
-      (exportGenre === 'all' || order.genre === exportGenre)
-    );
-  };
+  const getOrdersForExport = () => selectPreparationOrders(orders, exportSchoolId, exportGenre);
 
   const handleOpenExport = () => {
     setExportSchoolId(selectedSchoolId);
@@ -310,21 +201,28 @@ export default function MenuOrdersScreen() {
   };
 
   const handleExport = async () => {
-    const ordersToExport = getOrdersForExport();
-    if (ordersToExport.length === 0) {
-      showAlert('Export impossible', 'Aucune commande à exporter pour cette sélection.');
-      return;
-    }
-
+    if (exporting) return;
     setExporting(true);
     try {
+      // Always refresh at export time, even if the screen has stayed open.
+      const snapshot = await fetchPreparationSnapshot(supabase, menuIds, date);
+      setOrders(snapshot.orders);
+      setLoadError('');
+      const ordersToExport = selectPreparationOrders(snapshot.orders, exportSchoolId, exportGenre);
+      if (ordersToExport.length === 0) {
+        showAlert('Export impossible', 'Aucune commande à exporter pour cette sélection après actualisation.');
+        return;
+      }
+      const selectedSchoolName = exportSchoolId === 'all' ? 'Toutes les écoles'
+        : ordersToExport[0].school_name;
+      const selectionName = exportGenre === 'all' ? 'Tous' : exportGenre === 'fille' ? 'Filles' : 'Garçons';
       const header = ['École', 'Élève', 'Sexe', 'Classe', 'Parent', 'Allergies', 'Suppléments', 'Instructions spécifiques'];
       const rows = buildExportRows(ordersToExport);
 
       const scopeLabel = exportSchoolId === 'all'
         ? 'toutes-ecoles'
-        : sanitizeFileName(schoolFilters.find(school => school.id === exportSchoolId)?.name || 'ecole');
-      const baseFileName = `commandes-${sanitizeFileName(menuName)}-${date}-${scopeLabel}`;
+        : sanitizeFileName(selectedSchoolName);
+      const baseFileName = `commandes-${sanitizeFileName(menuName)}-${date}-${scopeLabel}-${exportGenre}`;
 
       const isWeb = Platform.OS === 'web';
 
@@ -333,6 +231,18 @@ export default function MenuOrdersScreen() {
           fileName: baseFileName,
           title: menuName,
           subtitle: formatDate(date),
+          meta: [
+            { label: 'Écoles', value: selectedSchoolName },
+            { label: 'Élèves', value: selectionName },
+            { label: 'Réservations vérifiées le', value: new Date(snapshot.generatedAt).toLocaleString('fr-FR', { timeZoneName: 'short' }) },
+            { label: 'Statut', value: isPastOrderCutoff(date, Date.parse(snapshot.generatedAt))
+              ? 'Réservations enregistrées à l’heure indiquée'
+              : 'Provisoire - commandes ouvertes jusqu’à 7 h le jour du repas (Maroc)' },
+          ],
+          totals: [
+            { label: 'Repas sur cette fiche', value: ordersToExport.length },
+            { label: 'Autres repas hors sélection', value: snapshot.orders.length - ordersToExport.length },
+          ],
           header,
           rows,
         });
@@ -416,7 +326,7 @@ export default function MenuOrdersScreen() {
       setShowExportModal(false);
     } catch (error) {
       console.error('Error exporting orders:', error);
-      showAlert('Erreur', 'Impossible de générer le fichier.');
+      showAlert('Export interrompu', error instanceof Error ? error.message : 'Impossible de générer le fichier. Réessayez.');
     } finally {
       setExporting(false);
     }
@@ -491,7 +401,15 @@ export default function MenuOrdersScreen() {
           ))}
         </ScrollView>
 
-        {filteredOrders.length === 0 ? (
+        {loadError ? (
+          <View style={styles.emptyContainer}>
+            <AlertTriangle size={36} color="#B45309" />
+            <Text style={styles.emptyText}>{loadError}</Text>
+            <TouchableOpacity onPress={onRefresh} accessibilityRole="button">
+              <Text style={styles.emptyText}>Réessayer</Text>
+            </TouchableOpacity>
+          </View>
+        ) : filteredOrders.length === 0 ? (
           <View style={styles.emptyContainer}>
             <UsersIcon size={46} color="#9CA3AF" />
             <Text style={styles.emptyText}>Aucune commande pour cette sélection</Text>
