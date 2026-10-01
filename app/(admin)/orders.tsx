@@ -120,12 +120,12 @@ export default function AdminOrdersScreen() {
             id,
             first_name,
             last_name,
-            grade,
-            school:schools(id, name)
+            grade
           ),
           menu:menus(
             id,
             meal_name,
+            school:schools(id, name),
             provider:providers(id, company_name)
           )
         `)
@@ -153,7 +153,7 @@ export default function AdminOrdersScreen() {
         child: r.child,
         parent: parentsById.get(r.parent_id) || { first_name: '', last_name: '', email: null },
         menu: { id: r.menu.id, meal_name: r.menu.meal_name },
-        school: r.child.school,
+        school: r.menu.school,
         provider: r.menu.provider
           ? { id: r.menu.provider.id, name: r.menu.provider.company_name || 'Sans nom' }
           : null,

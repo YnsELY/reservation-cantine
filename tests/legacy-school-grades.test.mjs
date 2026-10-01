@@ -12,7 +12,8 @@ const migrations = await Promise.all([
   '20260923113000_checkout_recovery.sql',
   '20260930070000_morocco_permanent_gmt.sql',
 ].map(n => readFile(new URL('../supabase/migrations/' + n, import.meta.url), 'utf8')));
-const guard = await readFile(new URL('../supabase/migrations/20261001193000_guard_legacy_school_grades.sql', import.meta.url), 'utf8');
+const guard = (await readFile(new URL('../supabase/migrations/20261001193000_guard_legacy_school_grades.sql', import.meta.url), 'utf8')) + '\n' +
+  (await readFile(new URL('../supabase/migrations/20261002000000_cned_secondary_grades.sql', import.meta.url), 'utf8'));
 
 async function database() {
   const db = new PGlite();
@@ -31,7 +32,7 @@ async function database() {
     INSERT INTO children(id,parent_id,school_id,first_name,last_name,grade) VALUES
       ('${id(20)}','${id(1)}','${id(10)}','Legacy','Child','6ème'),
       ('${id(21)}','${id(1)}','${id(10)}','Primary','Child','CM2'),
-      ('${id(22)}','${id(1)}','${id(11)}','Cned','Child','Moyenne Section'),
+      ('${id(22)}','${id(1)}','${id(11)}','Cned','Child','6ème'),
       ('${id(23)}','${id(1)}','${id(10)}','Optional','Grade',null);
     ALTER TABLE children ENABLE TRIGGER validate_child_school_change;
     INSERT INTO menus(id,school_id,date,meal_name,price) VALUES
@@ -93,7 +94,7 @@ test('new baskets and school-created meals reject legacy invalid classes and tel
   } finally { await db.close(); }
 });
 
-test('allowed primary grades, optional grades and CNED primary children can still order', async () => {
+test('La Vertu primary or optional grades and CNED secondary children can still order', async () => {
   const db = await database();
   try {
     await db.exec(guard);

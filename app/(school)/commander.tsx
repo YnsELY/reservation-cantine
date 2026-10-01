@@ -5,7 +5,7 @@ import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
-import { isGradeAllowed } from '@/lib/school-grades';
+import { getSchoolGradeRule, isGradeAllowed } from '@/lib/school-grades';
 import { supabase, Child, Menu, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { ArrowLeft, Calendar, Check } from 'lucide-react-native';
@@ -126,7 +126,7 @@ export default function SchoolCommanderScreen() {
     );
     if (invalidChildren.length > 0) {
       showAlert('Classe à vérifier',
-        `${invalidChildren.map(child => `${child.first_name} ${child.last_name}`).join(', ')} : La Vertu accueille les classes de maternelle à CM2. Vérifiez la fiche et l’école de ces enfants avant de commander.`
+        `${invalidChildren.map(child => `${child.first_name} ${child.last_name}`).join(', ')} : ${getSchoolGradeRule(school)} Vérifiez la fiche et l’école de ces enfants avant de commander.`
       );
       return;
     }

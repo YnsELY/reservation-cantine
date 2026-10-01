@@ -64,8 +64,8 @@ export default function OrdersDateDetail() {
           total_price,
           payment_status,
           parent_id,
-          child:children!child_id(first_name, last_name, grade, school:schools(id, name)),
-          menu:menus(meal_name, provider:providers(id, company_name))
+          child:children!child_id(first_name, last_name, grade),
+          menu:menus(meal_name, school:schools(id, name), provider:providers(id, company_name))
         `)
         .eq('date', date)
         .limit(5000);
@@ -87,8 +87,8 @@ export default function OrdersDateDetail() {
           child_grade: r.child?.grade || null,
           parent_name: p ? `${p.first_name} ${p.last_name}`.trim() : '',
           menu_name: r.menu?.meal_name || '',
-          school_id: r.child?.school?.id || '',
-          school_name: r.child?.school?.name || '',
+          school_id: r.menu?.school?.id || '',
+          school_name: r.menu?.school?.name || '',
           provider_id: r.menu?.provider?.id || null,
           provider_name: r.menu?.provider?.company_name || null,
           payment_status: r.payment_status,

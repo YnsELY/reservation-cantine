@@ -73,10 +73,11 @@ export default function OrdersSchoolDetail() {
         .from('schools').select('id, name').eq('id', schoolId).maybeSingle();
       setSchoolName(school?.name || 'École');
 
-      const { data: childrenRows } = await supabase
-        .from('children').select('id').eq('school_id', schoolId);
-      const childIds = (childrenRows || []).map((c: any) => c.id);
-      if (childIds.length === 0) {
+      // Historical orders belong to the purchased menu's school after a child transfers.
+      const { data: menus } = await supabase
+        .from('menus').select('id').eq('school_id', schoolId);
+      const menuIds = (menus || []).map((m: any) => m.id);
+      if (menuIds.length === 0) {
         setRows([]);
         return;
       }
@@ -88,7 +89,7 @@ export default function OrdersSchoolDetail() {
           child:children!child_id(first_name, last_name, grade),
           menu:menus(meal_name, provider:providers(id, company_name))
         `)
-        .in('child_id', childIds)
+        .in('menu_id', menuIds)
         .order('date', { ascending: false });
 
       if (dateFilter) q = q.eq('date', dateFilter);

@@ -16,7 +16,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
 import { ArrowLeft, Save, X, CircleCheck as CheckCircle, Plus } from 'lucide-react-native';
 import { NativeSelect } from '@/components/NativeSelect';
-import { getGradeOptions, isGradeAllowed, isPrimaryOnlySchool } from '@/lib/school-grades';
+import { getGradeOptions, getSchoolGradeRule, isGradeAllowed, isSecondaryOnlySchool } from '@/lib/school-grades';
 import { supabase, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 
@@ -357,7 +357,7 @@ export default function EditChildScreen() {
     }
 
     if (!isGradeAllowed(selectedSchool, grade)) {
-      showAlert('Erreur', 'Veuillez sélectionner une classe autorisée pour cette école (jusqu’au CM2 pour La Vertu).');
+      showAlert('Erreur', getSchoolGradeRule(selectedSchool) || 'Veuillez sélectionner une classe autorisée pour cette école.');
       return;
     }
 
@@ -510,9 +510,9 @@ export default function EditChildScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.label}>Classe</Text>
-          {isPrimaryOnlySchool(selectedSchool) && <Text style={{ color: '#6B7280', marginBottom: 8 }}>La Vertu : maternelle et élémentaire, jusqu’au CM2.</Text>}
-          {!isGradeAllowed(selectedSchool, grade) && <Text style={styles.errorText}>Veuillez choisir une classe autorisée pour cette école.</Text>}
+          <Text style={styles.label}>{isSecondaryOnlySchool(selectedSchool) ? 'Classe *' : 'Classe'}</Text>
+          {!!getSchoolGradeRule(selectedSchool) && <Text style={{ color: '#6B7280', marginBottom: 8 }}>{getSchoolGradeRule(selectedSchool)}</Text>}
+          {!!grade.trim() && !isGradeAllowed(selectedSchool, grade) && <Text style={styles.errorText}>Veuillez choisir une classe autorisée pour cette école.</Text>}
           <NativeSelect
             value={grade}
             onValueChange={setGrade}

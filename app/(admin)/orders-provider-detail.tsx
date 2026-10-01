@@ -85,8 +85,8 @@ export default function OrdersProviderDetail() {
         .from('reservations')
         .select(`
           id, date, total_price, payment_status, created_at, parent_id,
-          child:children!child_id(first_name, last_name, grade, school:schools(id, name)),
-          menu:menus(meal_name)
+          child:children!child_id(first_name, last_name, grade),
+          menu:menus(meal_name, school:schools(id, name))
         `)
         .in('menu_id', menuIds)
         .order('date', { ascending: false })
@@ -110,8 +110,8 @@ export default function OrdersProviderDetail() {
           child_grade: r.child?.grade || null,
           parent_name: p ? `${p.first_name} ${p.last_name}`.trim() : '',
           menu_name: r.menu?.meal_name || '',
-          school_id: r.child?.school?.id || '',
-          school_name: r.child?.school?.name || '',
+          school_id: r.menu?.school?.id || '',
+          school_name: r.menu?.school?.name || '',
           payment_status: r.payment_status,
           created_at: r.created_at,
           total_price: Number(r.total_price) || 0,
