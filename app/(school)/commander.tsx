@@ -5,6 +5,7 @@ import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { safeBack } from '@/lib/navigation';
+import { isGradeAllowed } from '@/lib/school-grades';
 import { supabase, Child, Menu, School } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
 import { ArrowLeft, Calendar, Check } from 'lucide-react-native';
@@ -120,6 +121,15 @@ export default function SchoolCommanderScreen() {
       showAlert('Date modifiée', 'Sélectionnez un menu pour la date affichée avant de commander.');
       return;
     }
+    const invalidChildren = children.filter(child =>
+      selectedChildren.has(child.id) && !isGradeAllowed(school, child.grade || '')
+    );
+    if (invalidChildren.length > 0) {
+      showAlert('Classe à vérifier',
+        `${invalidChildren.map(child => `${child.first_name} ${child.last_name}`).join(', ')} : La Vertu accueille les classes de maternelle à CM2. Vérifiez la fiche et l’école de ces enfants avant de commander.`
+      );
+      return;
+    }
     setSubmitting(true);
     try {
       const reservations = Array.from(selectedChildren).map(childId => {
@@ -160,7 +170,8 @@ export default function SchoolCommanderScreen() {
       );
     } catch (err) {
       console.error('Error creating orders:', err);
-      showAlert('Erreur', 'Impossible de créer les commandes');
+      showAlert('Erreur', err && typeof err === 'object' && 'message' in err && typeof err.message === 'string'
+        ? err.message : 'Impossible de créer les commandes');
     } finally {
       setSubmitting(false);
     }
