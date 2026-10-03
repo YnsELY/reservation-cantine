@@ -1,18 +1,41 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Dimensions, Image } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  RefreshControl,
+  useWindowDimensions,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { supabase, Parent, Reservation } from '@/lib/supabase';
-import { authService } from '@/lib/auth';
-import { Calendar, UserPlus, History, UtensilsCrossed, User, ShoppingCart, Clock, Check, Wallet } from 'lucide-react-native';
-import Svg, { Circle } from 'react-native-svg';
-import { LineChart } from 'react-native-chart-kit';
+import { supabase, Parent } from '@/lib/supabase';
+import { User, Clock, Wallet, ArrowRight, Plus } from 'lucide-react-native';
+import {
+  Avatar,
+  CartButton,
+  RoundButton,
+  MenuPhoto,
+  CategoryIcon,
+  ui,
+  palette,
+  type,
+} from '@/components/parent/OrderingUI';
+import { orderingRoute } from '@/lib/parent-ordering';
+import { getMealCategory, type MealCategory } from '@/lib/meal-category';
+
 import { useNotifications } from '@/hooks/useNotifications';
 import { showAlert } from '@/lib/alert';
 import { getBalance } from '@/lib/credits';
 import { consumeCreditAdded } from '@/lib/credit-events';
 import { parseYmd } from '@/lib/dates';
-import { getFirstBookableYmd, getMoroccoDate, getOrderDeadlineMs } from '@/lib/order-time';
+import {
+  getFirstBookableYmd,
+  getMoroccoDate,
+  getOrderDeadlineMs,
+} from '@/lib/order-time';
 
 interface WeekReservation {
   id: string;
@@ -39,10 +62,7 @@ interface Child {
   school_id: string;
 }
 
-interface ChildWithStatus extends Child {
-  reservationCount: number;
-  status: 'none' | 'partial' | 'complete';
-}
+type ChildWithStatus = Child;
 
 const formatDateToLocal = (date: Date): string => {
   const year = date.getFullYear();
@@ -64,7 +84,13 @@ const getTargetLabel = (target: Date): string => {
   return t.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' });
 };
 
-function OrderCountdown({ deadlineMs, onExpire }: { deadlineMs: number; onExpire?: () => void }) {
+function OrderCountdown({
+  deadlineMs,
+  onExpire,
+}: {
+  deadlineMs: number;
+  onExpire?: () => void;
+}) {
   const [now, setNow] = useState(() => Date.now());
   const firedRef = useRef(false);
 
@@ -92,18 +118,25 @@ function OrderCountdown({ deadlineMs, onExpire }: { deadlineMs: number; onExpire
   return (
     <View style={styles.countdownTimer}>
       <Clock size={20} color="#0E5FC0" />
-      <Text style={styles.countdownValue}>{pad(h)}h {pad(m)}m {pad(s)}s</Text>
+      <Text style={styles.countdownValue}>
+        {pad(h)}h {pad(m)}m {pad(s)}s
+      </Text>
     </View>
   );
 }
 
 export default function ParentHomeScreen() {
   const router = useRouter();
+  const compact = useWindowDimensions().width < 360;
   const [parent, setParent] = useState<Parent | null>(null);
-  const [weekReservations, setWeekReservations] = useState<Pick<Reservation, 'id' | 'date' | 'child_id'>[]>([]);
-  const [upcomingReservations, setUpcomingReservations] = useState<WeekReservation[]>([]);
-  const [monthlyOrders, setMonthlyOrders] = useState<number[]>([0, 0, 0, 0, 0]);
-  const [childrenCount, setChildrenCount] = useState(0);
+
+  const [upcomingReservations, setUpcomingReservations] = useState<
+    WeekReservation[]
+  >([]);
+  const [photos, setPhotos] = useState<Partial<Record<MealCategory, string>>>(
+    {},
+  );
+  const [loadError, setLoadError] = useState('');
   const [children, setChildren] = useState<ChildWithStatus[]>([]);
   const [cartCount, setCartCount] = useState(0);
   const [balance, setBalance] = useState(0);
@@ -119,37 +152,27 @@ export default function ParentHomeScreen() {
   // Register push notifications
   useNotifications(parent?.id, 'parent');
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
   useFocusEffect(
     useCallback(() => {
-      console.log('=== PAGE FOCUSED - RELOADING DATA ===');
       loadData();
-    }, [])
+    }, []),
   );
 
   const loadData = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session?.user) {
         router.replace('/auth');
         return;
       }
-
-      console.log('=== DEBUG SESSION ===');
-      console.log('User ID:', session.user.id);
-      console.log('User Email:', session.user.email);
 
       const { data: parentData } = await supabase
         .from('parents')
         .select('*')
         .eq('user_id', session.user.id)
         .maybeSingle();
-
-      console.log('=== DEBUG PARENT ===');
-      console.log('Parent Data:', parentData);
 
       if (!parentData) {
         router.replace('/auth');
@@ -169,86 +192,46 @@ export default function ParentHomeScreen() {
         .select('id, first_name, last_name, date_of_birth, school_id')
         .eq('parent_id', parentData.id);
 
-      console.log('=== DEBUG CHILDREN ===');
-      console.log('Children Query for parent_id:', parentData.id);
-      console.log('Children Data:', childrenData);
-      console.log('Children Error:', childrenError);
-
       if (childrenError) {
         console.error('Error loading children:', childrenError);
       }
 
-      setChildrenCount(childrenData?.length || 0);
-
+      if (childrenError) throw childrenError;
       const todayStr = getMoroccoDate();
-      const today = parseYmd(todayStr);
-
-      const startOfWeek = getStartOfWeek(today);
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(endOfWeek.getDate() + 5);
-
-      const startDateStr = formatDateToLocal(startOfWeek);
-      const endDateStr = formatDateToLocal(endOfWeek);
-
-      const childrenWithStatus: ChildWithStatus[] = await Promise.all(
-        (childrenData || []).map(async (child) => {
-          const { data: reservations } = await supabase
-            .from('reservations')
-            .select('id, date')
-            .neq('payment_status', 'cancelled')
-            .eq('child_id', child.id)
-            .gte('date', startDateStr)
-            .lte('date', endDateStr);
-
-          const reservationCount = new Set((reservations || []).map(reservation => reservation.date)).size;
-          let status: 'none' | 'partial' | 'complete' = 'none';
-
-          if (reservationCount === 0) {
-            status = 'none';
-          } else if (reservationCount >= 5) {
-            status = 'complete';
-          } else {
-            status = 'partial';
-          }
-
-          return {
-            ...child,
-            reservationCount,
-            status,
-          };
-        })
-      );
-
+      const childrenWithStatus = childrenData || [];
       setChildren(childrenWithStatus);
-
-      const { data: weekReservationsData } = await supabase
-        .from('reservations')
-        .select('id, date, child_id')
-        .neq('payment_status', 'cancelled')
-        .eq('parent_id', parentData.id)
-        .gte('date', startDateStr)
-        .lte('date', endDateStr);
-
-      setWeekReservations(weekReservationsData || []);
 
       // Compte à rebours: prochaine échéance de commande (jour J à 7h)
       const targetDate = getFirstBookableDate();
       const targetDateStr = formatDateToLocal(targetDate);
       const childSchoolIds = Array.from(
-        new Set((childrenData || []).map((c) => c.school_id).filter(Boolean))
+        new Set((childrenData || []).map((c) => c.school_id).filter(Boolean)),
       );
 
       let hasService = false;
       let missing: ChildWithStatus[] = [];
       if (childSchoolIds.length > 0) {
+        const lastDate = new Date(targetDate);
+        lastDate.setDate(lastDate.getDate() + 6);
         const { data: targetMenus } = await supabase
           .from('menus')
-          .select('school_id')
+          .select('school_id, date, image_url, meal_category')
           .in('school_id', childSchoolIds)
-          .eq('date', targetDateStr)
-          .eq('available', true);
+          .gte('date', targetDateStr)
+          .lte('date', formatDateToLocal(lastDate))
+          .eq('available', true)
+          .order('date');
+        const nextPhotos: Partial<Record<MealCategory, string>> = {};
+        for (const menu of targetMenus || []) {
+          const category = getMealCategory(menu.meal_category);
+          if (menu.image_url && !nextPhotos[category])
+            nextPhotos[category] = menu.image_url;
+        }
+        setPhotos(nextPhotos);
         const schoolsWithService = new Set<string>(
-          (targetMenus || []).map((m: any) => m.school_id)
+          (targetMenus || [])
+            .filter((m) => m.date === targetDateStr)
+            .map((m) => m.school_id),
         );
 
         // Jours de fermeture par école : un jour fermé = pas de service (donc pas de
@@ -270,12 +253,13 @@ export default function ParentHomeScreen() {
           .eq('date', targetDateStr)
           .neq('payment_status', 'cancelled');
         const orderedChildIds = new Set<string>(
-          (targetReservations || []).map((r: any) => r.child_id)
+          (targetReservations || []).map((r: any) => r.child_id),
         );
 
-        const servableChildren = childrenWithStatus.filter((c) =>
-          schoolsWithService.has(c.school_id) &&
-          !(closedBySchool[c.school_id] || []).includes(targetWeekday)
+        const servableChildren = childrenWithStatus.filter(
+          (c) =>
+            schoolsWithService.has(c.school_id) &&
+            !(closedBySchool[c.school_id] || []).includes(targetWeekday),
         );
         hasService = servableChildren.length > 0;
         missing = servableChildren.filter((c) => !orderedChildIds.has(c.id));
@@ -290,7 +274,8 @@ export default function ParentHomeScreen() {
 
       const { data: upcomingData } = await supabase
         .from('reservations')
-        .select(`
+        .select(
+          `
           id,
           date,
           child_id,
@@ -299,7 +284,8 @@ export default function ParentHomeScreen() {
           payment_status,
           children (first_name, last_name),
           menus (meal_name, description)
-        `)
+        `,
+        )
         .eq('parent_id', parentData.id)
         .gte('date', todayStr)
         .order('date', { ascending: true })
@@ -314,41 +300,16 @@ export default function ParentHomeScreen() {
       if (consumeCreditAdded()) {
         showAlert(
           'Cagnotte créditée 💰',
-          `Vous avez ${bal.toFixed(2)} DH dans votre cagnotte. Utilisable quand vous voulez sur vos prochaines commandes.`
+          `Vous avez ${bal.toFixed(2)} DH dans votre cagnotte. Utilisable quand vous voulez sur vos prochaines commandes.`,
         );
       }
 
-      const now = parseYmd(getMoroccoDate());
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-      const { data: currentMonthData } = await supabase
-        .from('reservations')
-        .select('date')
-        .eq('parent_id', parentData.id)
-        .gte('date', formatDateToLocal(startOfMonth))
-        .lte('date', formatDateToLocal(endOfMonth));
-
-      const getWeekOfMonth = (date: Date) => {
-        const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
-        const dayOfMonth = date.getDate();
-        const firstDayOfWeek = firstDay.getDay();
-        const offsetDate = dayOfMonth + firstDayOfWeek - 1;
-        return Math.ceil(offsetDate / 7);
-      };
-
-      const weekCounts = [0, 0, 0, 0, 0];
-      currentMonthData?.forEach((reservation) => {
-        const date = new Date(reservation.date);
-        const weekNum = getWeekOfMonth(date) - 1;
-        if (weekNum >= 0 && weekNum < 5) {
-          weekCounts[weekNum]++;
-        }
-      });
-
-      setMonthlyOrders(weekCounts);
+      setLoadError('');
     } catch (err) {
       console.error('Error loading data:', err);
+      setLoadError(
+        'Impossible de rafraîchir l’accueil. Réessayez en tirant vers le bas.',
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -360,96 +321,6 @@ export default function ParentHomeScreen() {
     loadData();
   };
 
-  const getStartOfWeek = (date: Date) => {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    d.setDate(diff);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short'
-    });
-  };
-
-  const getAvatarColor = (status: 'none' | 'partial' | 'complete') => {
-    switch (status) {
-      case 'none':
-        return '#EF4444';
-      case 'partial':
-        return '#F59E0B';
-      case 'complete':
-        return '#10B981';
-      default:
-        return '#9CA3AF';
-    }
-  };
-
-  const getStatusText = (status: 'none' | 'partial' | 'complete', count: number) => {
-    switch (status) {
-      case 'none':
-        return 'Aucune réservation cette semaine';
-      case 'partial':
-        return `${count} jour${count > 1 ? 's' : ''} réservé${count > 1 ? 's' : ''}`;
-      case 'complete':
-        return 'Semaine complète';
-      default:
-        return '';
-    }
-  };
-
-  const renderGauge = () => {
-    const daysPerWeek = 6;
-    const maxMeals = childrenCount * daysPerWeek;
-    const bookedMeals = new Set(weekReservations.map(reservation => `${reservation.child_id}:${reservation.date}`)).size;
-    const pct = maxMeals > 0 ? Math.min(1, bookedMeals / maxMeals) : 0;
-
-    const size = 190;
-    const strokeWidth = 16;
-    const radius = (size - strokeWidth) / 2;
-    const center = size / 2;
-    const circumference = 2 * Math.PI * radius;
-    const dash = circumference * pct;
-
-    return (
-      <View style={styles.ringWrap}>
-        <Svg width={size} height={size}>
-          <Circle
-            cx={center}
-            cy={center}
-            r={radius}
-            stroke="#E5E7EB"
-            strokeWidth={strokeWidth}
-            fill="none"
-          />
-          {pct > 0 && (
-            <Circle
-              cx={center}
-              cy={center}
-              r={radius}
-              stroke="#2E97DD"
-              strokeWidth={strokeWidth}
-              fill="none"
-              strokeDasharray={`${dash} ${circumference}`}
-              strokeLinecap="round"
-              transform={`rotate(-90 ${center} ${center})`}
-            />
-          )}
-        </Svg>
-        <View style={styles.ringCenter}>
-          <Text style={styles.ringNumber}>{bookedMeals}/{maxMeals}</Text>
-          <Text style={styles.ringLabel}>menus réservés</Text>
-        </View>
-      </View>
-    );
-  };
-
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -459,926 +330,313 @@ export default function ParentHomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.welcomeText}>
-          Bonjour, {parent?.first_name || 'Parent'} 👋
+    <SafeAreaView style={ui.page} edges={['top', 'bottom']}>
+      <View style={ui.header}>
+        <Text style={[ui.strong, { flex: 1 }]}>
+          Bonjour, {parent?.first_name || 'Parent'} ☀
         </Text>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={() => router.push('/(parent)/cart')}
-          >
-            <ShoppingCart size={24} color="#1E293B" />
-            {cartCount > 0 && (
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>{cartCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={() => router.push('/(parent)/profile')}
-          >
-            <User size={24} color="#1E293B" />
-          </TouchableOpacity>
-        </View>
+        <CartButton
+          count={cartCount}
+          onPress={() => router.push('/(parent)/cart')}
+        />
+        <RoundButton
+          label="Mon profil"
+          onPress={() => router.push('/(parent)/profile')}
+        >
+          <User size={21} color={palette.ink} />
+        </RoundButton>
       </View>
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-
-        <View style={styles.childrenSection}>
-          <Text style={styles.childrenTitle}>Mes enfants</Text>
-          {children.length > 0 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.childrenList}
+        <View style={{ gap: 9, marginBottom: 22 }}>
+          <Text style={ui.eyebrow}>CHILD’S KITCHEN</Text>
+          <Text style={ui.title}>On commande quoi ?</Text>
+          <Text style={ui.body}>Un bon repas pour une belle journée.</Text>
+        </View>
+        {loadError ? (
+          <View style={ui.error}>
+            <Text style={ui.errorText}>{loadError}</Text>
+          </View>
+        ) : null}
+        {(['classic', 'snack'] as const).map((category) => {
+          const snack = category === 'snack';
+          return (
+            <TouchableOpacity
+              key={category}
+              accessibilityRole="button"
+              accessibilityLabel={
+                snack ? 'Commander snackerie' : 'Commander un repas'
+              }
+              onPress={() =>
+                router.push(orderingRoute({ category, selectChild: true }))
+              }
+              style={[styles.orderCard, snack && styles.snackCard]}
             >
-              {children.map((child) => (
-                <TouchableOpacity
-                  key={child.id}
-                  style={[
-                    styles.childCard,
-                    { borderColor: getAvatarColor(child.status) }
-                  ]}
-                  onPress={() => router.push({
-                    pathname: '/(parent)/child-details',
-                    params: { childId: child.id }
-                  })}
+              <View style={{ flex: 1, zIndex: 1, gap: 12 }}>
+                <View style={[ui.row, { gap: 7 }]}>
+                  <CategoryIcon
+                    category={category}
+                    color={snack ? palette.ink : '#fff'}
+                    size={16}
+                  />
+                  <Text
+                    style={[
+                      styles.categoryLabel,
+                      snack && { color: palette.ink },
+                    ]}
+                  >
+                    {snack ? 'SNACKERIE' : 'MENUS CLASSIQUES'}
+                  </Text>
+                </View>
+                <Text
+                  style={[styles.orderTitle, snack && { color: palette.ink }]}
                 >
-                  <View style={styles.childAvatar}>
-                    <User size={36} color="#1E293B" />
-                  </View>
-                  <Text style={styles.childName}>
-                    {child.first_name}
-                  </Text>
-                  <Text style={styles.childName}>
-                    {child.last_name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          ) : (
-            <View style={styles.emptyChildren}>
-              <Text style={styles.emptyChildrenText}>
-                Aucun enfant enregistré
-              </Text>
-              <TouchableOpacity
-                style={styles.addChildSmallButton}
-                onPress={() => router.push('/(parent)/add-child')}
-              >
-                <UserPlus size={20} color="#FFFFFF" />
-                <Text style={styles.addChildSmallButtonText}>
-                  Ajouter un enfant
+                  Commander{'\n'}
+                  {snack ? 'snackerie' : 'un repas'}
                 </Text>
-              </TouchableOpacity>
+              </View>
+              <MenuPhoto
+                uri={photos[category]}
+                category={category}
+                style={[
+                  styles.heroPhoto,
+                  compact && { width: 116, height: 116, right: -20 },
+                ]}
+              />
+              <View style={styles.orderArrow}>
+                <ArrowRight size={21} color={palette.ink} />
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+        {countdown?.hasService && (
+          <View style={styles.reminder}>
+            <View style={[ui.row, { alignItems: 'flex-start' }]}>
+              <Clock size={18} color={palette.blue} />
+              <View style={{ flex: 1, gap: 3 }}>
+                <Text style={ui.link}>
+                  {countdown.missing.length
+                    ? `Pour ${countdown.label}, pensez à commander`
+                    : `Tout est commandé pour ${countdown.label}`}
+                </Text>
+                <Text style={ui.small}>Clôture à 7 h, heure du Maroc</Text>
+                {countdown.missing.length > 0 && (
+                  <OrderCountdown
+                    deadlineMs={countdown.deadlineMs}
+                    onExpire={loadData}
+                  />
+                )}
+              </View>
             </View>
+          </View>
+        )}
+        <View style={[ui.spread, { marginTop: 22, marginBottom: 12 }]}>
+          <Text style={ui.sectionTitle}>Mes enfants</Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Ajouter un enfant"
+            onPress={() => router.push('/(parent)/add-child')}
+            style={styles.addChild}
+          >
+            <Plus size={15} color={palette.blue} />
+            <Text style={ui.link}>Ajouter</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.children}>
+          {children.map((child) => (
+            <TouchableOpacity
+              key={child.id}
+              accessibilityRole="button"
+              onPress={() =>
+                router.push({
+                  pathname: '/(parent)/child-details',
+                  params: { childId: child.id },
+                })
+              }
+              style={styles.child}
+            >
+              <Avatar firstName={child.first_name} lastName={child.last_name} />
+              <View style={{ flex: 1 }}>
+                <Text style={ui.strong}>{child.first_name}</Text>
+                <Text style={ui.small}>{child.last_name}</Text>
+              </View>
+              <ArrowRight size={16} color={palette.muted} />
+            </TouchableOpacity>
+          ))}
+          {!children.length && (
+            <Text style={ui.body}>Ajoutez votre enfant pour commencer.</Text>
           )}
         </View>
-
-        <View style={styles.weekCard}>
-          <Text style={styles.weekCardTitle}>Réservations de la semaine</Text>
-          {renderGauge()}
-          <Text style={styles.weekPhrase}>
-            N'oubliez pas de commander les repas pour la semaine prochaine !
-          </Text>
-
-          {countdown?.hasService && (
-            <>
-              <View style={styles.weekDivider} />
-              {countdown.missing.length > 0 ? (
-                <View>
-                  <View style={styles.countdownHeaderRow}>
-                    <Text style={styles.countdownTitle}>
-                      Temps restant pour commander {countdown.label}
-                    </Text>
-                  </View>
-                  <OrderCountdown deadlineMs={countdown.deadlineMs} onExpire={loadData} />
-                  <Text style={styles.missingLabel}>Clôture à 7 h, heure du Maroc</Text>
-                  <Text style={styles.missingLabel}>
-                    Sans commande pour {countdown.label} :
-                  </Text>
-                  <View style={styles.missingChips}>
-                    {countdown.missing.map((child) => (
-                      <View key={child.id} style={styles.missingChip}>
-                        <Text style={styles.missingChipText}>
-                          {child.first_name} {child.last_name}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.allOrderedRow}>
-                  <Check size={18} color="#059669" />
-                  <Text style={styles.allOrderedText}>
-                    Tout est commandé pour {countdown.label} 🎉
-                  </Text>
-                </View>
-              )}
-            </>
-          )}
-        </View>
-
         {balance > 0 && (
           <TouchableOpacity
-            style={styles.cagnotteCard}
-            onPress={() => router.push('/(parent)/reservation')}
+            accessibilityRole="button"
+            style={styles.wallet}
+            onPress={() => router.push(orderingRoute({ selectChild: true }))}
           >
-            <View style={styles.cagnotteIcon}>
-              <Wallet size={24} color="#FFFFFF" />
-            </View>
-            <View style={styles.cagnotteInfo}>
-              <Text style={styles.cagnotteLabel}>Ma cagnotte</Text>
-              <Text style={styles.cagnotteAmount}>{balance.toFixed(2)} DH</Text>
-              <Text style={styles.cagnotteHint}>
-                Utilisable quand vous voulez sur vos prochaines commandes
-              </Text>
-            </View>
+            <Wallet size={22} color={palette.blue} />
+            <Text style={[ui.strong, { flex: 1 }]}>Ma cagnotte</Text>
+            <Text style={[ui.strong, { color: palette.blue }]}>
+              {balance.toFixed(2)} DH
+            </Text>
+            <ArrowRight size={17} color={palette.blue} />
           </TouchableOpacity>
         )}
-
-        <TouchableOpacity
-          style={styles.orderButton}
-          onPress={() => router.push('/(parent)/reservation')}
-        >
-          <View style={styles.orderButtonTextWrap}>
-            <Text style={styles.orderButtonTitle}>Commander un repas</Text>
-            <Text style={styles.orderButtonSubtitle}>MENUS CLASSIQUES ET SNACKERIE</Text>
-          </View>
-          <UtensilsCrossed size={30} color="#0F172A" />
-        </TouchableOpacity>
-
-        <View style={styles.squareButtonsContainer}>
+        <View style={[ui.spread, { marginTop: 24, marginBottom: 12 }]}>
+          <Text style={ui.sectionTitle}>À venir</Text>
           <TouchableOpacity
-            style={styles.squareButton}
-            onPress={() => router.push('/(parent)/add-child')}
-          >
-            <View style={styles.squareButtonIconCircle}>
-              <UserPlus size={26} color="#FFFFFF" />
-            </View>
-            <Text style={styles.squareButtonText}>Ajouter un enfant</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.squareButton}
+            accessibilityRole="button"
             onPress={() => router.push('/(parent)/history')}
+            style={{ paddingVertical: 12 }}
           >
-            <View style={styles.squareButtonIconCircle}>
-              <History size={26} color="#FFFFFF" />
-            </View>
-            <Text style={styles.squareButtonText}>Historique</Text>
+            <Text style={ui.link}>Historique</Text>
           </TouchableOpacity>
         </View>
-
-        <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Commandes du mois</Text>
-          <View style={styles.chartWrapper}>
-            <LineChart
-              data={{
-                labels: ['Sem1', 'Sem2', 'Sem3', 'Sem4', 'Sem5'],
-                datasets: [{
-                  data: monthlyOrders.some(v => v > 0) ? monthlyOrders : [0.1, 0.1, 0.1, 0.1, 0.1],
-                }],
-              }}
-              width={Dimensions.get('window').width - 50}
-              height={200}
-            chartConfig={{
-              backgroundColor: '#FFFFFF',
-              backgroundGradientFrom: '#FFFFFF',
-              backgroundGradientTo: '#FFFFFF',
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(30, 41, 59, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(107, 114, 128, ${opacity})`,
-              style: {
-                borderRadius: 16,
-              },
-              propsForDots: {
-                r: '6',
-                strokeWidth: '2',
-                stroke: '#1E293B',
-              },
-            }}
-              bezier
-              style={styles.chart}
-              renderDotContent={({ x, y, index }) => {
-                const value = monthlyOrders[index] || 0;
-                if (value === 0) return null;
-                return (
-                  <Text
-                    key={index}
-                    style={{
-                      position: 'absolute',
-                      left: x - 15,
-                      top: y - 20,
-                      fontSize: 12,
-                      fontWeight: '600',
-                      color: '#1E293B',
-                      textAlign: 'center',
-                      width: 30,
-                    }}
-                  >
-                    {value.toFixed(0)}
-                  </Text>
-                );
-              }}
-            />
+        {upcomingReservations.length === 0 ? (
+          <View style={ui.card}>
+            <Text style={ui.body}>Aucune réservation à venir.</Text>
           </View>
-        </View>
-
-        <View style={styles.reservationsContainer}>
-          <Text style={styles.reservationsTitle}>Prochaines réservations</Text>
-          {upcomingReservations.length === 0 ? (
-            <View style={styles.emptyReservations}>
-              <UtensilsCrossed size={48} color="#D1D5DB" />
-              <Text style={styles.emptyReservationsText}>
-                Aucune réservation à venir
-              </Text>
-              <TouchableOpacity
-                style={styles.emptyReservationsButton}
-                onPress={() => router.push('/(parent)/reservation')}
-              >
-                <Text style={styles.emptyReservationsButtonText}>
-                  Commander maintenant
+        ) : (
+          upcomingReservations.map((reservation) => (
+            <View key={reservation.id} style={styles.reservation}>
+              <View style={ui.spread}>
+                <Text style={ui.strong}>
+                  {reservation.children?.first_name}{' '}
+                  {reservation.children?.last_name}
                 </Text>
-              </TouchableOpacity>
+                <Text style={ui.small}>
+                  {parseYmd(reservation.date).toLocaleDateString('fr-FR', {
+                    day: 'numeric',
+                    month: 'short',
+                  })}
+                </Text>
+              </View>
+              <Text
+                style={[
+                  ui.body,
+                  reservation.payment_status === 'cancelled' && {
+                    textDecorationLine: 'line-through',
+                  },
+                ]}
+              >
+                {reservation.menus?.meal_name || 'Menu'}
+              </Text>
+              <Text style={ui.link}>
+                {reservation.payment_status === 'cancelled'
+                  ? 'Annulée'
+                  : `${Number(reservation.total_price).toFixed(2)} DH`}
+              </Text>
             </View>
-          ) : (
-            <ScrollView
-              style={styles.reservationsScrollView}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
-            >
-              {(() => {
-                const groups = new Map<string, { childName: string; items: WeekReservation[] }>();
-                upcomingReservations.forEach((res) => {
-                  const childName = `${res.children?.first_name || ''} ${res.children?.last_name || ''}`.trim() || 'Enfant';
-                  if (!groups.has(res.child_id)) {
-                    groups.set(res.child_id, { childName, items: [] });
-                  }
-                  groups.get(res.child_id)!.items.push(res);
-                });
-                return Array.from(groups.entries()).map(([childId, group]) => (
-                  <View key={childId} style={styles.childGroup}>
-                    <Text style={styles.childGroupName}>{group.childName}</Text>
-                    <View style={styles.childGroupUnderline} />
-                    {group.items.map((reservation) => {
-                      const cancelled = reservation.payment_status === 'cancelled';
-                      return (
-                        <View key={reservation.id} style={[styles.menuCard, cancelled && styles.menuCardCancelled]}>
-                          <View style={styles.menuTopRow}>
-                            <View style={styles.menuDatePill}>
-                              <Text style={styles.menuDatePillText}>
-                                {formatDate(reservation.date)}
-                              </Text>
-                            </View>
-                            {cancelled && (
-                              <View style={styles.cancelledPill}>
-                                <Text style={styles.cancelledPillText}>Annulé</Text>
-                              </View>
-                            )}
-                          </View>
-                          <View style={styles.menuRow}>
-                            <Text style={[styles.menuName, cancelled && styles.menuNameCancelled]} numberOfLines={1}>
-                              {reservation.menus?.meal_name || 'Menu'}
-                            </Text>
-                            <Text style={[styles.menuPrice, cancelled && styles.menuNameCancelled]}>
-                              {Number(reservation.total_price).toFixed(2)} DH
-                            </Text>
-                          </View>
-                          {reservation.menus?.description ? (
-                            <Text style={styles.menuDescription} numberOfLines={2}>
-                              {reservation.menus.description}
-                            </Text>
-                          ) : null}
-                        </View>
-                      );
-                    })}
-                  </View>
-                ));
-              })()}
-            </ScrollView>
-          )}
-        </View>
-
-        <Image
-          source={require('@/assets/images/Box2.png')}
-          style={styles.bottomBanner}
-          resizeMode="contain"
-        />
+          ))
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F4F6FB',
-  },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
+    backgroundColor: palette.bg,
     alignItems: 'center',
-    backgroundColor: '#F4F6FB',
+    justifyContent: 'center',
   },
-  header: {
+  content: {
+    padding: 20,
+    paddingBottom: 32,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+  },
+  orderCard: {
+    minHeight: 157,
+    backgroundColor: palette.blue,
+    padding: 22,
+    borderRadius: 25,
+    marginBottom: 13,
+    overflow: 'hidden',
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    backgroundColor: '#F4F6FB',
   },
-  headerButtons: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  headerButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cartBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#EF4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 5,
-  },
-  cartBadgeText: {
+  snackCard: { backgroundColor: palette.peach },
+  categoryLabel: {
+    fontFamily: type.bold,
+    fontSize: 9,
+    letterSpacing: 1,
     color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
   },
-  scrollView: {
-    flex: 1,
+  orderTitle: {
+    fontFamily: type.heavy,
+    fontSize: 25,
+    lineHeight: 30,
+    letterSpacing: -0.7,
+    color: '#fff',
   },
-  scrollContent: {
-    padding: 24,
-    paddingBottom: 100,
+  heroPhoto: {
+    position: 'absolute',
+    width: 137,
+    height: 137,
+    right: -16,
+    bottom: -7,
+    borderRadius: 70,
+    transform: [{ rotate: '-10deg' }],
   },
-  welcomeText: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1E293B',
-    flex: 1,
-  },
-  gaugeContainer: {
+  orderArrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 32,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    alignSelf: 'flex-end',
+    zIndex: 2,
   },
-  gaugeTextContainer: {
-    position: 'absolute',
-    alignItems: 'center',
-    bottom: 40,
-  },
-  gaugeNumber: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  gaugeLabel: {
-    fontSize: 14,
-    color: '#6B7280',
+  reminder: {
+    padding: 15,
+    backgroundColor: '#EAF1FB',
+    borderRadius: 17,
     marginTop: 4,
-  },
-  weekCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  weekCardTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1E293B',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  ringWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 8,
-  },
-  ringCenter: {
-    position: 'absolute',
-    alignItems: 'center',
-  },
-  ringNumber: {
-    fontSize: 40,
-    fontWeight: '800',
-    color: '#1E293B',
-  },
-  ringLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  weekPhrase: {
-    fontSize: 15,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginTop: 12,
-    lineHeight: 21,
-  },
-  weekDivider: {
-    height: 1,
-    backgroundColor: '#F3F4F6',
-    marginVertical: 18,
-  },
-  countdownHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  countdownTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#334155',
-    textAlign: 'center',
   },
   countdownTimer: {
     flexDirection: 'row',
+    gap: 7,
     alignItems: 'center',
-    gap: 10,
-    alignSelf: 'center',
-    backgroundColor: '#EAF4FC',
-    borderRadius: 14,
-    paddingHorizontal: 18,
-    paddingVertical: 11,
-    marginBottom: 14,
+    marginTop: 5,
   },
-  countdownValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#0B3D91',
-    fontVariant: ['tabular-nums'],
-  },
-  missingLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  missingChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  missingChip: {
+  countdownValue: { fontFamily: type.bold, fontSize: 13, color: palette.blue },
+  addChild: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FEE2E2',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    gap: 5,
+    minHeight: 44,
   },
-  missingChipText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#B91C1C',
-  },
-  allOrderedRow: {
+  children: { gap: 10 },
+  child: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  allOrderedText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#059669',
-  },
-  orderButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F97316',
-    borderRadius: 18,
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-    marginBottom: 24,
-    shadowColor: '#F97316',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.32,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  orderButtonTextWrap: {
-    flex: 1,
-  },
-  orderButtonTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  orderButtonSubtitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: 'rgba(15, 23, 42, 0.6)',
-    letterSpacing: 1.5,
-    marginTop: 2,
-  },
-  childrenSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  childrenTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 16,
-  },
-  childrenList: {
-    paddingVertical: 4,
     gap: 12,
-  },
-  childCard: {
-    alignItems: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 2,
-    minWidth: 112,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  childAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#EAF4FC',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  childName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E293B',
-    textAlign: 'center',
-  },
-  emptyChildren: {
-    alignItems: 'center',
-    paddingVertical: 24,
-  },
-  emptyChildrenText: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 16,
-  },
-  addChildSmallButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#0E5FC0',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-  },
-  addChildSmallButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  largeButton: {
-    backgroundColor: '#0E5FC0',
-    borderRadius: 16,
-    paddingVertical: 20,
-    paddingHorizontal: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  largeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  squareButtonsContainer: {
-    flexDirection: 'row',
-    gap: 16,
-    marginBottom: 32,
-  },
-  squareButton: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E9F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
-    minHeight: 140,
-  },
-  squareButtonIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#0E5FC0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  squareButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E293B',
-    textAlign: 'center',
-  },
-  chartContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  chartTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 16,
-  },
-  chart: {
-    borderRadius: 16,
-  },
-  chartWrapper: {
-    marginLeft: -20,
-  },
-  reservationsContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  reservationsTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 16,
-  },
-  reservationsScrollView: {
-    maxHeight: 360,
-  },
-  childGroup: {
-    marginBottom: 16,
-  },
-  childGroupName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 6,
-  },
-  childGroupUnderline: {
-    height: 1.5,
-    backgroundColor: '#0E5FC0',
-    marginBottom: 12,
-  },
-  menuCard: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 14,
     padding: 14,
-    marginBottom: 10,
+    backgroundColor: '#fff',
+    borderRadius: 19,
   },
-  menuDatePill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#EAF4FC',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 12,
-  },
-  menuTopRow: {
+  wallet: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-    marginBottom: 10,
-  },
-  menuCardCancelled: {
-    opacity: 0.6,
-  },
-  menuNameCancelled: {
-    textDecorationLine: 'line-through',
-    color: '#9CA3AF',
-  },
-  cancelledPill: {
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  cancelledPillText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#B91C1C',
-    letterSpacing: 0.3,
-  },
-  menuDatePillText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  menuRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     gap: 12,
+    backgroundColor: '#EAF1FB',
+    borderRadius: 17,
+    padding: 16,
+    marginTop: 16,
   },
-  menuName: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  menuPrice: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#1E293B',
-  },
-  menuDescription: {
-    marginTop: 4,
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  cagnotteCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    backgroundColor: '#EAF4FC',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#CFE4F7',
+  reservation: {
+    backgroundColor: '#fff',
     padding: 18,
-    marginBottom: 24,
-  },
-  cagnotteIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#0E5FC0',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cagnotteInfo: {
-    flex: 1,
-  },
-  cagnotteLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0B3D91',
-  },
-  cagnotteAmount: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0B3D91',
-    marginTop: 2,
-  },
-  cagnotteHint: {
-    fontSize: 12,
-    color: '#1E5FA8',
-    marginTop: 2,
-    lineHeight: 17,
-  },
-  emptyReservations: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  emptyReservationsText: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginTop: 16,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  emptyReservationsButton: {
-    backgroundColor: '#0E5FC0',
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-  },
-  emptyReservationsButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  reservationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-    minHeight: 70,
-  },
-  reservationDateBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    marginRight: 12,
-  },
-  reservationDateText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#92400E',
-  },
-  reservationInfo: {
-    flex: 1,
-  },
-  reservationChildName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginBottom: 2,
-  },
-  reservationMenuName: {
-    fontSize: 13,
-    color: '#6B7280',
-    marginBottom: 2,
-  },
-  reservationPrice: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1E293B',
-  },
-  bottomBanner: {
-    width: '100%',
-    height: 200,
-    marginTop: 16,
-    marginBottom: -100,
-    borderRadius: 0,
+    borderRadius: 19,
+    gap: 7,
+    marginBottom: 10,
   },
 });

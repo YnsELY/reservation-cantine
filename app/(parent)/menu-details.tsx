@@ -1,16 +1,41 @@
-import { MealCategoryBadge } from '@/components/MealCategory';
+import {
+  Avatar,
+  CategoryIcon,
+  Header,
+  MenuPhoto,
+  PrimaryButton,
+  RoundButton,
+  ui,
+  palette,
+  type,
+} from '@/components/parent/OrderingUI';
+import { orderingRoute } from '@/lib/parent-ordering';
+import { getMealCategory } from '@/lib/meal-category';
 import { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Image } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  TextInput,
+  Modal,
+  Pressable,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { safeBack } from '@/lib/navigation';
 import { supabase, Child, Menu, Parent } from '@/lib/supabase';
 import { authService } from '@/lib/auth';
-import { childSelectionRoute, confirmRepeatOrder, getActiveMeals, hasAnotherChild } from '@/lib/meal-orders';
+import {
+  confirmRepeatOrder,
+  getActiveMeals,
+  hasAnotherChild,
+} from '@/lib/meal-orders';
 import { getPaymentErrorMessage } from '@/lib/payment-errors';
 import { isPastOrderCutoff } from '@/lib/order-time';
 import { parseYmd } from '@/lib/dates';
-import { ChevronLeft, ShoppingCart, AlertCircle, CheckSquare, Square } from 'lucide-react-native';
+import { ShoppingCart, Check, X } from 'lucide-react-native';
 
 interface Supplement {
   id: string;
@@ -34,14 +59,23 @@ export default function MenuDetailsScreen() {
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [addingToCart, setAddingToCart] = useState(false);
   const addingToCartRef = useRef(false);
+  const [addedTotal, setAddedTotal] = useState<number | null>(null);
+  const [hasSibling, setHasSibling] = useState(false);
+  const [hasOtherCategory, setHasOtherCategory] = useState(false);
 
   const menuId = params.menuId as string;
   const childId = params.childId as string;
   const date = params.date as string;
+  const category = getMealCategory(menu?.meal_category);
+  const returnToCatalogue = (nextCategory = category, selectChild = false) => {
+    router.replace(
+      orderingRoute({ childId, date, category: nextCategory, selectChild }),
+    );
+  };
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [menuId, childId, date]);
 
   const loadData = async () => {
     try {
@@ -69,45 +103,80 @@ export default function MenuDetailsScreen() {
 
       if (menuError) throw menuError;
       setMenu(menuData);
-
-      console.log('Menu data:', menuData);
-      console.log('Menu school_id:', menuData?.school_id);
+      hasAnotherChild(currentParent.id, childId)
+        .then(setHasSibling)
+        .catch(() => setHasSibling(false));
+      if (menuData && childData?.school_id) {
+        const [
+          { data: alternatives, error: alternativesError },
+          { data: school },
+        ] = await Promise.all([
+          supabase
+            .from('menus')
+            .select('meal_category')
+            .eq('school_id', childData.school_id)
+            .eq('date', date)
+            .eq('available', true),
+          supabase
+            .from('schools')
+            .select('closed_weekdays')
+            .eq('id', childData.school_id)
+            .maybeSingle(),
+        ]);
+        const closed = school?.closed_weekdays?.includes(
+          parseYmd(date).getDay(),
+        );
+        setHasOtherCategory(
+          !alternativesError &&
+            !closed &&
+            !isPastOrderCutoff(date) &&
+            !!alternatives?.some(
+              (item) =>
+                getMealCategory(item.meal_category) !==
+                getMealCategory(menuData.meal_category),
+            ),
+        );
+      }
 
       if (menuData?.school_id) {
         const allSupplements: Supplement[] = [];
 
-        if (menuData.supplements && Array.isArray(menuData.supplements) && menuData.supplements.length > 0) {
-          const { data: genericSupplementsData, error: genericError } = await supabase
-            .from('provider_supplements')
-            .select('*')
-            .in('id', menuData.supplements)
-            .eq('available', true);
+        if (
+          menuData.supplements &&
+          Array.isArray(menuData.supplements) &&
+          menuData.supplements.length > 0
+        ) {
+          const { data: genericSupplementsData, error: genericError } =
+            await supabase
+              .from('provider_supplements')
+              .select('*')
+              .in('id', menuData.supplements)
+              .eq('available', true);
 
           if (!genericError && genericSupplementsData) {
             allSupplements.push(...genericSupplementsData);
           }
         }
 
-        const { data: specificSupplementsData, error: specificError } = await supabase
-          .from('provider_supplements')
-          .select('*')
-          .eq('menu_id', menuData.id)
-          .eq('available', true);
+        const { data: specificSupplementsData, error: specificError } =
+          await supabase
+            .from('provider_supplements')
+            .select('*')
+            .eq('menu_id', menuData.id)
+            .eq('available', true);
 
         if (!specificError && specificSupplementsData) {
           allSupplements.push(...specificSupplementsData);
         }
 
         const uniqueSupplements = Array.from(
-          new Map(allSupplements.map(s => [s.id, s])).values()
+          new Map(allSupplements.map((s) => [s.id, s])).values(),
         );
 
         uniqueSupplements.sort((a, b) => a.price - b.price);
 
         setSupplements(uniqueSupplements);
-        console.log('Supplements set:', uniqueSupplements.length);
       } else {
-        console.log('No school_id found in menu');
       }
 
       setError('');
@@ -120,9 +189,9 @@ export default function MenuDetailsScreen() {
   };
 
   const toggleSupplement = (supplementId: string) => {
-    setSelectedSupplements(prev => {
+    setSelectedSupplements((prev) => {
       if (prev.includes(supplementId)) {
-        return prev.filter(id => id !== supplementId);
+        return prev.filter((id) => id !== supplementId);
       } else {
         return [...prev, supplementId];
       }
@@ -130,7 +199,14 @@ export default function MenuDetailsScreen() {
   };
 
   const handleAddToCart = async () => {
-    if (!parent || !child || !menu || addingToCartRef.current) return;
+    if (
+      !parent ||
+      !child ||
+      !menu ||
+      addedTotal !== null ||
+      addingToCartRef.current
+    )
+      return;
 
     addingToCartRef.current = true;
     setAddingToCart(true);
@@ -138,9 +214,13 @@ export default function MenuDetailsScreen() {
 
     try {
       if (isPastOrderCutoff(date)) {
-        throw new Error('Les commandes pour ce repas sont closes depuis 7 h, heure du Maroc.');
+        throw new Error(
+          'Les commandes pour ce repas sont closes depuis 7 h, heure du Maroc.',
+        );
       }
-      const reservations = await getActiveMeals([{ child_id: child.id, menu_id: menu.id, date }]);
+      const reservations = await getActiveMeals([
+        { child_id: child.id, menu_id: menu.id, date },
+      ]);
       const { data: existingItems, error: cartError } = await supabase
         .from('cart_items')
         .select('id')
@@ -149,10 +229,13 @@ export default function MenuDetailsScreen() {
       if (cartError) throw cartError;
 
       const selectedSupplementsData = supplements
-        .filter(s => selectedSupplements.includes(s.id))
-        .map(s => ({ id: s.id, name: s.name, price: s.price }));
+        .filter((s) => selectedSupplements.includes(s.id))
+        .map((s) => ({ id: s.id, name: s.name, price: s.price }));
 
-      const supplementsTotal = selectedSupplementsData.reduce((sum, s) => sum + s.price, 0);
+      const supplementsTotal = selectedSupplementsData.reduce(
+        (sum, s) => sum + s.price,
+        0,
+      );
       const totalPrice = Number(menu.price) + supplementsTotal;
 
       const cartCount = existingItems?.length || 0;
@@ -160,36 +243,43 @@ export default function MenuDetailsScreen() {
       if (quantity > 1) {
         const choice = await confirmRepeatOrder({
           childName: `${child.first_name} ${child.last_name}`,
-          date, reservedCount: reservations.length, cartCount, quantity,
-          amount: totalPrice, adding: true,
+          date,
+          reservedCount: reservations.length,
+          cartCount,
+          quantity,
+          amount: totalPrice,
+          adding: true,
           hasSibling: await hasAnotherChild(parent.id, child.id),
         });
-        if (choice === 'other-child') router.replace(childSelectionRoute(date));
+        if (choice === 'other-child') returnToCatalogue(category, true);
         if (choice !== 'confirm') return;
       }
 
-      const supplementsJson = selectedSupplementsData.length > 0 ? { items: selectedSupplementsData } : null;
+      const supplementsJson =
+        selectedSupplementsData.length > 0
+          ? { items: selectedSupplementsData }
+          : null;
 
       // La confirmation peut rester ouverte jusqu'après l'échéance.
       if (isPastOrderCutoff(date)) {
-        throw new Error('Les commandes pour ce repas sont closes depuis 7 h, heure du Maroc.');
+        throw new Error(
+          'Les commandes pour ce repas sont closes depuis 7 h, heure du Maroc.',
+        );
       }
-      const { error } = await supabase
-        .from('cart_items')
-        .insert({
-          parent_id: parent.id,
-          child_id: child.id,
-          menu_id: menu.id,
-          date: date,
-          total_price: totalPrice,
-          supplements: supplementsJson,
-          annotations: specialInstructions || null,
-          confirmed_daily_quantity: quantity,
-        });
+      const { error } = await supabase.from('cart_items').insert({
+        parent_id: parent.id,
+        child_id: child.id,
+        menu_id: menu.id,
+        date: date,
+        total_price: totalPrice,
+        supplements: supplementsJson,
+        annotations: specialInstructions || null,
+        confirmed_daily_quantity: quantity,
+      });
 
       if (error) throw error;
 
-      safeBack('/(parent)');
+      setAddedTotal(totalPrice);
     } catch (err) {
       console.error('Error adding to cart:', err);
       setError(getPaymentErrorMessage(err, false));
@@ -199,547 +289,377 @@ export default function MenuDetailsScreen() {
     }
   };
 
-
-  const formatDate = (dateString: string) => {
-    const date = parseYmd(dateString);
-    const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-    const months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-    return `${days[date.getDay()]} ${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
-  };
-
-  if (loading) {
+  if (loading)
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#111827" />
+      <SafeAreaView style={ui.center}>
+        <ActivityIndicator size="large" color={palette.blue} />
       </SafeAreaView>
     );
-  }
-
-  if (!menu || !child) {
+  if (!menu || !child)
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <AlertCircle size={48} color="#EF4444" />
-          <Text style={styles.errorText}>Menu introuvable</Text>
+      <SafeAreaView style={ui.page}>
+        <Header title="Votre repas" back={() => returnToCatalogue()} />
+        <View style={ui.center}>
+          <Text style={ui.strong}>Menu introuvable</Text>
+          <Text style={[ui.body, { marginVertical: 14 }]}>
+            {error || 'Ce menu n’est plus disponible.'}
+          </Text>
+          <PrimaryButton
+            label="Revenir aux menus"
+            onPress={() => returnToCatalogue()}
+          />
         </View>
       </SafeAreaView>
     );
-  }
 
-  const selectedSupplementsData = supplements.filter(s => selectedSupplements.includes(s.id));
-  const supplementsTotal = selectedSupplementsData.reduce((sum, s) => sum + s.price, 0);
-  const totalPrice = menu.price + supplementsTotal;
-
-  console.log('Rendering with supplements:', supplements.length);
+  const selectedSupplementsData = supplements.filter((s) =>
+    selectedSupplements.includes(s.id),
+  );
+  const totalPrice =
+    Number(menu.price) +
+    selectedSupplementsData.reduce((sum, s) => sum + Number(s.price), 0);
+  const dayLabel = parseYmd(date).toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  const canSuggestOther = hasOtherCategory && !isPastOrderCutoff(date);
+  const goToCart = () => router.replace('/(parent)/cart');
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => safeBack('/(parent)')}
-        >
-          <ChevronLeft size={24} color="#111827" />
-        </TouchableOpacity>
-        <View style={styles.dateBanner}>
-          <Text style={styles.dateBannerDay}>
-            {parseYmd(date).toLocaleDateString('fr-FR', { weekday: 'long' })}
-          </Text>
-          <Text style={styles.dateBannerDate}>
-            {parseYmd(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
-          </Text>
-        </View>
-      </View>
-
+    <SafeAreaView style={ui.page} edges={['top', 'bottom']}>
+      <Header
+        title={category === 'snack' ? 'Votre snack' : 'Votre repas'}
+        back={() => returnToCatalogue()}
+      />
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-
         {error ? (
-          <View style={styles.errorBanner}>
-            <AlertCircle size={20} color="#EF4444" />
-            <Text style={styles.errorBannerText}>{error}</Text>
+          <View style={ui.error} accessibilityRole="alert">
+            <Text style={ui.errorText}>{error}</Text>
           </View>
         ) : null}
-
-        <View style={styles.childInfo}>
-          <View style={styles.childAvatar}>
-            <Text style={styles.childAvatarText}>
-              {child.first_name.charAt(0)}{child.last_name.charAt(0)}
-            </Text>
-          </View>
-          <View>
-            <Text style={styles.childLabel}>Réservation pour</Text>
-            <Text style={styles.childName}>
-              {child.first_name} {child.last_name}
-            </Text>
+        <View style={styles.context}>
+          <Avatar
+            firstName={child.first_name}
+            lastName={child.last_name}
+            size={36}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={ui.strong}>Pour {child.first_name}</Text>
+            <Text style={ui.small}>{dayLabel}</Text>
           </View>
         </View>
-
         <View style={styles.menuCard}>
-          {menu.image_url && (
-            <Image
-              source={{ uri: menu.image_url }}
-              style={styles.menuImage}
-              resizeMode="cover"
-            />
-          )}
-          <MealCategoryBadge category={menu.meal_category} />
-          <Text style={styles.menuTitle}>{menu.meal_name}</Text>
-
-          {menu.description && (
-            <>
-              <View style={styles.divider} />
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>Description</Text>
-                <Text style={styles.sectionText}>{menu.description}</Text>
-              </View>
-            </>
-          )}
-
-          <View style={styles.divider} />
-
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Prix unitaire (TTC)</Text>
-            <Text style={styles.priceText}>{menu.price.toFixed(2)} DH</Text>
+          <MenuPhoto
+            uri={menu.image_url}
+            category={category}
+            label={menu.meal_name}
+            style={styles.photo}
+          />
+          <View style={styles.menuInfo}>
+            <View style={ui.row}>
+              <CategoryIcon category={category} size={16} />
+              <Text style={ui.eyebrow}>
+                {category === 'snack' ? 'SNACKERIE' : 'MENU CLASSIQUE'}
+              </Text>
+            </View>
+            <Text style={[ui.title, { fontSize: 27, lineHeight: 34 }]}>
+              {menu.meal_name}
+            </Text>
+            {menu.description ? (
+              <Text style={ui.body}>{menu.description}</Text>
+            ) : null}
+            <Text style={styles.price}>
+              {Number(menu.price).toFixed(2)}{' '}
+              <Text style={{ fontSize: 14 }}>DH</Text>
+            </Text>
           </View>
         </View>
-
         {supplements.length > 0 && (
-          <View style={styles.supplementsCard}>
-            <Text style={styles.supplementsTitle}>Suppléments disponibles</Text>
-
-            {supplements.filter(s => !s.menu_id).length > 0 && (
-              <>
-                <View style={styles.supplementsCategoryHeader}>
-                  <Text style={styles.supplementsCategoryTitle}>Suppléments génériques</Text>
-                </View>
-                {supplements.filter(s => !s.menu_id).map((supplement) => {
-                  const isSelected = selectedSupplements.includes(supplement.id);
-                  return (
-                    <TouchableOpacity
-                      key={supplement.id}
-                      style={styles.supplementItem}
-                      onPress={() => toggleSupplement(supplement.id)}
-                    >
-                      <View style={styles.supplementLeft}>
-                        {isSelected ? (
-                          <CheckSquare size={24} color="#111827" />
-                        ) : (
-                          <Square size={24} color="#9CA3AF" />
-                        )}
-                        <View style={styles.supplementInfo}>
-                          <Text style={styles.supplementName}>{supplement.name}</Text>
-                          {supplement.description && (
-                            <Text style={styles.supplementDescription}>{supplement.description}</Text>
-                          )}
-                        </View>
-                      </View>
-                      <Text style={styles.supplementPrice}>+{supplement.price.toFixed(2)} DH</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </>
-            )}
-
-            {supplements.filter(s => s.menu_id).length > 0 && (
-              <>
-                <View style={[styles.supplementsCategoryHeader, supplements.filter(s => !s.menu_id).length > 0 && styles.supplementsCategoryHeaderSpaced]}>
-                  <Text style={styles.supplementsCategoryTitle}>Suppléments spécifiques à ce menu</Text>
-                </View>
-                {supplements.filter(s => s.menu_id).map((supplement) => {
-                  const isSelected = selectedSupplements.includes(supplement.id);
-                  return (
-                    <TouchableOpacity
-                      key={supplement.id}
-                      style={[styles.supplementItem, styles.supplementItemSpecific]}
-                      onPress={() => toggleSupplement(supplement.id)}
-                    >
-                      <View style={styles.supplementLeft}>
-                        {isSelected ? (
-                          <CheckSquare size={24} color="#2E97DD" />
-                        ) : (
-                          <Square size={24} color="#CFE4F7" />
-                        )}
-                        <View style={styles.supplementInfo}>
-                          <Text style={styles.supplementName}>{supplement.name}</Text>
-                          {supplement.description && (
-                            <Text style={styles.supplementDescription}>{supplement.description}</Text>
-                          )}
-                        </View>
-                      </View>
-                      <Text style={[styles.supplementPrice, styles.supplementPriceSpecific]}>+{supplement.price.toFixed(2)} DH</Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </>
-            )}
+          <View style={styles.section}>
+            <View style={ui.spread}>
+              <Text style={ui.sectionTitle}>Un petit plus ?</Text>
+              <Text style={ui.small}>Facultatif</Text>
+            </View>
+            <Text style={[ui.small, { marginTop: 6, marginBottom: 10 }]}>
+              Personnalisez son repas.
+            </Text>
+            {supplements.map((supplement) => {
+              const selected = selectedSupplements.includes(supplement.id);
+              return (
+                <TouchableOpacity
+                  key={supplement.id}
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={`${supplement.name}, ${Number(supplement.price).toFixed(2)} DH`}
+                  accessibilityState={{ checked: selected }}
+                  disabled={addingToCart || addedTotal !== null}
+                  onPress={() => toggleSupplement(supplement.id)}
+                  style={[
+                    styles.supplement,
+                    selected && styles.selectedSupplement,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.checkbox,
+                      selected && {
+                        backgroundColor: palette.blue,
+                        borderColor: palette.blue,
+                      },
+                    ]}
+                  >
+                    {selected && <Check size={14} color="#fff" />}
+                  </View>
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <Text style={[ui.strong, { fontSize: 13 }]}>
+                      {supplement.name}
+                    </Text>
+                    {supplement.description ? (
+                      <Text style={ui.small}>{supplement.description}</Text>
+                    ) : null}
+                  </View>
+                  <Text style={ui.link}>
+                    +{Number(supplement.price).toFixed(2)} DH
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
-
-        <View style={styles.inputCard}>
-          <Text style={styles.inputLabel}>Instructions spéciales (optionnel)</Text>
+        <View style={styles.section}>
+          <Text style={ui.strong}>Une précision pour la cuisine ?</Text>
+          <Text style={[ui.small, { marginVertical: 6 }]}>
+            Instructions spéciales · facultatif
+          </Text>
           <TextInput
-            style={[styles.textInput, styles.textInputMultiline]}
-            placeholder="Ex: Allergies, préférences alimentaires..."
-            placeholderTextColor="#9CA3AF"
+            accessibilityLabel="Instructions spéciales"
             value={specialInstructions}
             onChangeText={setSpecialInstructions}
+            editable={!addingToCart && addedTotal === null}
+            placeholder="Allergies, préférences alimentaires…"
+            placeholderTextColor={palette.muted}
             multiline
-            numberOfLines={4}
+            numberOfLines={3}
+            style={styles.input}
           />
         </View>
       </ScrollView>
-
-      <View style={styles.footer}>
-        <View style={styles.totalContainer}>
-          <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalPrice}>{totalPrice.toFixed(2)} DH</Text>
+      <View style={ui.footer}>
+        <View style={styles.footerInner}>
+          <View style={ui.spread}>
+            <Text style={ui.small}>Total avec suppléments</Text>
+            <Text style={ui.strong}>{totalPrice.toFixed(2)} DH</Text>
+          </View>
+          <PrimaryButton
+            label={addingToCart ? 'Ajout en cours…' : 'Ajouter au panier'}
+            onPress={handleAddToCart}
+            disabled={addingToCart || addedTotal !== null}
+          >
+            {addingToCart ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <ShoppingCart size={18} color="#fff" />
+            )}
+          </PrimaryButton>
         </View>
-        <TouchableOpacity
-          style={[styles.addToCartButton, addingToCart && styles.addToCartButtonDisabled]}
-          onPress={handleAddToCart}
-          disabled={addingToCart}
-        >
-          {addingToCart ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
-          ) : (
-            <>
-              <ShoppingCart size={20} color="#FFFFFF" />
-              <Text style={styles.addToCartButtonText}>Ajouter au panier</Text>
-            </>
-          )}
-        </TouchableOpacity>
       </View>
+      <Modal
+        visible={addedTotal !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => returnToCatalogue()}
+      >
+        <View style={styles.overlay}>
+          <Pressable
+            accessibilityLabel="Fermer et revenir aux menus"
+            accessibilityRole="button"
+            style={StyleSheet.absoluteFill}
+            onPress={() => returnToCatalogue()}
+          />
+          <SafeAreaView
+            style={styles.sheet}
+            edges={['bottom']}
+            accessibilityViewIsModal
+          >
+            <ScrollView bounces={false} contentContainerStyle={{ padding: 22 }}>
+              <View style={{ alignSelf: 'flex-end' }}>
+                <RoundButton label="Fermer" onPress={() => returnToCatalogue()}>
+                  <X size={20} color={palette.ink} />
+                </RoundButton>
+              </View>
+              <View style={styles.success}>
+                <Check size={30} color="#227454" />
+              </View>
+              <Text
+                style={[
+                  ui.title,
+                  { fontSize: 26, textAlign: 'center', marginTop: 14 },
+                ]}
+              >
+                C’est dans le panier !
+              </Text>
+              <Text style={[ui.body, { textAlign: 'center', marginTop: 7 }]}>
+                {child.first_name} · {dayLabel}
+              </Text>
+              <View style={styles.addedItem}>
+                <MenuPhoto
+                  uri={menu.image_url}
+                  category={category}
+                  style={{ width: 48, height: 48, borderRadius: 12 }}
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={[ui.strong, { fontSize: 13 }]}>
+                    {menu.meal_name}
+                  </Text>
+                  <Text style={ui.small}>{addedTotal?.toFixed(2)} DH</Text>
+                </View>
+                <Check size={18} color="#227454" />
+              </View>
+              <View style={{ gap: 10 }}>
+                {category === 'classic' && canSuggestOther ? (
+                  <>
+                    <Text
+                      style={[
+                        ui.small,
+                        { textAlign: 'center', marginBottom: 3 },
+                      ]}
+                    >
+                      Une envie de snackerie pour le même jour ?
+                    </Text>
+                    <PrimaryButton
+                      label="Voir la snackerie du jour"
+                      onPress={() => returnToCatalogue('snack')}
+                    />
+                  </>
+                ) : (
+                  <PrimaryButton label="Aller au panier" onPress={goToCart} />
+                )}
+                {hasSibling && (
+                  <PrimaryButton
+                    label="Commander pour un autre enfant"
+                    onPress={() => returnToCatalogue(category, true)}
+                    secondary
+                  />
+                )}
+                {category === 'snack' && canSuggestOther && (
+                  <PrimaryButton
+                    label="Voir les repas du jour"
+                    onPress={() => returnToCatalogue('classic')}
+                    secondary
+                  />
+                )}
+                {category === 'classic' && canSuggestOther && (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={goToCart}
+                    style={styles.textButton}
+                  >
+                    <Text style={ui.link}>Aller au panier</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </ScrollView>
+          </SafeAreaView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F4F6FB',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F4F6FB',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: '#F4F6FB',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
+  content: {
     padding: 20,
-    paddingBottom: 120,
+    paddingBottom: 24,
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
   },
-  dateBanner: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  dateBannerDay: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#6B7280',
-    textTransform: 'capitalize',
-    marginBottom: 4,
-  },
-  dateBannerDate: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: '#111827',
-    textTransform: 'capitalize',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  errorText: {
-    fontSize: 18,
-    color: '#EF4444',
-    marginTop: 16,
-    fontWeight: '600',
-  },
-  errorBanner: {
+  context: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEE2E2',
-    padding: 12,
-    borderRadius: 12,
-    gap: 8,
-    marginBottom: 16,
-  },
-  errorBannerText: {
-    color: '#EF4444',
-    fontSize: 14,
-    flex: 1,
-  },
-  childInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 16,
-    gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  childAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#0E5FC0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  childAvatarText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  childLabel: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 2,
-  },
-  childName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
+    gap: 10,
+    marginBottom: 20,
   },
   menuCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: '#fff',
+    borderRadius: 25,
     overflow: 'hidden',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    marginBottom: 24,
   },
-  menuImage: {
-    width: '100%',
-    height: 200,
-  },
-  menuTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 16,
-    marginTop: 20,
-    marginHorizontal: 20,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 16,
-    marginHorizontal: 20,
-  },
-  section: {
-    marginBottom: 16,
-    marginHorizontal: 20,
-  },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#6B7280',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  sectionText: {
-    fontSize: 15,
-    color: '#374151',
-    lineHeight: 22,
-  },
-  priceText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  supplementsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  supplementsTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 16,
-  },
-  supplementItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  supplementLeft: {
+  photo: { width: '100%', height: 220 },
+  menuInfo: { padding: 22, gap: 13 },
+  price: { fontFamily: type.heavy, fontSize: 25, color: palette.blue },
+  section: { marginBottom: 20 },
+  supplement: {
     flexDirection: 'row',
     alignItems: 'center',
-    flex: 1,
-    gap: 12,
-  },
-  supplementInfo: {
-    flex: 1,
-  },
-  supplementName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 2,
-  },
-  supplementDescription: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  supplementPrice: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#111827',
-    marginLeft: 12,
-  },
-  supplementsCategoryHeader: {
-    marginBottom: 12,
-  },
-  supplementsCategoryHeaderSpaced: {
-    marginTop: 24,
-  },
-  supplementsCategoryTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#6B7280',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  supplementItemSpecific: {
-    backgroundColor: '#EAF4FC',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginHorizontal: -12,
-  },
-  supplementPriceSpecific: {
-    color: '#2E97DD',
-  },
-  inputCard: {
-    backgroundColor: '#FFFFFF',
+    gap: 10,
+    backgroundColor: '#fff',
+    padding: 15,
     borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 12,
-  },
-  textInput: {
-    backgroundColor: '#F4F6FB',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 15,
-    color: '#111827',
-    minHeight: 48,
+    borderColor: '#E5EAF2',
+    marginBottom: 8,
+    minHeight: 62,
   },
-  textInputMultiline: {
-    minHeight: 100,
-    textAlignVertical: 'top',
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  totalContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#6B7280',
-  },
-  totalPrice: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  addToCartButton: {
-    backgroundColor: '#0E5FC0',
-    flexDirection: 'row',
+  selectedSupplement: { borderColor: palette.blue, backgroundColor: '#EDF4FE' },
+  checkbox: {
+    width: 21,
+    height: 21,
+    borderRadius: 7,
+    borderWidth: 1.5,
+    borderColor: '#CCD6E3',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+  },
+  input: {
+    fontFamily: type.body,
+    color: palette.ink,
+    fontSize: 14,
+    backgroundColor: '#fff',
     borderRadius: 16,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    padding: 16,
+    minHeight: 90,
+    textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: palette.line,
   },
-  addToCartButtonDisabled: {
-    opacity: 0.6,
+  footerInner: { width: '100%', maxWidth: 680, alignSelf: 'center', gap: 12 },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(20,39,66,0.42)',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
   },
-  addToCartButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  sheet: {
+    width: '100%',
+    maxWidth: 500,
+    backgroundColor: '#fff',
+    maxHeight: '95%',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
   },
+  success: {
+    width: 64,
+    height: 64,
+    borderRadius: 23,
+    backgroundColor: '#E4F2EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginTop: -26,
+  },
+  addedItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: palette.bg,
+    borderRadius: 18,
+    padding: 14,
+    marginVertical: 21,
+  },
+  textButton: { minHeight: 46, alignItems: 'center', justifyContent: 'center' },
 });
