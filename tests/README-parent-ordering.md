@@ -2,11 +2,11 @@
 
 La nouvelle interface garde les menus et les snacks dans les mêmes tables et le même panier. La catégorie est un choix d’affichage ; elle ne change ni l’échéance, ni la confirmation du nombre de repas, ni les crédits et le paiement.
 
-- Accueil : deux entrées, statistiques masquées uniquement pour les parents ; photos des menus publiés dans les écoles des enfants sur les sept jours accessibles.
+- Accueil : deux entrées illustrées avec les visuels de la maquette validée ; raccourcis Ajouter un enfant / Historique, enfants, cagnotte, rappel avec les enfants sans commande, réservations regroupées et bannière conservés. Les statistiques restent masquées pour les parents.
 - Catalogue : catégorie, enfant et date conservés ; une autre école recharge ses propres menus ; fermeture et absence de produits affichées explicitement.
 - Détail : mêmes suppléments, notes et contrôles avant insertion. La suite du parcours apparaît uniquement après une insertion réussie. Un double clic ne crée pas un deuxième article.
 - Panier : présentation par enfant **et date**, avec les suppléments des formats historiques et actuels ; calcul du paiement et reprise des paiements inchangés.
-- Images : exclusivement les `image_url` des menus ; icône en cas d’image absente ou inaccessible. Les images générées pour les maquettes ne sont pas embarquées.
+- Images : les deux boutons de l’accueil réutilisent exactement les illustrations de la maquette (planche originale embarquée, cadrage réalisé dans l’interface). Le catalogue, les détails et le panier utilisent toujours les `image_url` réels des menus, avec une icône en cas d’image absente ou inaccessible.
 
 ## Vérifications
 

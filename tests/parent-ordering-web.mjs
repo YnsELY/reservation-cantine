@@ -269,6 +269,32 @@ try {
   await page
     .getByRole('button', { name: 'Commander snackerie', exact: true })
     .waitFor();
+  await page
+    .getByRole('button', { name: 'Ajouter un enfant', exact: true })
+    .waitFor();
+  await page.getByRole('button', { name: 'Historique', exact: true }).waitFor();
+  assert.match(
+    await page.locator('body').innerText(),
+    /Sans commande pour aujourd'hui/,
+  );
+  assert.match(await page.locator('body').innerText(), /Ma cagnotte/);
+  assert.match(
+    await page.locator('body').innerText(),
+    /Utilisable sur vos prochaines commandes/,
+  );
+  await page.getByTestId('home-bottom-banner').waitFor();
+  for (const category of ['classic', 'snack']) {
+    const illustration = page.getByTestId(`home-illustration-${category}`);
+    const source = await illustration.locator('img').getAttribute('src');
+    assert.match(source, /home-order-illustrations/);
+    assert.equal(
+      await illustration.locator('img').evaluate(async (img) => {
+        await img.decode();
+        return img.naturalWidth > 0;
+      }),
+      true,
+    );
+  }
   await shot('01-home');
   check('Accueil sans statistiques, deux commandes distinctes');
   await page
@@ -411,8 +437,17 @@ try {
   await page
     .getByRole('button', { name: 'Aller au panier', exact: true })
     .click();
-  await page.getByText('Repas du mardi', { exact: true }).filter({ visible: true }).waitFor();
-  assert.equal(await page.getByText('Alice Test', { exact: true }).filter({ visible: true }).count(), 2);
+  await page
+    .getByText('Repas du mardi', { exact: true })
+    .filter({ visible: true })
+    .waitFor();
+  assert.equal(
+    await page
+      .getByText('Alice Test', { exact: true })
+      .filter({ visible: true })
+      .count(),
+    2,
+  );
   assert.match(await page.locator('body').innerText(), /mardi 6 octobre/);
   check('Panier regroupé par enfant et par date');
   await active.context.close();
@@ -509,9 +544,98 @@ try {
   check('Fermeture de l’école respectée pour les deux catégories');
   await active.context.close();
 
+  active = await fixture({
+    reservations: [
+      {
+        id: id(80),
+        parent_id: parent.id,
+        child_id: children[0].id,
+        date: day,
+        total_price: 40,
+        payment_status: 'paid',
+        children: children[0],
+        menus: menus[0],
+      },
+      {
+        id: id(81),
+        parent_id: parent.id,
+        child_id: children[0].id,
+        date: '2026-10-06',
+        total_price: 42,
+        payment_status: 'cancelled',
+        children: children[0],
+        menus: menus[3],
+      },
+      {
+        id: id(82),
+        parent_id: parent.id,
+        child_id: children[1].id,
+        date: day,
+        total_price: 25,
+        payment_status: 'paid',
+        children: children[1],
+        menus: menus[2],
+      },
+    ],
+  });
+  await active.open('/(parent)');
+  await active.page
+    .getByTestId(`home-reservations-${children[0].id}`)
+    .waitFor();
+  assert.match(
+    await active.page
+      .getByTestId(`home-reservations-${children[0].id}`)
+      .innerText(),
+    /Poulet rôti/,
+  );
+  assert.match(
+    await active.page
+      .getByTestId(`home-reservations-${children[0].id}`)
+      .innerText(),
+    /Annulé/,
+  );
+  assert.match(
+    await active.page
+      .getByTestId(`home-reservations-${children[1].id}`)
+      .innerText(),
+    /Wrap chicken/,
+  );
+  assert.match(
+    await active.page.locator('body').innerText(),
+    /Tout est commandé/,
+  );
+  assert.match(
+    await active.page.locator('body').innerText(),
+    /Préparé avec soin/,
+  );
+  await active.page
+    .getByText('Prochaines réservations', { exact: true })
+    .scrollIntoViewIfNeeded();
+  await active.shot('home-restored-reservations');
+  for (const [label, suffix] of [
+    ['Historique', '/history'],
+    ['Ajouter un enfant', '/add-child'],
+    ['Voir la fiche de Alice Test', '/child-details'],
+  ]) {
+    await active.page.getByRole('button', { name: label, exact: true }).click();
+    await active.page.waitForURL((url) => url.pathname.endsWith(suffix));
+    await active.open('/(parent)');
+    await active.page
+      .getByRole('button', { name: 'Commander un repas', exact: true })
+      .waitFor();
+  }
+  check(
+    'Accueil complet : illustrations, raccourcis, rappels et réservations regroupées',
+  );
+  await active.context.close();
+
   for (const width of [320, 360, 390, 430]) {
     active = await fixture({ width });
     await active.open('/(parent)');
+    await active.page
+      .getByRole('button', { name: 'Commander snackerie', exact: true })
+      .waitFor();
+    await active.shot(`home-${width}`);
     await active.page
       .getByRole('button', { name: 'Commander snackerie', exact: true })
       .click();

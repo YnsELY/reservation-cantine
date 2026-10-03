@@ -8,23 +8,34 @@ import {
   ActivityIndicator,
   RefreshControl,
   useWindowDimensions,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Parent } from '@/lib/supabase';
-import { User, Clock, Wallet, ArrowRight, Plus } from 'lucide-react-native';
+import {
+  User,
+  Clock,
+  Wallet,
+  ArrowRight,
+  Plus,
+  UserPlus,
+  History,
+  Calendar,
+  Check,
+  UtensilsCrossed,
+} from 'lucide-react-native';
 import {
   Avatar,
   CartButton,
   RoundButton,
-  MenuPhoto,
   CategoryIcon,
   ui,
   palette,
   type,
 } from '@/components/parent/OrderingUI';
 import { orderingRoute } from '@/lib/parent-ordering';
-import { getMealCategory, type MealCategory } from '@/lib/meal-category';
+import { type MealCategory } from '@/lib/meal-category';
 
 import { useNotifications } from '@/hooks/useNotifications';
 import { showAlert } from '@/lib/alert';
@@ -125,6 +136,43 @@ function OrderCountdown({
   );
 }
 
+function HomeOrderIllustration({
+  category,
+  size,
+}: {
+  category: MealCategory;
+  size: number;
+}) {
+  return (
+    <View
+      testID={`home-illustration-${category}`}
+      pointerEvents="none"
+      style={[
+        styles.heroPhoto,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          transform: [{ rotate: category === 'snack' ? '8deg' : '-8deg' }],
+        },
+      ]}
+    >
+      <Image
+        source={require('@/assets/illustrations/home-order-illustrations.png')}
+        accessible={false}
+        resizeMode="stretch"
+        style={{
+          position: 'absolute',
+          width: size * 3,
+          height: size * 2,
+          left: 0,
+          top: category === 'snack' ? -size : 0,
+        }}
+      />
+    </View>
+  );
+}
+
 export default function ParentHomeScreen() {
   const router = useRouter();
   const compact = useWindowDimensions().width < 360;
@@ -133,9 +181,6 @@ export default function ParentHomeScreen() {
   const [upcomingReservations, setUpcomingReservations] = useState<
     WeekReservation[]
   >([]);
-  const [photos, setPhotos] = useState<Partial<Record<MealCategory, string>>>(
-    {},
-  );
   const [loadError, setLoadError] = useState('');
   const [children, setChildren] = useState<ChildWithStatus[]>([]);
   const [cartCount, setCartCount] = useState(0);
@@ -211,27 +256,14 @@ export default function ParentHomeScreen() {
       let hasService = false;
       let missing: ChildWithStatus[] = [];
       if (childSchoolIds.length > 0) {
-        const lastDate = new Date(targetDate);
-        lastDate.setDate(lastDate.getDate() + 6);
         const { data: targetMenus } = await supabase
           .from('menus')
-          .select('school_id, date, image_url, meal_category')
+          .select('school_id')
           .in('school_id', childSchoolIds)
-          .gte('date', targetDateStr)
-          .lte('date', formatDateToLocal(lastDate))
-          .eq('available', true)
-          .order('date');
-        const nextPhotos: Partial<Record<MealCategory, string>> = {};
-        for (const menu of targetMenus || []) {
-          const category = getMealCategory(menu.meal_category);
-          if (menu.image_url && !nextPhotos[category])
-            nextPhotos[category] = menu.image_url;
-        }
-        setPhotos(nextPhotos);
+          .eq('date', targetDateStr)
+          .eq('available', true);
         const schoolsWithService = new Set<string>(
-          (targetMenus || [])
-            .filter((m) => m.date === targetDateStr)
-            .map((m) => m.school_id),
+          (targetMenus || []).map((m) => m.school_id),
         );
 
         // Jours de fermeture par école : un jour fermé = pas de service (donc pas de
@@ -355,7 +387,9 @@ export default function ParentHomeScreen() {
       >
         <View style={{ gap: 9, marginBottom: 22 }}>
           <Text style={ui.eyebrow}>CHILD’S KITCHEN</Text>
-          <Text style={ui.title}>On commande quoi ?</Text>
+          <Text style={[ui.title, compact && { fontSize: 26, lineHeight: 33 }]}>
+            On commande quoi ?
+          </Text>
           <Text style={ui.body}>Un bon repas pour une belle journée.</Text>
         </View>
         {loadError ? (
@@ -400,13 +434,9 @@ export default function ParentHomeScreen() {
                   {snack ? 'snackerie' : 'un repas'}
                 </Text>
               </View>
-              <MenuPhoto
-                uri={photos[category]}
+              <HomeOrderIllustration
                 category={category}
-                style={[
-                  styles.heroPhoto,
-                  compact && { width: 116, height: 116, right: -20 },
-                ]}
+                size={compact ? 116 : 147}
               />
               <View style={styles.orderArrow}>
                 <ArrowRight size={21} color={palette.ink} />
@@ -425,21 +455,66 @@ export default function ParentHomeScreen() {
                     : `Tout est commandé pour ${countdown.label}`}
                 </Text>
                 <Text style={ui.small}>Clôture à 7 h, heure du Maroc</Text>
-                {countdown.missing.length > 0 && (
-                  <OrderCountdown
-                    deadlineMs={countdown.deadlineMs}
-                    onExpire={loadData}
-                  />
+                {countdown.missing.length > 0 ? (
+                  <>
+                    <OrderCountdown
+                      deadlineMs={countdown.deadlineMs}
+                      onExpire={loadData}
+                    />
+                    <Text style={[ui.small, { marginTop: 8 }]}>
+                      Sans commande pour {countdown.label} :
+                    </Text>
+                    <View style={styles.missingChildren}>
+                      {countdown.missing.map((child) => (
+                        <View key={child.id} style={styles.missingChild}>
+                          <Text style={ui.link}>
+                            {child.first_name} {child.last_name}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  </>
+                ) : (
+                  <View style={[ui.row, { gap: 6, marginTop: 6 }]}>
+                    <Check size={16} color="#227454" />
+                    <Text style={[ui.small, { color: '#227454' }]}>
+                      Tout est prêt pour vos enfants.
+                    </Text>
+                  </View>
                 )}
               </View>
             </View>
           </View>
         )}
+        <View style={styles.quickActions}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Ajouter un enfant"
+            onPress={() => router.push('/(parent)/add-child')}
+            style={styles.quickAction}
+          >
+            <View style={styles.quickActionIcon}>
+              <UserPlus size={23} color={palette.blue} />
+            </View>
+            <Text style={styles.quickActionText}>Ajouter un enfant</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Historique"
+            onPress={() => router.push('/(parent)/history')}
+            style={styles.quickAction}
+          >
+            <View style={styles.quickActionIcon}>
+              <History size={23} color={palette.blue} />
+            </View>
+            <Text style={styles.quickActionText}>Historique</Text>
+          </TouchableOpacity>
+        </View>
         <View style={[ui.spread, { marginTop: 22, marginBottom: 12 }]}>
           <Text style={ui.sectionTitle}>Mes enfants</Text>
           <TouchableOpacity
             accessibilityRole="button"
-            accessibilityLabel="Ajouter un enfant"
+            accessibilityLabel="Ajouter un enfant depuis Mes enfants"
             onPress={() => router.push('/(parent)/add-child')}
             style={styles.addChild}
           >
@@ -452,6 +527,7 @@ export default function ParentHomeScreen() {
             <TouchableOpacity
               key={child.id}
               accessibilityRole="button"
+              accessibilityLabel={`Voir la fiche de ${child.first_name} ${child.last_name}`}
               onPress={() =>
                 router.push({
                   pathname: '/(parent)/child-details',
@@ -479,7 +555,12 @@ export default function ParentHomeScreen() {
             onPress={() => router.push(orderingRoute({ selectChild: true }))}
           >
             <Wallet size={22} color={palette.blue} />
-            <Text style={[ui.strong, { flex: 1 }]}>Ma cagnotte</Text>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={ui.strong}>Ma cagnotte</Text>
+              <Text style={ui.small}>
+                Utilisable sur vos prochaines commandes.
+              </Text>
+            </View>
             <Text style={[ui.strong, { color: palette.blue }]}>
               {balance.toFixed(2)} DH
             </Text>
@@ -487,52 +568,132 @@ export default function ParentHomeScreen() {
           </TouchableOpacity>
         )}
         <View style={[ui.spread, { marginTop: 24, marginBottom: 12 }]}>
-          <Text style={ui.sectionTitle}>À venir</Text>
+          <Text style={[ui.sectionTitle, { flex: 1 }]}>
+            Prochaines réservations
+          </Text>
           <TouchableOpacity
             accessibilityRole="button"
+            accessibilityLabel="Voir tout l’historique des réservations"
             onPress={() => router.push('/(parent)/history')}
             style={{ paddingVertical: 12 }}
           >
-            <Text style={ui.link}>Historique</Text>
+            <Text style={ui.link}>Tout voir</Text>
           </TouchableOpacity>
         </View>
         {upcomingReservations.length === 0 ? (
-          <View style={ui.card}>
+          <View style={[ui.card, { alignItems: 'center', gap: 12 }]}>
+            <UtensilsCrossed size={30} color={palette.blue} />
             <Text style={ui.body}>Aucune réservation à venir.</Text>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={() => router.push(orderingRoute({ selectChild: true }))}
+              style={styles.emptyOrderButton}
+            >
+              <Text style={ui.link}>Commander maintenant</Text>
+              <ArrowRight size={16} color={palette.blue} />
+            </TouchableOpacity>
           </View>
         ) : (
-          upcomingReservations.map((reservation) => (
-            <View key={reservation.id} style={styles.reservation}>
-              <View style={ui.spread}>
-                <Text style={ui.strong}>
-                  {reservation.children?.first_name}{' '}
-                  {reservation.children?.last_name}
-                </Text>
-                <Text style={ui.small}>
-                  {parseYmd(reservation.date).toLocaleDateString('fr-FR', {
-                    day: 'numeric',
-                    month: 'short',
+          <ScrollView
+            style={styles.reservationsList}
+            showsVerticalScrollIndicator
+            nestedScrollEnabled
+            contentContainerStyle={{ gap: 14 }}
+          >
+            {Array.from(
+              upcomingReservations.reduce((groups, reservation) => {
+                const items = groups.get(reservation.child_id) || [];
+                items.push(reservation);
+                groups.set(reservation.child_id, items);
+                return groups;
+              }, new Map<string, WeekReservation[]>()),
+            ).map(([childId, reservations]) => {
+              const child = reservations[0].children;
+              return (
+                <View
+                  key={childId}
+                  style={styles.reservationGroup}
+                  testID={`home-reservations-${childId}`}
+                >
+                  <View style={[ui.row, { marginBottom: 4 }]}>
+                    <Avatar
+                      firstName={child?.first_name || 'E'}
+                      lastName={child?.last_name}
+                      size={32}
+                    />
+                    <Text style={ui.strong}>
+                      {child?.first_name} {child?.last_name}
+                    </Text>
+                  </View>
+                  {reservations.map((reservation) => {
+                    const cancelled =
+                      reservation.payment_status === 'cancelled';
+                    return (
+                      <View
+                        key={reservation.id}
+                        style={[
+                          styles.reservation,
+                          cancelled && styles.cancelledReservation,
+                        ]}
+                      >
+                        <View style={ui.spread}>
+                          <View style={styles.reservationDate}>
+                            <Calendar size={13} color={palette.blue} />
+                            <Text style={ui.link}>
+                              {parseYmd(reservation.date).toLocaleDateString(
+                                'fr-FR',
+                                {
+                                  weekday: 'short',
+                                  day: 'numeric',
+                                  month: 'short',
+                                },
+                              )}
+                            </Text>
+                          </View>
+                          {cancelled && (
+                            <Text style={styles.cancelledLabel}>Annulé</Text>
+                          )}
+                        </View>
+                        <View style={[ui.spread, { alignItems: 'flex-start' }]}>
+                          <Text
+                            style={[
+                              ui.strong,
+                              { flex: 1 },
+                              cancelled && styles.cancelledText,
+                            ]}
+                          >
+                            {reservation.menus?.meal_name || 'Menu'}
+                          </Text>
+                          <Text
+                            style={[
+                              ui.strong,
+                              { color: palette.blue },
+                              cancelled && styles.cancelledText,
+                            ]}
+                          >
+                            {Number(reservation.total_price).toFixed(2)} DH
+                          </Text>
+                        </View>
+                        {reservation.menus?.description ? (
+                          <Text style={ui.small} numberOfLines={2}>
+                            {reservation.menus.description}
+                          </Text>
+                        ) : null}
+                      </View>
+                    );
                   })}
-                </Text>
-              </View>
-              <Text
-                style={[
-                  ui.body,
-                  reservation.payment_status === 'cancelled' && {
-                    textDecorationLine: 'line-through',
-                  },
-                ]}
-              >
-                {reservation.menus?.meal_name || 'Menu'}
-              </Text>
-              <Text style={ui.link}>
-                {reservation.payment_status === 'cancelled'
-                  ? 'Annulée'
-                  : `${Number(reservation.total_price).toFixed(2)} DH`}
-              </Text>
-            </View>
-          ))
+                </View>
+              );
+            })}
+          </ScrollView>
         )}
+        <Image
+          source={require('@/assets/images/Box2.png')}
+          testID="home-bottom-banner"
+          accessible={false}
+          style={styles.bottomBanner}
+          resizeMode="contain"
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -578,12 +739,9 @@ const styles = StyleSheet.create({
   },
   heroPhoto: {
     position: 'absolute',
-    width: 137,
-    height: 137,
     right: -16,
-    bottom: -7,
-    borderRadius: 70,
-    transform: [{ rotate: '-10deg' }],
+    top: 10,
+    overflow: 'hidden',
   },
   orderArrow: {
     width: 36,
@@ -632,11 +790,80 @@ const styles = StyleSheet.create({
     padding: 16,
     marginTop: 16,
   },
-  reservation: {
+  quickActions: { flexDirection: 'row', gap: 12, marginTop: 18 },
+  quickAction: {
+    flex: 1,
+    paddingVertical: 18,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
     backgroundColor: '#fff',
-    padding: 18,
-    borderRadius: 19,
-    gap: 7,
-    marginBottom: 10,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: '#E8EDF5',
   },
+  quickActionIcon: {
+    width: 45,
+    height: 45,
+    borderRadius: 16,
+    backgroundColor: '#EAF1FB',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickActionText: {
+    fontFamily: type.bold,
+    fontSize: 12,
+    color: palette.ink,
+    textAlign: 'center',
+  },
+  missingChildren: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+  },
+  missingChild: {
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+  },
+  reservationsList: { maxHeight: 410, flexGrow: 0 },
+  reservationGroup: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 22,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#E8EDF5',
+  },
+  reservation: {
+    backgroundColor: palette.bg,
+    padding: 14,
+    borderRadius: 16,
+    gap: 10,
+  },
+  reservationDate: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cancelledReservation: { backgroundColor: '#FAF0F0' },
+  cancelledLabel: {
+    fontFamily: type.bold,
+    fontSize: 11,
+    color: '#A64343',
+    backgroundColor: '#FBE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  cancelledText: { color: palette.muted, textDecorationLine: 'line-through' },
+  emptyOrderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 44,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: '#EAF1FB',
+  },
+  bottomBanner: { width: '100%', aspectRatio: 1162 / 123, marginTop: 24 },
 });
