@@ -13,12 +13,18 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase, Parent } from '@/lib/supabase';
+import Svg, { Circle } from 'react-native-svg';
+import {
+  CHILD_RESERVATION_COLORS,
+  homeWeekRange,
+  summarizeHomeWeek,
+  type ChildReservationStatus,
+} from '@/lib/parent-home-summary';
 import {
   User,
   Clock,
   Wallet,
   ArrowRight,
-  Plus,
   UserPlus,
   History,
   Calendar,
@@ -73,7 +79,10 @@ interface Child {
   school_id: string;
 }
 
-type ChildWithStatus = Child;
+interface ChildWithStatus extends Child {
+  reservationCount: number;
+  status: ChildReservationStatus;
+}
 
 const formatDateToLocal = (date: Date): string => {
   const year = date.getFullYear();
@@ -182,6 +191,9 @@ export default function ParentHomeScreen() {
     WeekReservation[]
   >([]);
   const [loadError, setLoadError] = useState('');
+  const [weekSummary, setWeekSummary] = useState<ReturnType<
+    typeof summarizeHomeWeek
+  > | null>(null);
   const [children, setChildren] = useState<ChildWithStatus[]>([]);
   const [cartCount, setCartCount] = useState(0);
   const [balance, setBalance] = useState(0);
@@ -243,8 +255,26 @@ export default function ParentHomeScreen() {
 
       if (childrenError) throw childrenError;
       const todayStr = getMoroccoDate();
-      const childrenWithStatus = childrenData || [];
+      const weekRange = homeWeekRange(todayStr);
+      const { data: weeklyReservations, error: weeklyError } = await supabase
+        .from('reservations')
+        .select('child_id, date, payment_status')
+        .eq('parent_id', parentData.id)
+        .neq('payment_status', 'cancelled')
+        .gte('date', weekRange.start)
+        .lte('date', weekRange.end);
+      if (weeklyError) throw weeklyError;
+      const summary = summarizeHomeWeek(
+        (childrenData || []).map((child) => child.id),
+        weeklyReservations || [],
+        weekRange,
+      );
+      const childrenWithStatus = (childrenData || []).map((child) => ({
+        ...child,
+        ...summary.children[child.id],
+      }));
       setChildren(childrenWithStatus);
+      setWeekSummary(summary);
 
       // Compte à rebours: prochaine échéance de commande (jour J à 7h)
       const targetDate = getFirstBookableDate();
@@ -510,43 +540,115 @@ export default function ParentHomeScreen() {
             <Text style={styles.quickActionText}>Historique</Text>
           </TouchableOpacity>
         </View>
-        <View style={[ui.spread, { marginTop: 22, marginBottom: 12 }]}>
-          <Text style={ui.sectionTitle}>Mes enfants</Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel="Ajouter un enfant depuis Mes enfants"
-            onPress={() => router.push('/(parent)/add-child')}
-            style={styles.addChild}
-          >
-            <Plus size={15} color={palette.blue} />
-            <Text style={ui.link}>Ajouter</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.children}>
-          {children.map((child) => (
-            <TouchableOpacity
-              key={child.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Voir la fiche de ${child.first_name} ${child.last_name}`}
-              onPress={() =>
-                router.push({
-                  pathname: '/(parent)/child-details',
-                  params: { childId: child.id },
-                })
-              }
-              style={styles.child}
+        <View style={styles.childrenSection} testID="home-children-section">
+          <Text style={styles.childrenTitle}>Mes enfants</Text>
+          {children.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.childrenList}
             >
-              <Avatar firstName={child.first_name} lastName={child.last_name} />
-              <View style={{ flex: 1 }}>
-                <Text style={ui.strong}>{child.first_name}</Text>
-                <Text style={ui.small}>{child.last_name}</Text>
-              </View>
-              <ArrowRight size={16} color={palette.muted} />
-            </TouchableOpacity>
-          ))}
-          {!children.length && (
-            <Text style={ui.body}>Ajoutez votre enfant pour commencer.</Text>
+              {children.map((child) => (
+                <TouchableOpacity
+                  key={child.id}
+                  testID={`home-child-${child.id}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Voir la fiche de ${child.first_name} ${child.last_name}`}
+                  accessibilityHint={
+                    child.reservationCount === 0
+                      ? 'Aucune réservation cette semaine'
+                      : `${child.reservationCount} jours réservés cette semaine`
+                  }
+                  style={[
+                    styles.childCard,
+                    { borderColor: CHILD_RESERVATION_COLORS[child.status] },
+                  ]}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/(parent)/child-details',
+                      params: { childId: child.id },
+                    })
+                  }
+                >
+                  <View style={styles.childAvatar}>
+                    <User size={36} color="#1E293B" />
+                  </View>
+                  <Text style={styles.childName}>{child.first_name}</Text>
+                  <Text style={styles.childName}>{child.last_name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.emptyChildren}>
+              <Text style={ui.body}>Aucun enfant enregistré</Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Ajouter mon premier enfant"
+                style={styles.addFirstChild}
+                onPress={() => router.push('/(parent)/add-child')}
+              >
+                <UserPlus size={20} color="#fff" />
+                <Text style={styles.addFirstChildText}>Ajouter un enfant</Text>
+              </TouchableOpacity>
+            </View>
           )}
+        </View>
+        <View style={styles.weekCard} testID="home-weekly-gauge">
+          <Text style={styles.weekCardTitle}>Réservations de la semaine</Text>
+          {weekSummary ? (
+            <View
+              style={styles.ringWrap}
+              accessibilityRole="progressbar"
+              accessibilityLabel="Menus réservés cette semaine"
+              aria-valuemin={0}
+              aria-valuemax={weekSummary.maxMeals}
+              aria-valuenow={weekSummary.bookedMeals}
+              aria-valuetext={`${weekSummary.bookedMeals}/${weekSummary.maxMeals} menus réservés`}
+              accessibilityValue={{
+                min: 0,
+                max: weekSummary.maxMeals,
+                now: weekSummary.bookedMeals,
+                text: `${weekSummary.bookedMeals}/${weekSummary.maxMeals} menus réservés`,
+              }}
+            >
+              <Svg width={190} height={190} accessible={false}>
+                <Circle
+                  cx={95}
+                  cy={95}
+                  r={87}
+                  stroke="#E5E7EB"
+                  strokeWidth={16}
+                  fill="none"
+                />
+                {weekSummary.progress > 0 && (
+                  <Circle
+                    cx={95}
+                    cy={95}
+                    r={87}
+                    stroke="#2E97DD"
+                    strokeWidth={16}
+                    fill="none"
+                    strokeDasharray={`${2 * Math.PI * 87 * weekSummary.progress} ${2 * Math.PI * 87}`}
+                    strokeLinecap="round"
+                    transform="rotate(-90 95 95)"
+                  />
+                )}
+              </Svg>
+              <View style={styles.ringCenter}>
+                <Text style={styles.ringNumber}>
+                  {weekSummary.bookedMeals}/{weekSummary.maxMeals}
+                </Text>
+                <Text style={styles.ringLabel}>menus réservés</Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={ui.body}>
+              Le suivi de la semaine est indisponible.
+            </Text>
+          )}
+          <Text style={styles.weekPhrase}>
+            N’oubliez pas de commander les repas pour la semaine prochaine !
+          </Text>
         </View>
         {balance > 0 && (
           <TouchableOpacity
@@ -766,20 +868,97 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   countdownValue: { fontFamily: type.bold, fontSize: 13, color: palette.blue },
-  addChild: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    minHeight: 44,
-  },
-  children: { gap: 10 },
-  child: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
+  childrenSection: {
     backgroundColor: '#fff',
-    borderRadius: 19,
+    borderRadius: 20,
+    padding: 20,
+    marginTop: 22,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  childrenTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 16,
+  },
+  childrenList: { paddingVertical: 4, gap: 12 },
+  childCard: {
+    alignItems: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    borderWidth: 2,
+    minWidth: 112,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  childAvatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#EAF4FC',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  childName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E293B',
+    textAlign: 'center',
+  },
+  emptyChildren: { alignItems: 'center', paddingVertical: 24, gap: 16 },
+  addFirstChild: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: palette.blue,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+  addFirstChildText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  weekCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  weekCardTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1E293B',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  ringWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 8,
+  },
+  ringCenter: { position: 'absolute', alignItems: 'center' },
+  ringNumber: { fontSize: 40, fontWeight: '800', color: '#1E293B' },
+  ringLabel: { fontSize: 14, color: '#6B7280', marginTop: 2 },
+  weekPhrase: {
+    fontSize: 15,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 12,
+    lineHeight: 21,
   },
   wallet: {
     flexDirection: 'row',

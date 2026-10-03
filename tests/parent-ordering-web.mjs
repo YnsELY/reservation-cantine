@@ -264,7 +264,7 @@ try {
   );
   assert.equal(
     await page.getByText('Réservations de la semaine', { exact: true }).count(),
-    0,
+    1,
   );
   await page
     .getByRole('button', { name: 'Commander snackerie', exact: true })
@@ -296,7 +296,34 @@ try {
     );
   }
   await shot('01-home');
-  check('Accueil sans statistiques, deux commandes distinctes');
+  const gauge = page.getByRole('progressbar', {
+    name: 'Menus réservés cette semaine',
+  });
+  assert.equal(await gauge.getAttribute('aria-valuenow'), '0');
+  assert.equal(await gauge.getAttribute('aria-valuemax'), '12');
+  assert.equal(
+    await page
+      .getByTestId(`home-child-${children[0].id}`)
+      .evaluate((el) => getComputedStyle(el).borderTopColor),
+    'rgb(239, 68, 68)',
+  );
+  const ordering = await page.evaluate(() => {
+    const a = document.querySelector('[data-testid=home-children-section]');
+    const b = document.querySelector('[data-testid=home-weekly-gauge]');
+    const shortcut = document.querySelector('[aria-label=Historique]');
+    return (
+      !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) &&
+      !!(shortcut.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING)
+    );
+  });
+  assert.equal(ordering, true);
+  await page
+    .getByTestId('home-children-section')
+    .evaluate((el) => el.scrollIntoView({ block: 'start' }));
+  await shot('home-children-gauge-empty');
+  check(
+    'Accueil : cartes enfants historiques, jauge rétablie, statistiques mensuelles masquées',
+  );
   await page
     .getByRole('button', { name: 'Commander un repas', exact: true })
     .click();
@@ -608,6 +635,22 @@ try {
     await active.page.locator('body').innerText(),
     /Préparé avec soin/,
   );
+  const populatedGauge = active.page.getByRole('progressbar', {
+    name: 'Menus réservés cette semaine',
+  });
+  assert.equal(await populatedGauge.getAttribute('aria-valuenow'), '2');
+  assert.equal(await populatedGauge.getAttribute('aria-valuemax'), '12');
+  assert.equal(
+    await active.page
+      .getByTestId(`home-child-${children[0].id}`)
+      .evaluate((el) => getComputedStyle(el).borderTopColor),
+    'rgb(245, 158, 11)',
+  );
+  await active.page
+    .getByTestId('home-children-section')
+    .evaluate((el) => el.scrollIntoView({ block: 'start' }));
+  await active.shot('home-children-gauge-booked');
+
   await active.page
     .getByText('Prochaines réservations', { exact: true })
     .scrollIntoViewIfNeeded();
@@ -626,6 +669,67 @@ try {
   }
   check(
     'Accueil complet : illustrations, raccourcis, rappels et réservations regroupées',
+  );
+  await active.context.close();
+
+  active = await fixture({
+    width: 320,
+    reservations: [
+      ...[5, 6, 7, 8, 9].map((number, index) => ({
+        id: id(90 + index),
+        parent_id: parent.id,
+        child_id: children[0].id,
+        date: `2026-10-${String(number).padStart(2, '0')}`,
+        total_price: 40,
+        payment_status: 'paid',
+        children: children[0],
+        menus: menus[0],
+      })),
+      {
+        id: id(95),
+        parent_id: parent.id,
+        child_id: children[0].id,
+        date: day,
+        total_price: 30,
+        payment_status: 'paid',
+        children: children[0],
+        menus: menus[1],
+      },
+    ],
+  });
+  await active.open('/(parent)');
+  const fullGauge = active.page.getByRole('progressbar', {
+    name: 'Menus réservés cette semaine',
+  });
+  await fullGauge.waitFor();
+  assert.equal(await fullGauge.getAttribute('aria-valuenow'), '5');
+  assert.equal(await fullGauge.getAttribute('aria-valuemax'), '12');
+  assert.equal(
+    await active.page
+      .getByTestId(`home-child-${children[0].id}`)
+      .evaluate((el) => getComputedStyle(el).borderTopColor),
+    'rgb(16, 185, 129)',
+  );
+  assert.equal(
+    await active.page
+      .getByTestId(`home-child-${children[1].id}`)
+      .evaluate((el) => getComputedStyle(el).borderTopColor),
+    'rgb(239, 68, 68)',
+  );
+  await active.page
+    .getByTestId('home-children-section')
+    .evaluate((el) => el.scrollIntoView({ block: 'start' }));
+  await active.shot('home-children-gauge-small');
+  await active.page
+    .getByRole('button', { name: 'Voir la fiche de Basile Test' })
+    .click();
+  await active.page.waitForURL(
+    (url) =>
+      url.pathname.endsWith('/child-details') &&
+      url.searchParams.get('childId') === children[1].id,
+  );
+  check(
+    'Jauge et bordures : repas + snack dédupliqués, annulations exclues, cartes horizontales sur petit écran',
   );
   await active.context.close();
 

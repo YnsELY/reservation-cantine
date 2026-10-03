@@ -2,7 +2,8 @@
 
 La nouvelle interface garde les menus et les snacks dans les mêmes tables et le même panier. La catégorie est un choix d’affichage ; elle ne change ni l’échéance, ni la confirmation du nombre de repas, ni les crédits et le paiement.
 
-- Accueil : deux entrées illustrées avec les visuels de la maquette validée ; raccourcis Ajouter un enfant / Historique, enfants, cagnotte, rappel avec les enfants sans commande, réservations regroupées et bannière conservés. Les statistiques restent masquées pour les parents.
+- Accueil : deux entrées illustrées avec les visuels de la maquette validée ; raccourcis Ajouter un enfant / Historique, enfants, cagnotte, rappel avec les enfants sans commande, réservations regroupées et bannière conservés. La section Mes enfants conserve sa position après les raccourcis, avec les anciennes cartes horizontales et leurs couleurs de statut. La jauge hebdomadaire est rétablie ; seules les statistiques mensuelles restent masquées.
+- Suivi hebdomadaire : semaine courante du lundi au samedi, au Maroc. Comme dans l’ancien accueil, une journée réservée compte une fois par enfant, même avec plusieurs repas/snacks ; les annulations sont exclues. Objectif de la jauge : six jours par enfant. Les seuils historiques des cartes sont conservés (rouge : aucun jour, orange : un à quatre, vert : au moins cinq).
 - Catalogue : catégorie, enfant et date conservés ; une autre école recharge ses propres menus ; fermeture et absence de produits affichées explicitement.
 - Détail : mêmes suppléments, notes et contrôles avant insertion. La suite du parcours apparaît uniquement après une insertion réussie. Un double clic ne crée pas un deuxième article.
 - Panier : présentation par enfant **et date**, avec les suppléments des formats historiques et actuels ; calcul du paiement et reprise des paiements inchangés.
