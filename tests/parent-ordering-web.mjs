@@ -428,9 +428,12 @@ try {
   await page.getByText('Mon panier', { exact: true }).waitFor();
   await page.getByText('Compote (+5.00 DH)', { exact: false }).waitFor();
   await page.getByText('Sans sauce', { exact: true }).waitFor();
-  await page.getByText('90.00 DH', { exact: true }).waitFor();
+  const cartTotal = page
+    .getByText('Total à payer', { exact: true })
+    .locator('..');
+  await cartTotal.getByText('90.00 DH', { exact: true }).waitFor();
   await page.getByRole('switch', { name: 'Utiliser ma cagnotte' }).click();
-  await page.getByText('100.00 DH', { exact: true }).waitFor();
+  await cartTotal.getByText('100.00 DH', { exact: true }).waitFor();
   await shot('10-cart');
   check('Panier mixte : détails, notes, total et cagnotte');
   await page
