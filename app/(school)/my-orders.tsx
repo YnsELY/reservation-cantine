@@ -1,3 +1,4 @@
+import { MealCategoryBadge } from '@/components/MealCategory';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -227,6 +228,7 @@ export default function SchoolMyOrdersScreen() {
         </Text>
         <Text style={styles.orderPrice}>{item.total_price.toFixed(2)} DH</Text>
       </View>
+      <MealCategoryBadge category={item.menu.meal_category} />
       <Text style={styles.orderMeal} numberOfLines={1}>{item.menu.meal_name}</Text>
       <View style={styles.orderFooter}>
         <View style={[

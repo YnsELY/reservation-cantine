@@ -1,3 +1,4 @@
+import { mealCategoryLabel } from '@/lib/meal-category';
 import { useState, useCallback } from 'react';
 import {
   View,
@@ -33,6 +34,7 @@ interface Reservation {
   menus: {
     id: string;
     meal_name: string;
+    meal_category?: string;
     description: string;
     price: number;
     date: string;
@@ -84,6 +86,7 @@ export default function ChildDetailsScreen() {
           menus (
             id,
             meal_name,
+            meal_category,
             description,
             price,
             date
@@ -104,6 +107,7 @@ export default function ChildDetailsScreen() {
           menus (
             id,
             meal_name,
+            meal_category,
             description,
             price,
             date
@@ -262,7 +266,7 @@ export default function ChildDetailsScreen() {
                         {formatDate(reservation.date)}
                       </Text>
                       <Text style={styles.reservationMenuName}>
-                        {reservation.menus.meal_name}
+                        {mealCategoryLabel(reservation.menus.meal_category)} · {reservation.menus.meal_name}
                       </Text>
                     </View>
                     <Text style={styles.reservationPrice}>
@@ -300,7 +304,7 @@ export default function ChildDetailsScreen() {
                     </Text>
                   </View>
                   <Text style={styles.historyMenuName}>
-                    {reservation.menus.meal_name}
+                    {mealCategoryLabel(reservation.menus.meal_category)} · {reservation.menus.meal_name}
                   </Text>
                   <Text style={styles.historyPrice}>
                     {reservation.menus.price.toFixed(2)} DH

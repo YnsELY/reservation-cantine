@@ -1,4 +1,5 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { MealCategoryBadge } from '@/components/MealCategory';
+import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -285,6 +286,7 @@ export default function MenuDetailsScreen() {
               resizeMode="cover"
             />
           )}
+          <MealCategoryBadge category={menu.meal_category} />
           <Text style={styles.menuTitle}>{menu.meal_name}</Text>
 
           {menu.description && (

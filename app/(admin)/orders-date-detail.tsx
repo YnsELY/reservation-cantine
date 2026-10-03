@@ -1,3 +1,5 @@
+import { MealCategoryTabs } from '@/components/MealCategory';
+import { mealCategoryLabel, matchesMealCategory, type MealCategoryFilter } from '@/lib/meal-category';
 import { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,6 +23,7 @@ interface Row {
   child_grade: string | null;
   parent_name: string;
   menu_name: string;
+  meal_category?: string;
   school_id: string;
   school_name: string;
   provider_id: string | null;
@@ -41,7 +44,9 @@ export default function OrdersDateDetail() {
   const params = useLocalSearchParams<{ date: string }>();
   const date = Array.isArray(params.date) ? params.date[0] : params.date || '';
 
-  const [rows, setRows] = useState<Row[]>([]);
+  const [allRows, setRows] = useState<Row[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<MealCategoryFilter>('all');
+  const rows = useMemo(() => allRows.filter(row => matchesMealCategory(row.meal_category, categoryFilter)), [allRows, categoryFilter]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
@@ -65,7 +70,7 @@ export default function OrdersDateDetail() {
           payment_status,
           parent_id,
           child:children!child_id(first_name, last_name, grade),
-          menu:menus(meal_name, school:schools(id, name), provider:providers(id, company_name))
+          menu:menus(meal_name, meal_category, school:schools(id, name), provider:providers(id, company_name))
         `)
         .eq('date', date)
         .limit(5000);
@@ -87,6 +92,7 @@ export default function OrdersDateDetail() {
           child_grade: r.child?.grade || null,
           parent_name: p ? `${p.first_name} ${p.last_name}`.trim() : '',
           menu_name: r.menu?.meal_name || '',
+          meal_category: r.menu?.meal_category,
           school_id: r.menu?.school?.id || '',
           school_name: r.menu?.school?.name || '',
           provider_id: r.menu?.provider?.id || null,
@@ -144,12 +150,13 @@ export default function OrdersDateDetail() {
         return `${a.child_last_name} ${a.child_first_name}`.localeCompare(`${b.child_last_name} ${b.child_first_name}`, 'fr');
       });
 
-      const header = ['École', 'Classe', 'Élève', 'Parent', 'Repas', 'Prestataire', 'Statut', 'Prix (DH)'];
+      const header = ['École', 'Classe', 'Élève', 'Parent', 'Catégorie', 'Repas', 'Prestataire', 'Statut', 'Prix (DH)'];
       const dataRows = sorted.map(r => [
         r.school_name,
         r.child_grade || '',
         `${r.child_first_name} ${r.child_last_name}`.trim(),
         r.parent_name,
+        mealCategoryLabel(r.meal_category),
         r.menu_name,
         r.provider_name || '',
         r.payment_status === 'paid' ? 'Payée' : r.payment_status === 'pending' ? 'En attente' : 'Annulée',
@@ -197,6 +204,7 @@ export default function OrdersDateDetail() {
         </View>
       </View>
 
+      <MealCategoryTabs value={categoryFilter} onChange={setCategoryFilter} />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.statsGrid}>
           <StatCard icon={ShoppingBag} value={stats.total} label="Commandes" color="#4F46E5" />

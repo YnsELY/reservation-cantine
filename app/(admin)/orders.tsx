@@ -1,3 +1,5 @@
+import { MealCategoryBadge, MealCategoryTabs } from '@/components/MealCategory';
+import { mealCategoryLabel, matchesMealCategory, type MealCategoryFilter } from '@/lib/meal-category';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,6 +33,7 @@ interface OrderData {
   };
   menu: {
     meal_name: string;
+    meal_category?: string;
     id: string;
   };
   school: {
@@ -78,7 +81,9 @@ const statusColor = (s: OrderData['payment_status']) => {
 };
 
 export default function AdminOrdersScreen() {
-  const [orders, setOrders] = useState<OrderData[]>([]);
+  const [allOrders, setOrders] = useState<OrderData[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<MealCategoryFilter>('all');
+  const orders = useMemo(() => allOrders.filter(order => matchesMealCategory(order.menu.meal_category, categoryFilter)), [allOrders, categoryFilter]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('all');
 
@@ -125,6 +130,7 @@ export default function AdminOrdersScreen() {
           menu:menus(
             id,
             meal_name,
+            meal_category,
             school:schools(id, name),
             provider:providers(id, company_name)
           )
@@ -152,7 +158,7 @@ export default function AdminOrdersScreen() {
         cancelled_at: r.cancelled_at,
         child: r.child,
         parent: parentsById.get(r.parent_id) || { first_name: '', last_name: '', email: null },
-        menu: { id: r.menu.id, meal_name: r.menu.meal_name },
+        menu: { id: r.menu.id, meal_name: r.menu.meal_name, meal_category: r.menu.meal_category },
         school: r.menu.school,
         provider: r.menu.provider
           ? { id: r.menu.provider.id, name: r.menu.provider.company_name || 'Sans nom' }
@@ -314,6 +320,7 @@ export default function AdminOrdersScreen() {
         </ScrollView>
       </View>
 
+      <MealCategoryTabs value={categoryFilter} onChange={setCategoryFilter} />
       {activeTab === 'all' && <AllOrdersList orders={filteredOrders} />}
       {activeTab === 'date' && <DateGroupList groups={dateGroups} />}
       {activeTab === 'provider' && <ProviderGroupList groups={providerGroups} />}
@@ -351,6 +358,7 @@ function AllOrdersList({ orders }: { orders: OrderData[] }) {
 
             <View style={styles.orderBody}>
               <Row icon={Calendar} label="Menu du" value={formatLongDate(order.date)} />
+              <MealCategoryBadge category={order.menu.meal_category} />
               <Row icon={ShoppingBag} label="Repas" value={order.menu.meal_name} />
               <Row
                 icon={User}

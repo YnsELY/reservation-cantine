@@ -1,7 +1,9 @@
+import { MealCategoryBadge } from '@/components/MealCategory';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { CheckCircle, Edit, Trash2, XCircle } from 'lucide-react-native';
 
 export interface LibraryMenu {
+  meal_category?: import('@/lib/meal-category').MealCategory;
   id: string;
   meal_name: string;
   description: string | null;
@@ -56,6 +58,7 @@ export function ProviderMenuCard({ menu, onEdit, onDelete }: MenuCardProps) {
         )}
 
         <View style={styles.menuTextContent}>
+          <MealCategoryBadge category={menu.meal_category} />
           <Text style={styles.menuName} numberOfLines={1}>{menu.meal_name}</Text>
           {!!menu.description && (
             <Text style={styles.menuDescription} numberOfLines={2}>{menu.description}</Text>

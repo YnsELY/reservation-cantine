@@ -1,3 +1,5 @@
+import { MealCategoryBadge, MealCategoryTabs } from '@/components/MealCategory';
+import { matchesMealCategory, mealCategoryLabel, type MealCategoryFilter } from '@/lib/meal-category';
 import { formatYmd } from '@/lib/dates';
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, FlatList, Image } from 'react-native';
@@ -14,6 +16,7 @@ export default function SchoolCommanderScreen() {
   const menuRequestRef = useRef(0);
   const [school, setSchool] = useState<School | null>(null);
   const [children, setChildren] = useState<Child[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<MealCategoryFilter>('all');
   const [menus, setMenus] = useState<Menu[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedMenu, setSelectedMenu] = useState<Menu | null>(null);
@@ -230,10 +233,11 @@ export default function SchoolCommanderScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>2. Sélectionner un menu</Text>
-          {menus.length === 0 ? (
+          <MealCategoryTabs value={categoryFilter} onChange={setCategoryFilter} />
+        {menus.filter(menu => matchesMealCategory(menu.meal_category, categoryFilter)).length === 0 ? (
             <Text style={styles.emptyText}>Aucun menu disponible pour cette date</Text>
           ) : (
-            menus.map((menu) => {
+            menus.filter(menu => matchesMealCategory(menu.meal_category, categoryFilter)).map((menu) => {
               const isSelected = selectedMenu?.id === menu.id;
               return (
                 <TouchableOpacity
@@ -249,6 +253,7 @@ export default function SchoolCommanderScreen() {
                     />
                   )}
                   <View style={styles.menuInfo}>
+                    <MealCategoryBadge category={menu.meal_category} />
                     <Text style={[styles.menuName, isSelected && styles.menuNameSelected]}>
                       {menu.meal_name}
                     </Text>

@@ -100,7 +100,7 @@ function OrderCountdown({ deadlineMs, onExpire }: { deadlineMs: number; onExpire
 export default function ParentHomeScreen() {
   const router = useRouter();
   const [parent, setParent] = useState<Parent | null>(null);
-  const [weekReservations, setWeekReservations] = useState<Reservation[]>([]);
+  const [weekReservations, setWeekReservations] = useState<Pick<Reservation, 'id' | 'date' | 'child_id'>[]>([]);
   const [upcomingReservations, setUpcomingReservations] = useState<WeekReservation[]>([]);
   const [monthlyOrders, setMonthlyOrders] = useState<number[]>([0, 0, 0, 0, 0]);
   const [childrenCount, setChildrenCount] = useState(0);
@@ -194,12 +194,13 @@ export default function ParentHomeScreen() {
         (childrenData || []).map(async (child) => {
           const { data: reservations } = await supabase
             .from('reservations')
-            .select('id')
+            .select('id, date')
+            .neq('payment_status', 'cancelled')
             .eq('child_id', child.id)
             .gte('date', startDateStr)
             .lte('date', endDateStr);
 
-          const reservationCount = reservations?.length || 0;
+          const reservationCount = new Set((reservations || []).map(reservation => reservation.date)).size;
           let status: 'none' | 'partial' | 'complete' = 'none';
 
           if (reservationCount === 0) {
@@ -222,7 +223,8 @@ export default function ParentHomeScreen() {
 
       const { data: weekReservationsData } = await supabase
         .from('reservations')
-        .select('id, date')
+        .select('id, date, child_id')
+        .neq('payment_status', 'cancelled')
         .eq('parent_id', parentData.id)
         .gte('date', startDateStr)
         .lte('date', endDateStr);
@@ -301,7 +303,8 @@ export default function ParentHomeScreen() {
         .eq('parent_id', parentData.id)
         .gte('date', todayStr)
         .order('date', { ascending: true })
-        .limit(100);
+        .limit(100)
+        .returns<WeekReservation[]>();
 
       setUpcomingReservations(upcomingData || []);
 
@@ -404,7 +407,7 @@ export default function ParentHomeScreen() {
   const renderGauge = () => {
     const daysPerWeek = 6;
     const maxMeals = childrenCount * daysPerWeek;
-    const bookedMeals = weekReservations.length;
+    const bookedMeals = new Set(weekReservations.map(reservation => `${reservation.child_id}:${reservation.date}`)).size;
     const pct = maxMeals > 0 ? Math.min(1, bookedMeals / maxMeals) : 0;
 
     const size = 190;
@@ -607,8 +610,8 @@ export default function ParentHomeScreen() {
           onPress={() => router.push('/(parent)/reservation')}
         >
           <View style={styles.orderButtonTextWrap}>
-            <Text style={styles.orderButtonTitle}>Commander un menu</Text>
-            <Text style={styles.orderButtonSubtitle}>ACTION PRIORITAIRE</Text>
+            <Text style={styles.orderButtonTitle}>Commander un repas</Text>
+            <Text style={styles.orderButtonSubtitle}>MENUS CLASSIQUES ET SNACKERIE</Text>
           </View>
           <UtensilsCrossed size={30} color="#0F172A" />
         </TouchableOpacity>

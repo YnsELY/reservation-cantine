@@ -1,4 +1,5 @@
-﻿import { useCallback, useMemo, useState } from 'react';
+import { mealCategoryLabel } from '@/lib/meal-category';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PinGate } from '@/components/PinGate';
@@ -298,7 +299,7 @@ export default function ProviderWeekScreen() {
                       <View key={menu.id} style={styles.menuRow}>
                         <View style={[styles.menuAccent, { backgroundColor: menu.card_color || '#FFE4E1' }]} />
                         <ChefHat size={18} color="#6B7280" />
-                        <Text style={styles.menuName}>{menu.meal_name}</Text>
+                        <Text style={styles.menuName}>{mealCategoryLabel(menu.meal_category)} · {menu.meal_name}</Text>
                         <Text style={styles.menuPrice}>{Number(menu.price).toFixed(2)} DH</Text>
                       </View>
                     ))

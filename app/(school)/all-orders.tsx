@@ -1,3 +1,5 @@
+import { MealCategoryBadge, MealCategoryTabs } from '@/components/MealCategory';
+import { matchesMealCategory, mealCategoryLabel, type MealCategoryFilter } from '@/lib/meal-category';
 import { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -21,6 +23,7 @@ interface OrderDetail {
   parent_name: string;
   menu_id: string;
   menu_name: string;
+  meal_category?: string;
   annotations: string | null;
 }
 
@@ -71,6 +74,7 @@ export default function AllOrders() {
   const params = useLocalSearchParams();
   const date = (Array.isArray(params.date) ? params.date[0] : params.date) || '';
 
+  const [categoryFilter, setCategoryFilter] = useState<MealCategoryFilter>('all');
   const [orders, setOrders] = useState<OrderDetail[]>([]);
   const [menus, setMenus] = useState<MenuOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +84,7 @@ export default function AllOrders() {
 
   const [showExportModal, setShowExportModal] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportCategory, setExportCategory] = useState<MealCategoryFilter>('all');
   const [exportFormat, setExportFormat] = useState<ExportFormat>('xlsx');
   const [exportClass, setExportClass] = useState<string>('all');
   const [exportMenuId, setExportMenuId] = useState<string>('all');
@@ -119,7 +124,7 @@ export default function AllOrders() {
       .select(`
         id, parent_id, annotations,
         child:children!child_id(id, first_name, last_name, grade, allergies, school_id, genre),
-        menu:menus!menu_id(id, meal_name, school_id)
+        menu:menus!menu_id(id, meal_name, meal_category, school_id)
       `)
       .eq('date', dateStr)
       .neq('payment_status', 'cancelled');
@@ -153,6 +158,7 @@ export default function AllOrders() {
         parent_name: parent ? `${parent.first_name || ''} ${parent.last_name || ''}`.trim() : 'Parent',
         menu_id: r.menu?.id || '',
         menu_name: r.menu?.meal_name || '',
+        meal_category: r.menu?.meal_category,
         annotations: (r.annotations || '').trim() || null,
       };
     });
@@ -170,6 +176,7 @@ export default function AllOrders() {
 
   const filteredOrders = useMemo(() => {
     return orders.filter(o => {
+      if (!matchesMealCategory(o.meal_category, categoryFilter)) return false;
       if (selectedMenuId !== 'all' && o.menu_id !== selectedMenuId) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -178,7 +185,7 @@ export default function AllOrders() {
       }
       return true;
     });
-  }, [orders, selectedMenuId, searchQuery]);
+  }, [orders, selectedMenuId, searchQuery, categoryFilter]);
 
   const countsByMenu = useMemo(() => {
     const map = new Map<string, number>();
@@ -222,6 +229,7 @@ export default function AllOrders() {
     try {
       const toExport = orders
         .filter(o => {
+          if (!matchesMealCategory(o.meal_category, exportCategory)) return false;
           if (exportMenuId !== 'all' && o.menu_id !== exportMenuId) return false;
           if (exportClass !== 'all' && (o.child_grade || NO_GRADE_LABEL) !== exportClass) return false;
           if (exportGenre !== 'all' && o.child_genre !== exportGenre) return false;
@@ -240,12 +248,13 @@ export default function AllOrders() {
         return;
       }
 
-      const header = ['Classe', 'Élève', 'Sexe', 'Parent', 'Menu', 'Allergies', 'Instructions'];
+      const header = ['Classe', 'Élève', 'Sexe', 'Parent', 'Catégorie', 'Repas', 'Allergies', 'Instructions'];
       const rows = toExport.map(o => [
         o.child_grade || '',
         `${o.child_first_name} ${o.child_last_name}`.trim(),
         genreLabel(o.child_genre),
         o.parent_name,
+        mealCategoryLabel(o.meal_category),
         o.menu_name,
         o.child_allergies.join(', ') || 'Aucune',
         o.annotations || '',
@@ -258,6 +267,7 @@ export default function AllOrders() {
       const sexeLabel = exportGenre === 'all' ? 'Tous' : exportGenre === 'fille' ? 'Filles' : 'Garçons';
 
       const scopeLabel = [
+        exportCategory !== 'all' && exportCategory,
         exportMenuId !== 'all' && sanitizeFileName(menus.find(m => m.id === exportMenuId)?.name || 'menu'),
         exportClass !== 'all' && sanitizeFileName(exportClass),
         exportGenre !== 'all' && exportGenre,
@@ -269,6 +279,7 @@ export default function AllOrders() {
         title: 'Récapitulatif des commandes',
         subtitle: formatLongDate(date),
         meta: [
+          { label: 'Catégorie', value: exportCategory === 'all' ? 'Toutes' : mealCategoryLabel(exportCategory) },
           { label: 'Menu', value: menuLabel },
           { label: 'Classe', value: classeLabel },
           { label: 'Sexe', value: sexeLabel },
@@ -305,7 +316,7 @@ export default function AllOrders() {
           <Text style={styles.headerTitle}>Récapitulatif des commandes</Text>
           <Text style={styles.headerSubtitle}>{formatLongDate(date)}</Text>
         </View>
-        <TouchableOpacity style={styles.exportButton} onPress={() => setShowExportModal(true)}>
+        <TouchableOpacity style={styles.exportButton} onPress={() => { setExportCategory(categoryFilter); setExportMenuId(selectedMenuId); setShowExportModal(true); }}>
           <FileDown size={14} color="#111827" />
           <Text style={styles.exportButtonText}>Export</Text>
         </TouchableOpacity>
@@ -379,6 +390,7 @@ export default function AllOrders() {
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void loadData(); }} />
         }
       >
+        <MealCategoryTabs value={categoryFilter} onChange={setCategoryFilter} />
         {filteredOrders.length === 0 ? (
           <View style={styles.emptyState}>
             <UtensilsCrossed size={48} color="#D1D5DB" />
@@ -410,6 +422,7 @@ export default function AllOrders() {
                     <Text style={styles.orderCardParent} numberOfLines={1}>
                       Parent: {order.parent_name}
                     </Text>
+                    <MealCategoryBadge category={order.meal_category} />
                     <Text style={styles.orderCardMenu} numberOfLines={1}>{order.menu_name}</Text>
                     {order.annotations ? (
                       <View style={styles.noteWrap}>
@@ -451,6 +464,8 @@ export default function AllOrders() {
         exporting={exporting}
         title="Exporter les commandes"
       >
+        <Text style={styles.modalSectionTitle}>CATÉGORIE</Text>
+        <MealCategoryTabs value={exportCategory} onChange={setExportCategory} />
         <Text style={styles.modalSectionTitle}>MENU</Text>
         <ScrollView style={styles.modalScrollSection} showsVerticalScrollIndicator={false} nestedScrollEnabled>
           <TouchableOpacity style={styles.modalOption} onPress={() => setExportMenuId('all')}>

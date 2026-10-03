@@ -1,3 +1,4 @@
+import { MealCategoryBadge } from '@/components/MealCategory';
 import { isMealPastCutoff, parseYmd } from '@/lib/dates';
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Switch } from 'react-native';
@@ -372,6 +373,7 @@ export default function CartScreen() {
                   {items.map((item) => (
                     <View key={item.id} style={styles.cartItem}>
                       <View style={styles.itemHeader}>
+                        <MealCategoryBadge category={item.menu.meal_category} />
                         <Text style={styles.menuName}>{item.menu.meal_name}</Text>
                         <TouchableOpacity
                           onPress={() => removeFromCart(item.id)}

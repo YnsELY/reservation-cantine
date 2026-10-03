@@ -1,3 +1,4 @@
+import { MEAL_CATEGORIES, getMealCategory, type MealCategory } from '@/lib/meal-category';
 import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +12,7 @@ import { LineChart } from 'react-native-chart-kit';
 import { useNotifications } from '@/hooks/useNotifications';
 
 interface MenuBreakdownItem {
+  category: MealCategory;
   label: string;
   count: number;
 }
@@ -97,10 +99,11 @@ export default function ProviderHomeScreen() {
       {
         const { data: todayMenusData } = await supabase
           .from('menus')
-          .select('id, meal_name')
+          .select('id, meal_name, meal_category')
           .eq('date', todayStr)
           .eq('provider_id', currentProvider.id);
 
+        const categoryById = new Map((todayMenusData || []).map(m => [m.id, getMealCategory(m.meal_category)]));
         const menuNameById = new Map<string, string>(
           (todayMenusData || []).map((m: any) => [m.id, (m.meal_name || 'Menu').trim()])
         );
@@ -127,11 +130,12 @@ export default function ProviderHomeScreen() {
 
           // 3 groupes : classique (menu seul, préparé en lot), générique (boissons/desserts…),
           // spécifique (menu + supplément précis ET/OU instruction du parent).
-          const classicMap = new Map<string, { label: string; count: number }>();
-          const specificMap = new Map<string, { label: string; count: number }>();
+          const classicMap = new Map<string, MenuBreakdownItem>();
+          const specificMap = new Map<string, MenuBreakdownItem>();
           const genAggMap = new Map<string, SupplementAggregate>();
           todayOrders.forEach((order) => {
-            const menuName = menuNameById.get(order.menu_id) || 'Menu';
+            const menuName = menuNameById.get(order.menu_id) || 'Repas';
+            const category = categoryById.get(order.menu_id) || 'classic';
             const specificNames: string[] = [];
             parseOrderSupplements(order.supplements).forEach((s) => {
               const name = (s.name || '').trim();
@@ -152,7 +156,7 @@ export default function ProviderHomeScreen() {
               // Classique : menu de base, préparé en lot
               const ex = classicMap.get(order.menu_id);
               if (ex) ex.count += 1;
-              else classicMap.set(order.menu_id, { label: menuName, count: 1 });
+              else classicMap.set(order.menu_id, { label: menuName, count: 1, category });
             } else {
               // Spécifique : menu + supplément(s) précis et/ou instruction du parent
               let label = menuName;
@@ -161,7 +165,7 @@ export default function ProviderHomeScreen() {
               const key = `${order.menu_id}|${specificNames.join('§').toLocaleLowerCase('fr-FR')}|${note.toLocaleLowerCase('fr-FR')}`;
               const ex = specificMap.get(key);
               if (ex) ex.count += 1;
-              else specificMap.set(key, { label, count: 1 });
+              else specificMap.set(key, { label, count: 1, category });
             }
           });
           classicMenus = Array.from(classicMap.values())
@@ -271,46 +275,44 @@ export default function ProviderHomeScreen() {
           </View>
           <View style={styles.todayStatsCenter}>
             <Text style={styles.todayStatValue}>{todayOrdersCount}</Text>
-            <Text style={styles.todayStatLabel}>Menu{todayOrdersCount > 1 ? 's' : ''} à préparer</Text>
+            <Text style={styles.todayStatLabel}>Repas à préparer</Text>
           </View>
 
-          {(todayClassicMenus.length > 0 || todayGenericSupplements.length > 0) && (
-            <>
-              <View style={styles.todayDivider} />
-              <Text style={styles.todaySectionLabel}>À PRÉPARER</Text>
-              {todayClassicMenus.map((item, idx) => (
-                <View key={`c-${item.label}-${idx}`} style={styles.todayRow}>
-                  <Text style={styles.todayRowName}>{item.label}</Text>
-                  <View style={styles.todayCountPill}>
-                    <Text style={styles.todayCountPillText}>×{item.count}</Text>
+          {MEAL_CATEGORIES.map(category => {
+            const standard = todayClassicMenus.filter(item => item.category === category.value);
+            const specific = todaySpecificOrders.filter(item => item.category === category.value);
+            if (!standard.length && !specific.length) return null;
+            return (
+              <View key={category.value}>
+                <View style={styles.todayDivider} />
+                <Text style={styles.todaySectionLabel}>{category.label.toUpperCase()}</Text>
+                {standard.map((item, idx) => (
+                  <View key={`base-${idx}`} style={styles.todayRow}>
+                    <Text style={styles.todayRowName}>{item.label}</Text>
+                    <View style={styles.todayCountPill}><Text style={styles.todayCountPillText}>×{item.count}</Text></View>
                   </View>
-                </View>
-              ))}
-              {todayGenericSupplements.map((item, idx) => (
-                <View key={`g-${item.name}-${idx}`} style={styles.todayRow}>
-                  <Text style={styles.todayRowName}>{item.name}</Text>
-                  <View style={styles.todayCountPill}>
-                    <Text style={styles.todayCountPillText}>×{item.quantity}</Text>
+                ))}
+                {specific.length > 0 && <Text style={styles.todaySectionLabel}>AVEC SUPPLÉMENTS OU INSTRUCTIONS</Text>}
+                {specific.map((item, idx) => (
+                  <View key={`specific-${idx}`} style={styles.todayRow}>
+                    <Text style={styles.todayRowName}>{item.label}</Text>
+                    <View style={styles.todayCountPill}><Text style={styles.todayCountPillText}>×{item.count}</Text></View>
                   </View>
-                </View>
-              ))}
-            </>
-          )}
+                ))}
+              </View>
+            );
+          })}
+          {todayGenericSupplements.length > 0 && <>
+            <View style={styles.todayDivider} />
+            <Text style={styles.todaySectionLabel}>SUPPLÉMENTS GÉNÉRIQUES</Text>
+            {todayGenericSupplements.map((item, idx) => (
+              <View key={idx} style={styles.todayRow}>
+                <Text style={styles.todayRowName}>{item.name}</Text>
+                <View style={styles.todayCountPill}><Text style={styles.todayCountPillText}>×{item.quantity}</Text></View>
+              </View>
+            ))}
+          </>}
 
-          {todaySpecificOrders.length > 0 && (
-            <>
-              <View style={styles.todayDivider} />
-              <Text style={styles.todaySectionLabel}>COMMANDES SPÉCIFIQUES</Text>
-              {todaySpecificOrders.map((item, idx) => (
-                <View key={`s-${item.label}-${idx}`} style={styles.todayRow}>
-                  <Text style={styles.todayRowName}>{item.label}</Text>
-                  <View style={styles.todayCountPill}>
-                    <Text style={styles.todayCountPillText}>×{item.count}</Text>
-                  </View>
-                </View>
-              ))}
-            </>
-          )}
         </View>
 
         <View style={styles.actionsRow}>
@@ -321,7 +323,7 @@ export default function ProviderHomeScreen() {
             <View style={styles.actionIconContainer}>
               <UtensilsCrossed size={26} color="#FFFFFF" />
             </View>
-            <Text style={styles.actionTitle}>Menus &{'\n'}suppléments</Text>
+            <Text style={styles.actionTitle}>Repas &{'\n'}suppléments</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

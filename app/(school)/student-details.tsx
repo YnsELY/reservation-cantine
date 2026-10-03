@@ -1,3 +1,4 @@
+import { MealCategoryBadge } from '@/components/MealCategory';
 import { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -34,6 +35,7 @@ interface StudentReservation {
   payment_status: string | null;
   menus?: {
     meal_name: string;
+    meal_category?: string;
     description: string | null;
     price: number | null;
   } | null;
@@ -131,7 +133,8 @@ export default function StudentDetailsScreen() {
         `)
         .eq('id', childIdValue)
         .eq('school_id', currentSchool.id)
-        .maybeSingle();
+        .maybeSingle()
+        .returns<StudentDetails | null>();
 
       if (studentError) throw studentError;
       if (!studentData) {
@@ -148,11 +151,12 @@ export default function StudentDetailsScreen() {
           total_price,
           annotations,
           payment_status,
-          menus:menu_id(meal_name, description, price)
+          menus:menu_id(meal_name, meal_category, description, price)
         `)
         .eq('child_id', childIdValue)
         .order('date', { ascending: false })
-        .limit(50);
+        .limit(50)
+        .returns<StudentReservation[]>();
 
       if (reservationsError) throw reservationsError;
       setReservations((reservationsData || []) as StudentReservation[]);
@@ -228,6 +232,7 @@ export default function StudentDetailsScreen() {
               <View style={styles.datePill}>
                 <Text style={styles.datePillText}>{formatLongDate(selectedReservation.date)}</Text>
               </View>
+              <MealCategoryBadge category={selectedReservation.menus?.meal_category} />
               <Text style={styles.menuName}>{selectedReservation.menus?.meal_name || 'Menu'}</Text>
               {selectedReservation.menus?.description && (
                 <Text style={styles.menuDescription}>{selectedReservation.menus.description}</Text>
@@ -342,6 +347,7 @@ export default function StudentDetailsScreen() {
                     {Number(reservation.total_price ?? 0).toFixed(2)} DH
                   </Text>
                 </View>
+                <MealCategoryBadge category={reservation.menus?.meal_category} />
                 <Text style={styles.upcomingMeal}>{reservation.menus?.meal_name || 'Menu'}</Text>
               </TouchableOpacity>
             ))

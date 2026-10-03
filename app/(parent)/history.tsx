@@ -1,4 +1,5 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { MealCategoryBadge } from '@/components/MealCategory';
+import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -36,6 +37,7 @@ interface ReservationWithDetails {
   };
   menu: {
     meal_name: string;
+    meal_category?: string;
   };
 }
 
@@ -97,7 +99,8 @@ export default function HistoryScreen() {
             last_name
           ),
           menus:menu_id (
-            meal_name
+            meal_name,
+            meal_category
           )
         `)
         .eq('parent_id', currentParent.id)
@@ -442,7 +445,7 @@ export default function HistoryScreen() {
 
                   <View style={styles.detailRow}>
                     <Text style={styles.detailLabel}>Menu:</Text>
-                    <Text style={styles.detailValue}>{reservation.menu.meal_name}</Text>
+                    <View><MealCategoryBadge category={reservation.menu.meal_category} /><Text style={styles.detailValue}>{reservation.menu.meal_name}</Text></View>
                   </View>
 
                   {reservation.annotations && (

@@ -1,7 +1,10 @@
+import { matchesMealCategory, type MealCategory, type MealCategoryFilter } from './meal-category.ts';
 import { parseOrderSupplements } from './order-supplements.ts';
 import type { OrderSupplement } from './order-supplements.ts';
 
 export interface PreparationOrder {
+  meal_name?: string;
+  meal_category?: MealCategory;
   id: string;
   child_name: string;
   child_initial: string;
@@ -51,7 +54,7 @@ export async function fetchPreparationSnapshot(client: PreparationClient, menuId
   return { generatedAt: data.generated_at, orders };
 }
 
-export function selectPreparationOrders(orders: PreparationOrder[], schoolId: string, genre: string) {
+export function selectPreparationOrders(orders: PreparationOrder[], schoolId: string, genre: string, category: MealCategoryFilter = 'all') {
   return orders.filter(order => (schoolId === 'all' || order.school_id === schoolId) &&
-    (genre === 'all' || order.genre === genre));
+    (genre === 'all' || order.genre === genre) && matchesMealCategory(order.meal_category, category));
 }

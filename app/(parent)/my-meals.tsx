@@ -1,4 +1,5 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { mealCategoryLabel } from '@/lib/meal-category';
+import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,6 +24,7 @@ interface Reservation {
   };
   menus: {
     meal_name: string;
+    meal_category?: string;
     card_color: string;
   };
 }
@@ -68,13 +70,14 @@ export default function MyMealsScreen() {
           total_price,
           payment_status,
           children (first_name, last_name),
-          menus (meal_name, card_color)
+          menus (meal_name, meal_category, card_color)
         `)
         .eq('parent_id', currentParent.id)
         .neq('payment_status', 'cancelled')
         .gte('date', startOfWeek.toISOString().split('T')[0])
         .lte('date', endOfWeek.toISOString().split('T')[0])
-        .order('date', { ascending: true });
+        .order('date', { ascending: true })
+        .returns<Reservation[]>();
 
       if (error) throw error;
 
@@ -238,7 +241,7 @@ export default function MyMealsScreen() {
                           {reservation.children.first_name} {reservation.children.last_name}
                         </Text>
                         <Text style={styles.mealName}>
-                          {reservation.menus.meal_name}
+                          {mealCategoryLabel(reservation.menus.meal_category)} · {reservation.menus.meal_name}
                         </Text>
                       </View>
                     </View>

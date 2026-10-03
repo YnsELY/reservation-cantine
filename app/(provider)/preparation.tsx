@@ -1,4 +1,6 @@
-﻿import { useState, useEffect, useRef, useCallback } from 'react';
+import { MealCategoryBadge, MealCategoryTabs } from '@/components/MealCategory';
+import { getMealCategory, matchesMealCategory, menuContentKey, type MealCategoryFilter } from '@/lib/meal-category';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -29,6 +31,7 @@ const formatDateToLocal = (date: Date): string => {
 };
 
 export default function ProviderDashboard() {
+  const [categoryFilter, setCategoryFilter] = useState<MealCategoryFilter>('all');
   const [groupedMenus, setGroupedMenus] = useState<GroupedMenuWithOrderCount[]>([]);
   const [totalSchools, setTotalSchools] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -44,7 +47,7 @@ export default function ProviderDashboard() {
     const groups: { [key: string]: GroupedMenuWithOrderCount } = {};
 
     menusList.forEach((menu) => {
-      const key = `${menu.meal_name}-${menu.date}-${menu.price}-${menu.description || ''}-${menu.image_url || ''}`;
+      const key = menuContentKey(menu);
 
       if (!groups[key]) {
         groups[key] = {
@@ -342,6 +345,7 @@ export default function ProviderDashboard() {
         </View>
       </View>
 
+      <MealCategoryTabs value={categoryFilter} onChange={setCategoryFilter} />
       <ScrollView
         style={styles.menuCardsContainer}
         contentContainerStyle={styles.menuCardsContent}
@@ -350,7 +354,7 @@ export default function ProviderDashboard() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {groupedMenus.length === 0 ? (
+        {groupedMenus.filter(menu => matchesMealCategory(menu.meal_category, categoryFilter)).length === 0 ? (
           <View style={styles.emptyMenusContainer}>
             <UtensilsCrossed size={48} color="#9CA3AF" />
             <Text style={styles.emptyMenusText}>
@@ -358,7 +362,7 @@ export default function ProviderDashboard() {
             </Text>
           </View>
         ) : (
-          groupedMenus.map((menu, index) => {
+          groupedMenus.filter(menu => matchesMealCategory(menu.meal_category, categoryFilter)).sort((a, b) => getMealCategory(a.meal_category).localeCompare(getMealCategory(b.meal_category))).map((menu, index) => {
             const cardColor = menu.card_color || getCardColor(index);
             const textColor = isLightColor(cardColor) ? '#1F2937' : '#FFFFFF';
 
@@ -369,6 +373,7 @@ export default function ProviderDashboard() {
                 activeOpacity={0.9}
                 onPress={() => router.push(`/(provider)/menu-orders?menuId=${menu.id}&menuIds=${encodeURIComponent(JSON.stringify(menu.menu_ids))}&menuName=${encodeURIComponent(menu.meal_name)}&date=${selectedDate}`)}
               >
+                <MealCategoryBadge category={menu.meal_category} />
                 <View style={styles.menuCardHeader}>
                   <View style={styles.menuCardTitleContainer}>
                     <View style={styles.menuCardTitleContent}>

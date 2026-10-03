@@ -1,4 +1,6 @@
-﻿import { useCallback, useState } from 'react';
+import { MealCategoryTabs } from '@/components/MealCategory';
+import { matchesMealCategory, type MealCategoryFilter } from '@/lib/meal-category';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -87,6 +89,7 @@ const fetchMenus = async (currentProvider: Provider): Promise<LibraryMenu[]> => 
   return ((data || []) as ProviderMenuLibrary[]).map(menu => ({
     id: menu.id,
     meal_name: menu.meal_name,
+    meal_category: menu.meal_category,
     description: menu.description,
     price: menu.price,
     image_url: menu.image_url,
@@ -118,6 +121,8 @@ export default function ProviderLibraryScreen() {
   const [schools, setSchools] = useState<SchoolAccess[]>([]);
   const [menus, setMenus] = useState<LibraryMenu[]>([]);
   const [supplements, setSupplements] = useState<LibrarySupplement[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<MealCategoryFilter>('all');
+  const visibleMenus = menus.filter(menu => matchesMealCategory(menu.meal_category, categoryFilter));
   const [activeTab, setActiveTab] = useState<LibraryTab>('menus');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -179,7 +184,7 @@ export default function ProviderLibraryScreen() {
   };
 
   const handleAdd = () => {
-    router.push(activeTab === 'menus' ? '/(provider)/add-menu' : '/(provider)/add-supplement');
+    router.push(activeTab === 'menus' ? { pathname: '/(provider)/add-menu', params: { category: categoryFilter === 'snack' ? 'snack' : 'classic' } } : '/(provider)/add-supplement');
   };
 
   const handleEditMenu = (menu: LibraryMenu) => {
@@ -338,18 +343,19 @@ export default function ProviderLibraryScreen() {
         </TouchableOpacity>
       </View>
 
+      {activeTab === 'menus' && <MealCategoryTabs value={categoryFilter} onChange={setCategoryFilter} />}
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
       >
         {activeTab === 'menus' ? (
-          menus.length === 0 ? (
+          visibleMenus.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyTitle}>Aucun menu</Text>
+              <Text style={styles.emptyTitle}>Aucun repas dans cette catégorie</Text>
             </View>
           ) : (
-            menus.map(menu => (
+            visibleMenus.map(menu => (
               <ProviderMenuCard
                 key={menu.id}
                 menu={menu}

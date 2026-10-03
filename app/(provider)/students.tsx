@@ -1,3 +1,6 @@
+import { MealCategoryTabs } from '@/components/MealCategory';
+import { studentHasMealCategory, type MealCategoryFilter, type StudentMealCount } from '@/lib/meal-category';
+import { getMoroccoDate } from '@/lib/order-time';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,6 +18,8 @@ import {
   AlertCircle,
   ArrowLeft,
   Building2,
+  ChevronLeft,
+  ChevronRight,
   GraduationCap,
   Search,
   UserRound,
@@ -74,6 +79,14 @@ export default function ProviderStudentsScreen() {
   const [students, setStudents] = useState<ProviderStudent[]>([]);
   const [schoolFilter, setSchoolFilter] = useState(ALL);
   const [gradeFilter, setGradeFilter] = useState(ALL);
+  const [providerId, setProviderId] = useState<string | null>(null);
+  const [mealDate, setMealDate] = useState(getMoroccoDate);
+  const [categoryFilter, setCategoryFilter] = useState<MealCategoryFilter>('all');
+  const [mealCounts, setMealCounts] = useState<StudentMealCount[]>([]);
+  const [mealsLoading, setMealsLoading] = useState(false);
+  const [mealError, setMealError] = useState('');
+  const [mealsRefresh, setMealsRefresh] = useState(0);
+  const countsByChild = useMemo(() => new Map(mealCounts.map(row => [row.child_id, row])), [mealCounts]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -83,6 +96,34 @@ export default function ProviderStudentsScreen() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    if (!providerId) return;
+    let active = true;
+    setMealsLoading(true);
+    setMealCounts([]);
+    setMealError('');
+    void (async () => {
+      try {
+        const { data, error: rpcError } = await supabase.rpc('get_provider_student_meal_counts', {
+          p_provider_id: providerId, p_date: mealDate,
+        });
+        if (rpcError || !Array.isArray(data)) throw rpcError || new Error('Liste incomplète');
+        if (active) setMealCounts(data as StudentMealCount[]);
+      } catch {
+        if (active) setMealError('Impossible de charger les repas de cette date. Actualisez la liste.');
+      } finally {
+        if (active) setMealsLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [providerId, mealDate, mealsRefresh]);
+
+  const moveMealDate = (offset: number) => {
+    const date = new Date(`${mealDate}T12:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + offset);
+    setMealDate(date.toISOString().slice(0, 10));
+  };
+
   const loadData = async () => {
     try {
       const currentProvider = await authService.getCurrentProviderFromAuth();
@@ -91,6 +132,8 @@ export default function ProviderStudentsScreen() {
         return;
       }
 
+      setProviderId(currentProvider.id);
+      setMealsRefresh(value => value + 1);
       const { data: accessRows, error: accessError } = await supabase
         .from('provider_school_access')
         .select('school_id, schools(id, name)')
@@ -156,6 +199,7 @@ export default function ProviderStudentsScreen() {
 
     return students
       .filter(student => {
+        if (!studentHasMealCategory(countsByChild.get(student.id), categoryFilter)) return false;
         const grade = student.grade?.trim() || NO_GRADE;
         const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
         const parentName = `${student.parent_first_name || ''} ${student.parent_last_name || ''}`.trim();
@@ -177,7 +221,7 @@ export default function ProviderStudentsScreen() {
         ].some(value => normalizeSearchText(value).includes(query));
       })
       .sort(comparePeopleByLastName);
-  }, [gradeFilter, schoolFilter, schoolNames, searchQuery, students]);
+  }, [gradeFilter, schoolFilter, schoolNames, searchQuery, students, countsByChild, categoryFilter]);
 
   const selectSchool = (schoolId: string) => {
     setSchoolFilter(schoolId);
@@ -279,9 +323,26 @@ export default function ProviderStudentsScreen() {
           </View>
         )}
 
+        <View style={styles.filterGroup}>
+          <Text style={styles.filterLabel}>REPAS COMMANDÉS POUR LE</Text>
+          <View style={styles.mealDateRow}>
+            <TouchableOpacity onPress={() => moveMealDate(-1)} accessibilityLabel="Jour précédent" style={styles.backButton}>
+              <ChevronLeft size={18} color="#0E5FC0" />
+            </TouchableOpacity>
+            <Text style={styles.mealDateLabel}>{new Date(`${mealDate}T12:00:00Z`).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}</Text>
+            <TouchableOpacity onPress={() => moveMealDate(1)} accessibilityLabel="Jour suivant" style={styles.backButton}>
+              <ChevronRight size={18} color="#0E5FC0" />
+            </TouchableOpacity>
+          </View>
+          <MealCategoryTabs value={categoryFilter} onChange={setCategoryFilter} />
+          <Text style={styles.emptyText}>Un élève ayant commandé les deux apparaît dans chaque catégorie.</Text>
+          {mealsLoading && <ActivityIndicator color="#0E5FC0" />}
+          {!!mealError && <Text style={styles.errorText}>{mealError}</Text>}
+        </View>
+
         <View style={styles.resultsHeader}>
           <Text style={styles.resultsTitle}>Élèves accessibles</Text>
-          <Text style={styles.resultsCount}>{visibleStudents.length}</Text>
+          <Text style={styles.resultsCount}>{categoryFilter !== 'all' && (mealsLoading || mealError) ? '—' : visibleStudents.length}</Text>
         </View>
 
         {error ? (
@@ -289,6 +350,8 @@ export default function ProviderStudentsScreen() {
             <AlertCircle size={24} color="#B91C1C" />
             <Text style={styles.errorText}>{error}</Text>
           </View>
+        ) : categoryFilter !== 'all' && (mealsLoading || mealError) ? (
+          <View style={styles.messageCard}><Text style={styles.emptyText}>{mealsLoading ? 'Chargement des repas…' : 'Les repas de cette date ne sont pas disponibles. Actualisez la liste.'}</Text></View>
         ) : visibleStudents.length === 0 ? (
           <View style={styles.emptyCard}>
             <GraduationCap size={44} color="#94A3B8" />
@@ -331,6 +394,10 @@ export default function ProviderStudentsScreen() {
                     </View>
                   </View>
 
+                  {!mealsLoading && !mealError && <View style={[styles.metaRow, { marginTop: 12 }]}>
+                    <Text style={styles.metaText}>Menus classiques : {Number(countsByChild.get(student.id)?.classic_count || 0)}</Text>
+                    <Text style={styles.metaText}>Snackerie : {Number(countsByChild.get(student.id)?.snack_count || 0)}</Text>
+                  </View>}
                   <View style={styles.parentRow}>
                     <View style={styles.parentIcon}>
                       <UserRound size={17} color="#065F46" />
@@ -504,6 +571,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 10,
   },
+  mealDateRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  mealDateLabel: { flex: 1, textAlign: 'center', color: '#0F172A', fontSize: 14, fontWeight: '700' },
   resultsTitle: {
     color: '#0F172A',
     fontSize: 18,

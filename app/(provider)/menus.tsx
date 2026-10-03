@@ -1,4 +1,6 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { MealCategoryBadge, MealCategoryTabs } from '@/components/MealCategory';
+import { getMealCategory, matchesMealCategory, menuContentKey, type MealCategoryFilter } from '@/lib/meal-category';
+import { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Image } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -38,6 +40,7 @@ export default function ProviderMenus() {
   const [provider, setProvider] = useState<Provider | null>(null);
   const [schools, setSchools] = useState<SchoolAccess[]>([]);
   const [menus, setMenus] = useState<Menu[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<MealCategoryFilter>('all');
   const [groupedMenus, setGroupedMenus] = useState<GroupedMenu[]>([]);
   const [supplements, setSupplements] = useState<Map<string, Supplement>>(new Map());
   const [specificSupplements, setSpecificSupplements] = useState<Map<string, SpecificSupplement[]>>(new Map());
@@ -181,7 +184,7 @@ export default function ProviderMenus() {
     const groups: { [key: string]: GroupedMenu } = {};
 
     menusList.forEach((menu) => {
-      const key = `${menu.meal_name}-${menu.date}-${menu.price}-${menu.description || ''}-${menu.image_url || ''}`;
+      const key = menuContentKey(menu);
 
       if (!groups[key]) {
         groups[key] = {
@@ -275,6 +278,7 @@ export default function ProviderMenus() {
         </TouchableOpacity>
       </View>
 
+      <MealCategoryTabs value={categoryFilter} onChange={setCategoryFilter} />
       <ScrollView style={styles.content}>
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -288,12 +292,12 @@ export default function ProviderMenus() {
             </TouchableOpacity>
           </View>
 
-          {groupedMenus.length === 0 ? (
+          {groupedMenus.filter(menu => matchesMealCategory(menu.meal_category, categoryFilter)).length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyText}>Aucun menu à venir</Text>
             </View>
           ) : (
-            groupedMenus.map((menu, index) => (
+            groupedMenus.filter(menu => matchesMealCategory(menu.meal_category, categoryFilter)).sort((a, b) => getMealCategory(a.meal_category).localeCompare(getMealCategory(b.meal_category))).map((menu, index) => (
               <View key={`${menu.id}-${index}`} style={styles.menuItem}>
                 {menu.image_url && (
                   <Image
@@ -303,6 +307,7 @@ export default function ProviderMenus() {
                   />
                 )}
                 <View style={styles.menuItemContent}>
+                  <MealCategoryBadge category={menu.meal_category} />
                   <Text style={styles.menuItemName}>{menu.meal_name}</Text>
                   <View style={styles.schoolBadge}>
                     <Text style={styles.schoolBadgeText}>

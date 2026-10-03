@@ -1,3 +1,5 @@
+import { MealCategoryBadge, MealCategoryTabs } from '@/components/MealCategory';
+import { mealCategoryLabel, matchesMealCategory, type MealCategoryFilter } from '@/lib/meal-category';
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,7 +14,9 @@ interface MenuWithReservations extends Menu {
 
 export default function MenusManagement() {
   const [currentAdmin, setCurrentAdmin] = useState<Parent | null>(null);
-  const [menus, setMenus] = useState<MenuWithReservations[]>([]);
+  const [allMenus, setMenus] = useState<MenuWithReservations[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<MealCategoryFilter>('all');
+  const menus = allMenus.filter(menu => matchesMealCategory(menu.meal_category, categoryFilter));
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -103,6 +107,7 @@ export default function MenusManagement() {
         </View>
       </View>
 
+      <MealCategoryTabs value={categoryFilter} onChange={setCategoryFilter} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={{ paddingBottom: 100 }}
@@ -136,6 +141,7 @@ export default function MenusManagement() {
                   </View>
                 </View>
 
+                <MealCategoryBadge category={menu.meal_category} />
                 <Text style={styles.menuName}>{menu.meal_name}</Text>
 
                 {menu.description && (

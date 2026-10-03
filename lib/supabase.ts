@@ -82,6 +82,7 @@ export interface Child {
 }
 
 export interface Menu {
+  meal_category?: import('./meal-category').MealCategory;
   id: string;
   school_id: string;
   provider_id: string | null;
@@ -114,6 +115,7 @@ export interface Supplement {
 }
 
 export interface ProviderMenuLibrary {
+  meal_category?: import('./meal-category').MealCategory;
   id: string;
   provider_id: string;
   meal_name: string;

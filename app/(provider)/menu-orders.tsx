@@ -1,3 +1,5 @@
+import { MealCategoryBadge, MealCategoryTabs } from '@/components/MealCategory';
+import { mealCategoryLabel, type MealCategoryFilter } from '@/lib/meal-category';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -94,6 +96,8 @@ export default function MenuOrdersScreen() {
   const [exportSchoolId, setExportSchoolId] = useState<SchoolScope>('all');
   const [exportFormat, setExportFormat] = useState<ExportFormat>('xlsx');
   const [exportGenre, setExportGenre] = useState<'all' | 'fille' | 'garcon'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<MealCategoryFilter>('all');
+  const [exportCategory, setExportCategory] = useState<MealCategoryFilter>('all');
   const [exporting, setExporting] = useState(false);
 
   const menuName = getParamValue(params.menuName as string | string[] | undefined);
@@ -124,12 +128,8 @@ export default function MenuOrdersScreen() {
   }, [orders]);
 
   const filteredOrders = useMemo(() => {
-    if (selectedSchoolId === 'all') {
-      return orders;
-    }
-
-    return orders.filter(order => order.school_id === selectedSchoolId);
-  }, [orders, selectedSchoolId]);
+    return selectPreparationOrders(orders, selectedSchoolId, 'all', categoryFilter);
+  }, [orders, selectedSchoolId, categoryFilter]);
 
   useEffect(() => {
     if (selectedSchoolId !== 'all' && !schoolFilters.some(school => school.id === selectedSchoolId)) {
@@ -166,10 +166,11 @@ export default function MenuOrdersScreen() {
     void loadOrders();
   };
 
-  const getOrdersForExport = () => selectPreparationOrders(orders, exportSchoolId, exportGenre);
+  const getOrdersForExport = () => selectPreparationOrders(orders, exportSchoolId, exportGenre, exportCategory);
 
   const handleOpenExport = () => {
     setExportSchoolId(selectedSchoolId);
+    setExportCategory(categoryFilter);
     setShowExportModal(true);
   };
 
@@ -188,6 +189,8 @@ export default function MenuOrdersScreen() {
         const allergies = order.allergies.length > 0 ? order.allergies.join(', ') : 'Aucune';
 
         return [
+          mealCategoryLabel(order.meal_category),
+          order.meal_name || menuName,
           order.school_name,
           order.child_name,
           order.genre === 'fille' ? 'Fille' : order.genre === 'garcon' ? 'Garçon' : '',
@@ -208,7 +211,7 @@ export default function MenuOrdersScreen() {
       const snapshot = await fetchPreparationSnapshot(supabase, menuIds, date);
       setOrders(snapshot.orders);
       setLoadError('');
-      const ordersToExport = selectPreparationOrders(snapshot.orders, exportSchoolId, exportGenre);
+      const ordersToExport = selectPreparationOrders(snapshot.orders, exportSchoolId, exportGenre, exportCategory);
       if (ordersToExport.length === 0) {
         showAlert('Export impossible', 'Aucune commande à exporter pour cette sélection après actualisation.');
         return;
@@ -216,13 +219,13 @@ export default function MenuOrdersScreen() {
       const selectedSchoolName = exportSchoolId === 'all' ? 'Toutes les écoles'
         : ordersToExport[0].school_name;
       const selectionName = exportGenre === 'all' ? 'Tous' : exportGenre === 'fille' ? 'Filles' : 'Garçons';
-      const header = ['École', 'Élève', 'Sexe', 'Classe', 'Parent', 'Allergies', 'Suppléments', 'Instructions spécifiques'];
+      const header = ['Catégorie', 'Repas', 'École', 'Élève', 'Sexe', 'Classe', 'Parent', 'Allergies', 'Suppléments', 'Instructions spécifiques'];
       const rows = buildExportRows(ordersToExport);
 
       const scopeLabel = exportSchoolId === 'all'
         ? 'toutes-ecoles'
         : sanitizeFileName(selectedSchoolName);
-      const baseFileName = `commandes-${sanitizeFileName(menuName)}-${date}-${scopeLabel}-${exportGenre}`;
+      const baseFileName = `commandes-${sanitizeFileName(menuName)}-${date}-${scopeLabel}-${exportGenre}-${exportCategory}`;
 
       const isWeb = Platform.OS === 'web';
 
@@ -232,6 +235,7 @@ export default function MenuOrdersScreen() {
           title: menuName,
           subtitle: formatDate(date),
           meta: [
+            { label: 'Catégorie', value: exportCategory === 'all' ? 'Toutes' : mealCategoryLabel(exportCategory) },
             { label: 'Écoles', value: selectedSchoolName },
             { label: 'Élèves', value: selectionName },
             { label: 'Réservations vérifiées le', value: new Date(snapshot.generatedAt).toLocaleString('fr-FR', { timeZoneName: 'short' }) },
@@ -253,6 +257,8 @@ export default function MenuOrdersScreen() {
       if (exportFormat === 'xlsx') {
         const worksheet = XLSX.utils.aoa_to_sheet([header, ...rows]);
         worksheet['!cols'] = [
+          { wch: 18 },
+          { wch: 28 },
           { wch: 24 },
           { wch: 28 },
           { wch: 10 },
@@ -401,6 +407,7 @@ export default function MenuOrdersScreen() {
           ))}
         </ScrollView>
 
+        <MealCategoryTabs value={categoryFilter} onChange={setCategoryFilter} />
         {loadError ? (
           <View style={styles.emptyContainer}>
             <AlertTriangle size={36} color="#B45309" />
@@ -426,6 +433,7 @@ export default function MenuOrdersScreen() {
                       <Text style={styles.avatarText}>{order.child_initial}</Text>
                     </View>
                     <View style={styles.orderIdentity}>
+                      <MealCategoryBadge category={order.meal_category} />
                       <Text style={styles.childName}>{order.child_name}</Text>
                       <Text style={styles.parentName}>Parent : {order.parent_name}</Text>
                     </View>
@@ -521,6 +529,8 @@ export default function MenuOrdersScreen() {
               </TouchableOpacity>
             </View>
 
+            <Text style={styles.sheetSectionTitle}>Catégorie</Text>
+            <MealCategoryTabs value={exportCategory} onChange={setExportCategory} />
             <Text style={styles.sheetSectionTitle}>Sexe à inclure</Text>
             <View style={styles.formatToggle}>
               <TouchableOpacity

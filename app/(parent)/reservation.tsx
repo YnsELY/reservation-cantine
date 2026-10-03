@@ -1,3 +1,5 @@
+import { MealCategoryBadge, MealCategoryTabs } from '@/components/MealCategory';
+import { matchesMealCategory, type MealCategoryFilter } from '@/lib/meal-category';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -93,6 +95,8 @@ export default function ParentDashboard() {
   const [cartItemCount, setCartItemCount] = useState(0);
   const dayScaleAnim = useRef(new Animated.Value(1)).current;
   const router = useRouter();
+  const [categoryFilter, setCategoryFilter] = useState<MealCategoryFilter>('all');
+  const visibleMenus = menus.filter(menu => matchesMealCategory(menu.meal_category, categoryFilter));
 
   const loadCartCount = async (parentId: string) => {
     try {
@@ -466,7 +470,7 @@ export default function ParentDashboard() {
           <View style={styles.childrenListHeader}>
             <Text style={styles.childrenListTitle}>Sélectionnez un enfant</Text>
             <Text style={styles.childrenListSubtitle}>
-              Choisissez l'enfant pour lequel vous souhaitez réserver un menu
+              Choisissez l'enfant pour lequel vous souhaitez réserver un repas
             </Text>
           </View>
           {children.map((child, index) => (
@@ -583,6 +587,7 @@ export default function ParentDashboard() {
             </View>
           </View>
 
+          <MealCategoryTabs value={categoryFilter} onChange={setCategoryFilter} />
           <ScrollView
             style={styles.menuCardsContainer}
             contentContainerStyle={styles.menuCardsContent}
@@ -591,15 +596,15 @@ export default function ParentDashboard() {
             }
             showsVerticalScrollIndicator={false}
           >
-              {menus.length === 0 ? (
+              {visibleMenus.length === 0 ? (
                 <View style={styles.emptyMenusContainer}>
                   <UtensilsCrossed size={48} color="#9CA3AF" />
                   <Text style={styles.emptyMenusText}>
-                    Aucun menu disponible pour ce jour
+                    {categoryFilter === 'snack' ? 'Aucun snack disponible pour ce jour' : 'Aucun repas disponible pour cette sélection'}
                   </Text>
                 </View>
               ) : (
-                menus.map((menu, index) => {
+                visibleMenus.map((menu, index) => {
                   const cardColor = menu.card_color || getCardColor(index);
                   const textColor = isLightColor(cardColor) ? '#1F2937' : '#FFFFFF';
 
@@ -617,6 +622,7 @@ export default function ParentDashboard() {
                           resizeMode="cover"
                         />
                       )}
+                      <MealCategoryBadge category={menu.meal_category} />
                       <View style={styles.menuCardHeader}>
                         <Text style={[styles.menuCardTitle, { color: textColor }]}>
                           {menu.meal_name}

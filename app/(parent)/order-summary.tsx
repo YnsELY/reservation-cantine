@@ -1,3 +1,4 @@
+import { MealCategoryBadge } from '@/components/MealCategory';
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +11,7 @@ export default function OrderSummaryScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ orderId: string }>();
   const [payment, setPayment] = useState<PendingPayment | null>(null);
+  const [menuCategories, setMenuCategories] = useState<Record<string, string>>({});
   const [schoolNames, setSchoolNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
@@ -31,8 +33,9 @@ export default function OrderSummaryScreen() {
           // Display the school of the purchased menu, even after a child transfer.
           const menuIds = [...new Set(paymentData.cart_items.map(item => item.menu_id))];
           const { data, error } = await supabase.from('menus')
-            .select('id, schools(name)').in('id', menuIds);
+            .select('id, meal_category, schools(name)').in('id', menuIds);
           if (!error) {
+            setMenuCategories(Object.fromEntries((data || []).map(menu => [menu.id, menu.meal_category])));
             setSchoolNames(Object.fromEntries((data || []).map(menu => {
               const school = Array.isArray(menu.schools) ? menu.schools[0] : menu.schools;
               return [menu.id, school?.name || 'École à vérifier'];
@@ -149,6 +152,7 @@ export default function OrderSummaryScreen() {
                   <UtensilsCrossed size={20} color="#0E5FC0" />
                 </View>
                 <View style={styles.reservationHeaderText}>
+                  <MealCategoryBadge category={menuCategories[item.menu_id]} />
                   <Text style={styles.menuName}>{item.menu.meal_name}</Text>
                   <View style={styles.childInfo}>
                     <User size={14} color="#6B7280" />

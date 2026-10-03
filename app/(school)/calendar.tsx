@@ -1,3 +1,5 @@
+import { MealCategoryBadge, MealCategoryTabs } from '@/components/MealCategory';
+import { matchesMealCategory, mealCategoryLabel, type MealCategoryFilter } from '@/lib/meal-category';
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Animated, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,6 +22,7 @@ const formatDateToLocal = (date: Date): string => {
 
 export default function SchoolDashboard() {
   const [school, setSchool] = useState<School | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<MealCategoryFilter>('all');
   const [menus, setMenus] = useState<MenuWithOrderCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -343,7 +346,8 @@ export default function SchoolDashboard() {
           </TouchableOpacity>
         </View>
 
-        {menus.length === 0 ? (
+        <MealCategoryTabs value={categoryFilter} onChange={setCategoryFilter} />
+        {menus.filter(menu => matchesMealCategory(menu.meal_category, categoryFilter)).length === 0 ? (
           <View style={styles.emptyMenusContainer}>
             <UtensilsCrossed size={48} color="#9CA3AF" />
             <Text style={styles.emptyMenusText}>
@@ -351,7 +355,7 @@ export default function SchoolDashboard() {
             </Text>
           </View>
         ) : (
-          menus.map((menu, index) => {
+          menus.filter(menu => matchesMealCategory(menu.meal_category, categoryFilter)).map((menu, index) => {
             const cardColor = menu.card_color || getCardColor(index);
             const textColor = isLightColor(cardColor) ? '#1F2937' : '#FFFFFF';
 
@@ -367,6 +371,7 @@ export default function SchoolDashboard() {
                     resizeMode="cover"
                   />
                 )}
+                <MealCategoryBadge category={menu.meal_category} />
                 <View style={styles.menuCardHeader}>
                   <Text style={[styles.menuCardTitle, { color: textColor }]}>
                     {menu.meal_name}

@@ -1,4 +1,6 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { MealCategoryBadge, MealCategoryTabs } from '@/components/MealCategory';
+import { getMealCategory, matchesMealCategory, mealCategoryLabel, type MealCategoryFilter } from '@/lib/meal-category';
+import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -101,6 +103,7 @@ export default function CreateWeekScreen() {
   const [schools, setSchools] = useState<SchoolAccess[]>([]);
   const [selectedSchools, setSelectedSchools] = useState<string[]>([]);
   const [schoolClosedDays, setSchoolClosedDays] = useState<Record<string, number[]>>({});
+  const [categoryFilter, setCategoryFilter] = useState<MealCategoryFilter>('all');
   const [libraryMenus, setLibraryMenus] = useState<ProviderMenuLibrary[]>([]);
   const [rawSupplements, setRawSupplements] = useState<RawSupplement[]>([]);
   const [selectedDates, setSelectedDates] = useState<string[]>(params.editDate ? [params.editDate] : []);
@@ -377,6 +380,7 @@ export default function CreateWeekScreen() {
           week_start_date: weekStartDate,
           date: config.date,
           meal_name: menu.meal_name,
+          meal_category: getMealCategory(menu.meal_category),
           description: menu.description,
           price: menu.price,
           image_url: menu.image_url,
@@ -631,14 +635,14 @@ export default function CreateWeekScreen() {
                     )}
                   </View>
 
-                  <Text style={styles.cardLabel}>Menus proposés :</Text>
+                  <Text style={styles.cardLabel}>Repas proposés :</Text>
                   <View style={styles.chipsRow}>
                     {config.menuIds.map(menuId => {
                       const menu = libraryMenus.find(item => item.id === menuId);
                       if (!menu) return null;
                       return (
                         <TouchableOpacity key={menuId} style={styles.selectedMenuChip} onPress={() => toggleMenuForDate(date, menuId)}>
-                          <Text style={styles.selectedMenuText}>{menu.meal_name}</Text>
+                          <Text style={styles.selectedMenuText}>{mealCategoryLabel(menu.meal_category)} · {menu.meal_name}</Text>
                           <X size={16} color="#111827" />
                         </TouchableOpacity>
                       );
@@ -676,14 +680,15 @@ export default function CreateWeekScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.bottomSheet}>
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>Choisir des menus</Text>
+              <Text style={styles.sheetTitle}>Choisir des repas</Text>
               <TouchableOpacity onPress={() => setPickerDate(null)}>
                 <X size={30} color="#111827" />
               </TouchableOpacity>
             </View>
 
+            <MealCategoryTabs value={categoryFilter} onChange={setCategoryFilter} />
             <View style={styles.scrollHint}>
-              <Text style={styles.scrollHintText}>Faites défiler pour voir tous les menus</Text>
+              <Text style={styles.scrollHintText}>Faites défiler pour voir tous les repas</Text>
               <ChevronDown size={18} color="#4F46E5" />
             </View>
 
@@ -694,9 +699,9 @@ export default function CreateWeekScreen() {
               showsVerticalScrollIndicator
               persistentScrollbar
               accessibilityLabel="Liste des menus disponibles"
-              accessibilityHint="Faites défiler verticalement pour parcourir tous les menus"
+              accessibilityHint="Faites défiler verticalement pour parcourir tous les repas"
             >
-              {libraryMenus.map(menu => {
+              {libraryMenus.filter(menu => matchesMealCategory(menu.meal_category, categoryFilter)).map(menu => {
                 const selected = !!pickerConfig?.menuIds.includes(menu.id);
                 return (
                   <TouchableOpacity
@@ -706,6 +711,7 @@ export default function CreateWeekScreen() {
                   >
                     <View style={[styles.colorDot, { backgroundColor: menu.card_color || '#FFE4E1' }]} />
                     <View style={styles.menuChoiceText}>
+                      <MealCategoryBadge category={menu.meal_category} />
                       <Text style={styles.menuChoiceName}>{menu.meal_name}</Text>
                       <Text style={styles.menuChoicePrice}>{Number(menu.price).toFixed(2)} DH</Text>
                     </View>

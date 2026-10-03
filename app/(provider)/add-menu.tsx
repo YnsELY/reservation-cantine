@@ -1,4 +1,6 @@
-﻿import { useEffect, useState } from 'react';
+import { MealCategoryTabs } from '@/components/MealCategory';
+import { getMealCategory, type MealCategory } from '@/lib/meal-category';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { showAlert } from '@/lib/alert';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -26,6 +28,7 @@ export default function AddMenuScreen() {
   const params = useLocalSearchParams();
   const [provider, setProvider] = useState<Provider | null>(null);
   const [schools, setSchools] = useState<SchoolAccess[]>([]);
+  const [mealCategory, setMealCategory] = useState<MealCategory>(getMealCategory(params.category));
   const [mealName, setMealName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -37,6 +40,7 @@ export default function AddMenuScreen() {
   const [newSupplementDescription, setNewSupplementDescription] = useState('');
   const [newSupplementPrice, setNewSupplementPrice] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [saving, setSaving] = useState(false);
 
   const isEditMode = !!params.editMenuId;
@@ -75,6 +79,10 @@ export default function AddMenuScreen() {
       setSchools(schoolsList);
 
       if (isEditMode && libraryMenuId) {
+        const { data: savedMenu, error: savedMenuError } = await supabase.from('provider_menu_library')
+          .select('meal_category').eq('id', libraryMenuId).eq('provider_id', currentProvider.id).single();
+        if (savedMenuError) throw savedMenuError;
+        setMealCategory(getMealCategory(savedMenu.meal_category));
         setMealName(params.editMealName as string || '');
         setDescription(params.editDescription as string || '');
         setPrice(params.editPrice as string || '');
@@ -108,6 +116,7 @@ export default function AddMenuScreen() {
       }
     } catch (err) {
       console.error('Error loading menu library form:', err);
+      setLoadError('Impossible de charger ce repas. Revenez à la bibliothèque et réessayez.');
     } finally {
       setLoading(false);
     }
@@ -280,6 +289,7 @@ export default function AddMenuScreen() {
       const payload = {
         provider_id: provider.id,
         meal_name: mealName.trim(),
+        meal_category: mealCategory,
         description: description.trim() || null,
         price: parseFloat(price),
         card_color: selectedColor,
@@ -353,11 +363,11 @@ export default function AddMenuScreen() {
         <TouchableOpacity onPress={() => safeBack('/(provider)/library')} style={styles.backButton}>
           <ArrowLeft size={24} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{isEditMode ? 'Modifier le menu' : 'Nouveau menu'}</Text>
+        <Text style={styles.headerTitle}>{isEditMode ? 'Modifier le repas' : 'Nouveau repas'}</Text>
         <TouchableOpacity
           style={[styles.headerSaveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSave}
-          disabled={saving}
+          disabled={saving || !!loadError}
         >
           {saving ? (
             <ActivityIndicator color="#FFFFFF" />
@@ -369,6 +379,11 @@ export default function AddMenuScreen() {
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentContainer}>
         <View style={styles.form}>
+          {!!loadError && <Text style={{ color: '#B91C1C', marginBottom: 16 }}>{loadError}</Text>}
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Catégorie du repas *</Text>
+            <MealCategoryTabs value={mealCategory} onChange={value => setMealCategory(getMealCategory(value))} includeAll={false} />
+          </View>
           <View style={styles.formGroup}>
             <Text style={styles.label}>Nom du repas *</Text>
             <TextInput

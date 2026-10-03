@@ -1,3 +1,5 @@
+import { MealCategoryBadge, MealCategoryTabs } from '@/components/MealCategory';
+import { mealCategoryLabel, matchesMealCategory, type MealCategoryFilter } from '@/lib/meal-category';
 import { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,6 +24,7 @@ interface Row {
   child_grade: string | null;
   parent_name: string;
   menu_name: string;
+  meal_category?: string;
   provider_id: string | null;
   provider_name: string | null;
   payment_status: 'pending' | 'paid' | 'cancelled';
@@ -53,7 +56,9 @@ export default function OrdersSchoolDetail() {
   const dateFilter = Array.isArray(params.date) ? params.date[0] : params.date;
 
   const [schoolName, setSchoolName] = useState<string>('');
-  const [rows, setRows] = useState<Row[]>([]);
+  const [allRows, setRows] = useState<Row[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<MealCategoryFilter>('all');
+  const rows = useMemo(() => allRows.filter(row => matchesMealCategory(row.meal_category, categoryFilter)), [allRows, categoryFilter]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
@@ -87,7 +92,7 @@ export default function OrdersSchoolDetail() {
         .select(`
           id, date, total_price, payment_status, parent_id,
           child:children!child_id(first_name, last_name, grade),
-          menu:menus(meal_name, provider:providers(id, company_name))
+          menu:menus(meal_name, meal_category, provider:providers(id, company_name))
         `)
         .in('menu_id', menuIds)
         .order('date', { ascending: false });
@@ -114,6 +119,7 @@ export default function OrdersSchoolDetail() {
           child_grade: r.child?.grade || null,
           parent_name: p ? `${p.first_name} ${p.last_name}`.trim() : '',
           menu_name: r.menu?.meal_name || '',
+          meal_category: r.menu?.meal_category,
           provider_id: r.menu?.provider?.id || null,
           provider_name: r.menu?.provider?.company_name || null,
           payment_status: r.payment_status,
@@ -162,12 +168,13 @@ export default function OrdersSchoolDetail() {
     }
     try {
       setExporting(true);
-      const header = ['Date', 'Classe', 'Élève', 'Parent', 'Repas', 'Prestataire', 'Statut', 'Prix (DH)'];
+      const header = ['Date', 'Classe', 'Élève', 'Parent', 'Catégorie', 'Repas', 'Prestataire', 'Statut', 'Prix (DH)'];
       const dataRows = sortedRows.map(r => [
         r.date,
         r.child_grade || '',
         `${r.child_first_name} ${r.child_last_name}`.trim(),
         r.parent_name,
+        mealCategoryLabel(r.meal_category),
         r.menu_name,
         r.provider_name || '',
         statusLabel(r.payment_status),
@@ -216,6 +223,7 @@ export default function OrdersSchoolDetail() {
         </View>
       </View>
 
+      <MealCategoryTabs value={categoryFilter} onChange={setCategoryFilter} />
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.statsGrid}>
           <StatCard icon={ShoppingBag} value={stats.total} label="Commandes" color="#0EA5E9" />
@@ -269,6 +277,7 @@ export default function OrdersSchoolDetail() {
                 </View>
                 <View style={styles.orderLine}>
                   <ShoppingBag size={14} color="#6B7280" />
+                  <MealCategoryBadge category={r.meal_category} />
                   <Text style={styles.orderText}>{r.menu_name}</Text>
                 </View>
                 {r.provider_name && (
