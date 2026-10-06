@@ -1,3 +1,4 @@
+import { WhatsAppPreferences } from '@/components/WhatsAppPreferences';
 import { joinSchoolByCode } from '@/lib/school-access';
 import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput } from 'react-native';
@@ -185,6 +186,8 @@ export default function ProfileScreen() {
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 120, paddingTop: 16 }} showsVerticalScrollIndicator={false}>
+
+        <WhatsAppPreferences role="parent" defaultPhone={parent?.phone} />
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>

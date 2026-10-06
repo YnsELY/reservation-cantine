@@ -1,3 +1,4 @@
+import { WhatsAppPreferences } from '@/components/WhatsAppPreferences';
 import { authService } from '@/lib/auth';
 import { joinSchoolByCode } from '@/lib/school-access';
 import { useState, useEffect } from 'react';
@@ -187,6 +188,8 @@ export default function AccountScreen() {
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 120, paddingTop: 16 }} showsVerticalScrollIndicator={false}>
+        <WhatsAppPreferences role="provider" defaultPhone={provider?.contact_phone} />
+
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Informations</Text>

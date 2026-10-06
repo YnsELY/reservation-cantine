@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { OrderDeadlineCard } from '@/components/parent/OrderCountdown';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -22,7 +23,6 @@ import {
 } from '@/lib/parent-home-summary';
 import {
   User,
-  Clock,
   Wallet,
   ArrowRight,
   UserPlus,
@@ -103,47 +103,6 @@ const getTargetLabel = (target: Date): string => {
   if (diffDays === 1) return 'demain';
   return t.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric' });
 };
-
-function OrderCountdown({
-  deadlineMs,
-  onExpire,
-}: {
-  deadlineMs: number;
-  onExpire?: () => void;
-}) {
-  const [now, setNow] = useState(() => Date.now());
-  const firedRef = useRef(false);
-
-  useEffect(() => {
-    firedRef.current = false;
-    setNow(Date.now());
-    const id = setInterval(() => {
-      const t = Date.now();
-      setNow(t);
-      if (t >= deadlineMs && !firedRef.current) {
-        firedRef.current = true;
-        onExpire?.();
-      }
-    }, 1000);
-    return () => clearInterval(id);
-  }, [deadlineMs]);
-
-  const remaining = Math.max(0, deadlineMs - now);
-  const totalSec = Math.floor(remaining / 1000);
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  const pad = (n: number) => String(n).padStart(2, '0');
-
-  return (
-    <View style={styles.countdownTimer}>
-      <Clock size={20} color="#0E5FC0" />
-      <Text style={styles.countdownValue}>
-        {pad(h)}h {pad(m)}m {pad(s)}s
-      </Text>
-    </View>
-  );
-}
 
 function HomeOrderIllustration({
   category,
@@ -475,46 +434,12 @@ export default function ParentHomeScreen() {
           );
         })}
         {countdown?.hasService && (
-          <View style={styles.reminder}>
-            <View style={[ui.row, { alignItems: 'flex-start' }]}>
-              <Clock size={18} color={palette.blue} />
-              <View style={{ flex: 1, gap: 3 }}>
-                <Text style={ui.link}>
-                  {countdown.missing.length
-                    ? `Pour ${countdown.label}, pensez à commander`
-                    : `Tout est commandé pour ${countdown.label}`}
-                </Text>
-                <Text style={ui.small}>Clôture à 7 h, heure du Maroc</Text>
-                {countdown.missing.length > 0 ? (
-                  <>
-                    <OrderCountdown
-                      deadlineMs={countdown.deadlineMs}
-                      onExpire={loadData}
-                    />
-                    <Text style={[ui.small, { marginTop: 8 }]}>
-                      Sans commande pour {countdown.label} :
-                    </Text>
-                    <View style={styles.missingChildren}>
-                      {countdown.missing.map((child) => (
-                        <View key={child.id} style={styles.missingChild}>
-                          <Text style={ui.link}>
-                            {child.first_name} {child.last_name}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  </>
-                ) : (
-                  <View style={[ui.row, { gap: 6, marginTop: 6 }]}>
-                    <Check size={16} color="#227454" />
-                    <Text style={[ui.small, { color: '#227454' }]}>
-                      Tout est prêt pour vos enfants.
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </View>
-          </View>
+          <OrderDeadlineCard
+            deadlineMs={countdown.deadlineMs}
+            label={countdown.label}
+            missing={countdown.missing}
+            onExpire={loadData}
+          />
         )}
         <View style={styles.quickActions}>
           <TouchableOpacity
@@ -855,19 +780,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     zIndex: 2,
   },
-  reminder: {
-    padding: 15,
-    backgroundColor: '#EAF1FB',
-    borderRadius: 17,
-    marginTop: 4,
-  },
-  countdownTimer: {
-    flexDirection: 'row',
-    gap: 7,
-    alignItems: 'center',
-    marginTop: 5,
-  },
-  countdownValue: { fontFamily: type.bold, fontSize: 13, color: palette.blue },
   childrenSection: {
     backgroundColor: '#fff',
     borderRadius: 20,
